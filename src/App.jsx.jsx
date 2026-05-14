@@ -1,0 +1,888 @@
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// ── Supabase ──────────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://cwzcfovndjofpqgbjtw.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3emNmb3ZuZGpvZnBxZ2JqdHciLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0NzE3NzE0NSwiZXhwIjoyMDYyNzUzMTQ1fQ.placeholder";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Offline-first Storage ─────────────────────────────────────────────────
+const DB = {
+  get: (k) => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+// ── Icons ─────────────────────────────────────────────────────────────────
+const Icon = ({ name, size = 20, color = "currentColor" }) => {
+  const d = {
+    home:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+    list:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+    farm:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+    plus:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+    back:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
+    check:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+    trash:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>,
+    edit:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    close:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+    search:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    wa:      <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>,
+    chevron: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+    note:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+    cow:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="13" rx="7" ry="6"/><circle cx="9" cy="11" r="1" fill={color}/><circle cx="15" cy="11" r="1" fill={color}/><path d="M8 7c0-2 1-4 4-4s4 2 4 4"/><path d="M9 19c-1 1.5-2 2-3 2"/><path d="M15 19c1 1.5 2 2 3 2"/></svg>,
+    logout:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+    bell:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
+    key:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
+  };
+  return d[name] || null;
+};
+
+// ── CSS ───────────────────────────────────────────────────────────────────
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --g:#1b6b3a; --gl:#2a8a4e; --gp:#eaf5ee; --gm:#c6e6d2;
+    --r:#c0392b; --rl:#fdecea;
+    --y:#92650a; --yl:#fdf3dc;
+    --gr0:#f7f9f8; --gr1:#eef2f0; --gr2:#d8e3dd; --gr3:#9ab5a6; --gr4:#5c7a6a; --gr5:#1e3329;
+    --w:#fff; --sh:0 2px 8px rgba(0,0,0,.08); --shm:0 4px 20px rgba(0,0,0,.12);
+    --r8:8px; --r12:12px; --r16:16px; --f:'Inter',sans-serif;
+  }
+  body { font-family:var(--f); background:var(--gr0); color:var(--gr5); -webkit-font-smoothing:antialiased; }
+  .app { max-width:430px; margin:0 auto; min-height:100vh; background:var(--w); display:flex; flex-direction:column; }
+
+  /* Auth screens */
+  .auth-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%); }
+  .auth-logo { font-family:var(--f); font-size:32px; font-weight:800; color:#fff; margin-bottom:6px; }
+  .auth-logo span { color:#6fcf8e; }
+  .auth-sub { font-size:14px; color:rgba(255,255,255,.5); margin-bottom:36px; }
+  .auth-card { background:var(--w); border-radius:20px; padding:28px 24px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .auth-title { font-size:20px; font-weight:800; margin-bottom:4px; }
+  .auth-desc { font-size:13px; color:var(--gr4); margin-bottom:20px; }
+  .auth-tabs { display:flex; border-bottom:2px solid var(--gr2); margin-bottom:20px; }
+  .auth-tab { flex:1; padding:10px; text-align:center; font-size:14px; font-weight:600; color:var(--gr3); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; }
+  .auth-tab.on { color:var(--g); border-bottom-color:var(--g); }
+  .auth-err { background:var(--rl); color:var(--r); border-radius:var(--r8); padding:10px 12px; font-size:13px; margin-bottom:14px; }
+  .auth-ok { background:var(--gp); color:var(--g); border-radius:var(--r8); padding:10px 12px; font-size:13px; margin-bottom:14px; }
+  .invite-box { background:var(--gr0); border:2px dashed var(--gr2); border-radius:var(--r12); padding:16px; margin-bottom:16px; text-align:center; }
+  .invite-title { font-size:13px; font-weight:700; color:var(--gr4); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+  .invite-codes { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .invite-code { background:var(--g); color:#fff; padding:4px 12px; border-radius:99px; font-size:12px; font-weight:700; font-family:monospace; }
+
+  /* Header */
+  .hdr { background:var(--g); color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:50; box-shadow:var(--shm); }
+  .hdr-title { flex:1; font-size:16px; font-weight:700; line-height:1.2; }
+  .hdr-sub { font-size:11px; opacity:.72; font-weight:400; }
+  .hdr-btn { width:36px; height:36px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:rgba(255,255,255,.18); color:#fff; flex-shrink:0; }
+  .hdr-btn.danger { background:rgba(220,50,50,.28); }
+  .hdr-btn.light { background:var(--gr1); color:var(--gr5); }
+
+  /* Nav */
+  .nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; background:var(--w); border-top:1.5px solid var(--gr2); display:flex; z-index:50; }
+  .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 0 8px; border:none; background:none; color:var(--gr3); font-family:var(--f); font-size:10px; font-weight:700; gap:3px; cursor:pointer; }
+  .nav-btn.on { color:var(--g); }
+
+  /* Screen */
+  .scr { flex:1; overflow-y:auto; padding:16px; padding-bottom:90px; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .scr { animation:fadeUp .18s ease; }
+
+  /* Cards */
+  .card { background:var(--w); border:1.5px solid var(--gr2); border-radius:var(--r12); padding:14px; margin-bottom:10px; cursor:pointer; transition:border-color .15s; }
+  .card:active { border-color:var(--g); }
+  .card-title { font-size:15px; font-weight:700; margin-bottom:2px; }
+  .card-sub { font-size:12px; color:var(--gr4); line-height:1.6; }
+  .row { display:flex; align-items:center; gap:8px; }
+  .rowsb { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+  /* Badges */
+  .badge { display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; white-space:nowrap; }
+  .b-g { background:var(--gp); color:var(--g); }
+  .b-r { background:var(--rl); color:var(--r); }
+  .b-gr { background:var(--gr1); color:var(--gr4); }
+
+  /* Buttons */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:var(--r8); font-family:var(--f); font-size:13px; font-weight:700; cursor:pointer; padding:10px 16px; }
+  .btn:active { opacity:.82; }
+  .btn-p { background:var(--g); color:#fff; }
+  .btn-gh { background:var(--gr1); color:var(--gr5); }
+  .btn-d { background:var(--rl); color:var(--r); }
+  .btn-wa { background:#25D366; color:#fff; }
+  .btn-full { width:100%; }
+  .btn-sm { padding:7px 12px; font-size:12px; }
+
+  .fab { position:fixed; bottom:76px; right:16px; width:52px; height:52px; border-radius:50%; background:var(--g); color:#fff; border:none; box-shadow:var(--shm); cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:60; }
+
+  /* Form */
+  .fg { margin-bottom:12px; }
+  .fl { display:block; font-size:11px; font-weight:700; color:var(--gr4); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+  .fi { width:100%; border:1.5px solid var(--gr2); border-radius:var(--r8); padding:10px 12px; font-family:var(--f); font-size:14px; color:var(--gr5); background:var(--w); outline:none; box-sizing:border-box; min-width:0; }
+  .fi:focus { border-color:var(--g); box-shadow:0 0 0 3px var(--gp); }
+  .fi-ta { min-height:80px; resize:vertical; }
+  .fi-sel { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ab5a6' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; }
+  input[type="date"], input[type="time"] { -webkit-appearance:none; appearance:none; }
+  .frow { display:flex; gap:10px; }
+  .frow .fg { flex:1; }
+  .form-box { border:2px solid var(--g); border-radius:var(--r12); padding:16px; margin-top:12px; background:var(--gp); width:100%; overflow:hidden; }
+  .form-box-title { font-size:14px; font-weight:800; color:var(--g); margin-bottom:14px; }
+
+  .sec { font-size:11px; font-weight:700; color:var(--gr3); text-transform:uppercase; letter-spacing:.6px; margin:20px 0 10px; display:flex; align-items:center; gap:8px; }
+  .sec::after { content:''; flex:1; height:1px; background:var(--gr2); }
+
+  /* Timeline */
+  .tl { display:flex; align-items:flex-start; }
+  .tl-step { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; }
+  .tl-step::after { content:''; position:absolute; top:13px; left:50%; width:100%; height:2px; background:var(--gr2); z-index:0; }
+  .tl-step:last-child::after { display:none; }
+  .tl-dot { width:26px; height:26px; border-radius:50%; border:2px solid var(--gr2); background:var(--w); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:var(--gr3); position:relative; z-index:1; }
+  .tl-dot.done { border-color:var(--g); background:var(--g); color:#fff; }
+  .tl-lbl { font-size:10px; font-weight:700; color:var(--gr3); margin-top:4px; }
+  .tl-lbl.done { color:var(--g); }
+  .tl-date { font-size:9px; color:var(--gr3); }
+
+  /* Animal card */
+  .ac { border:1.5px solid var(--gr2); border-radius:var(--r12); margin-bottom:8px; overflow:hidden; background:var(--w); }
+  .ac-head { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; }
+  .ac-av { width:40px; height:40px; border-radius:50%; background:var(--gp); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:var(--g); flex-shrink:0; }
+  .ac-info { flex:1; min-width:0; }
+  .ac-name { font-size:14px; font-weight:700; }
+  .ac-meta { font-size:11px; color:var(--gr4); margin-top:2px; line-height:1.5; }
+  .ac-body { border-top:1px solid var(--gr1); padding:14px; background:var(--gr0); }
+
+  /* Manejo */
+  .manejos { display:flex; gap:8px; }
+  .mj { flex:1; text-align:center; padding:8px 4px; border-radius:var(--r8); border:1.5px solid var(--gr2); font-size:13px; font-weight:800; color:var(--gr3); background:var(--w); cursor:pointer; user-select:none; }
+  .mj.on { border-color:var(--g); background:var(--g); color:#fff; }
+
+  /* Diag */
+  .diag-row { display:flex; gap:8px; }
+  .diag-btn { flex:1; padding:9px 6px; border-radius:var(--r8); border:1.5px solid var(--gr2); font-family:var(--f); font-size:12px; font-weight:700; cursor:pointer; background:var(--w); color:var(--gr4); }
+  .diag-btn.p { border-color:var(--g); background:var(--gp); color:var(--g); }
+  .diag-btn.v { border-color:var(--r); background:var(--rl); color:var(--r); }
+  .diag-btn.pend { border-color:var(--gr3); background:var(--gr1); color:var(--gr5); }
+
+  /* Stats */
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
+  .stat { background:var(--gr0); border:1px solid var(--gr2); border-radius:var(--r8); padding:10px 6px; text-align:center; }
+  .stat-n { font-size:22px; font-weight:800; color:var(--g); line-height:1; }
+  .stat-l { font-size:10px; color:var(--gr4); margin-top:2px; font-weight:600; }
+
+  .prog { background:var(--gr2); border-radius:99px; height:5px; overflow:hidden; margin-top:6px; }
+  .prog-fill { height:100%; border-radius:99px; background:var(--g); transition:width .4s; }
+
+  .info-box { background:var(--gp); border:1px solid var(--gm); border-radius:var(--r12); padding:12px 14px; margin-bottom:14px; }
+  .div { height:1px; background:var(--gr2); margin:12px 0; }
+
+  .empty { text-align:center; padding:40px 20px; color:var(--gr3); }
+  .empty svg { opacity:.35; margin-bottom:10px; }
+  .empty-t { font-size:14px; font-weight:700; color:var(--gr4); margin-bottom:4px; }
+  .empty-s { font-size:12px; }
+
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; display:flex; align-items:flex-end; justify-content:center; }
+  .modal { background:var(--w); border-radius:20px 20px 0 0; width:100%; max-width:430px; max-height:92vh; overflow-y:auto; padding:20px 16px; }
+  .modal-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .modal-title { font-size:16px; font-weight:800; }
+
+  .toast { position:fixed; top:70px; left:50%; transform:translateX(-50%); background:var(--gr5); color:#fff; padding:9px 20px; border-radius:99px; font-size:13px; font-weight:600; z-index:300; white-space:nowrap; box-shadow:var(--shm); }
+
+  /* Notification banner */
+  .notif-banner { background:var(--yl); border:1px solid #e8c96a; border-radius:var(--r8); padding:10px 14px; margin-bottom:10px; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:var(--y); }
+`;
+
+// ── helpers ───────────────────────────────────────────────────────────────
+const fmt = (d) => d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "—";
+const fmtDH = (d, h) => {
+  if (!d) return "—";
+  const date = new Date(d + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit",month:"2-digit"});
+  return h ? `${date} ${h}h` : date;
+};
+const calcDiasParida = (dataUltimoParto) => {
+  if (!dataUltimoParto) return null;
+  const diff = Math.floor((new Date() - new Date(dataUltimoParto + "T12:00:00")) / 86400000);
+  return diff >= 0 ? diff : null;
+};
+
+// ── Notification helpers ──────────────────────────────────────────────────
+const agendaNotificacoes = (protocolos) => {
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+
+  protocolos.forEach(p => {
+    [["D0", p.d0], ["D8", p.d8], ["IA (Inseminação)", p.ia]].forEach(([label, date]) => {
+      if (!date) return;
+      const target = new Date(date + "T08:00:00");
+      const aviso = new Date(target);
+      aviso.setDate(aviso.getDate() - 1);
+      const agora = new Date();
+      const diff = aviso - agora;
+      if (diff > 0 && diff < 86400000 * 2) {
+        setTimeout(() => {
+          new Notification("🐄 Controle IATF", {
+            body: `Amanhã é o ${label} do protocolo! Verifique o cronograma.`,
+            icon: "/favicon.svg"
+          });
+        }, Math.max(diff, 0));
+      }
+    });
+  });
+};
+
+const pedirPermissaoNotificacao = async () => {
+  if (!("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  const perm = await Notification.requestPermission();
+  return perm === "granted";
+};
+
+// ── AUTH SCREEN ───────────────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [tab, setTab] = useState("login");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [convite, setConvite] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
+  const [ok, setOk] = useState("");
+
+  const handleLogin = async () => {
+    setErro(""); setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    setLoading(false);
+    if (error) { setErro("Email ou senha incorretos."); return; }
+    onAuth(data.user);
+  };
+
+  const handleCadastro = async () => {
+    setErro(""); setLoading(true);
+    // Verificar código de convite
+    const { data: conv } = await supabase.from("convites").select("*").eq("codigo", convite.toUpperCase()).single();
+    if (!conv) { setErro("Código de convite inválido."); setLoading(false); return; }
+    if (conv.usado) { setErro("Este código já foi utilizado."); setLoading(false); return; }
+
+    const { data, error } = await supabase.auth.signUp({ email, password: senha });
+    if (error) { setErro(error.message); setLoading(false); return; }
+
+    // Marcar convite como usado
+    await supabase.from("convites").update({ usado: true, usado_por: email }).eq("codigo", convite.toUpperCase());
+    // Criar perfil
+    await supabase.from("perfis").insert({ id: data.user.id, email, ativo: true, convite_usado: convite.toUpperCase() });
+
+    setLoading(false);
+    setOk("Conta criada! Verifique seu email para confirmar.");
+  };
+
+  return (
+    <div className="auth-screen">
+      <div className="auth-logo">Controle<span>IATF</span></div>
+      <div className="auth-sub">controleiatf.com.br</div>
+
+      <div className="auth-card">
+        <div className="auth-tabs">
+          <div className={`auth-tab${tab==="login"?" on":""}`} onClick={()=>{setTab("login");setErro("");setOk("");}}>Entrar</div>
+          <div className={`auth-tab${tab==="cadastro"?" on":""}`} onClick={()=>{setTab("cadastro");setErro("");setOk("");}}>Criar conta</div>
+        </div>
+
+        {erro && <div className="auth-err">⚠️ {erro}</div>}
+        {ok && <div className="auth-ok">✅ {ok}</div>}
+
+        {tab === "cadastro" && (
+          <div className="invite-box">
+            <div className="invite-title">🔑 Código de convite obrigatório</div>
+            <div style={{fontSize:12,color:"var(--gr4)",marginBottom:8}}>Solicite seu código ao administrador</div>
+          </div>
+        )}
+
+        <div className="fg"><label className="fl">Email</label><input className="fi" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com"/></div>
+        <div className="fg"><label className="fl">Senha</label><input className="fi" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/></div>
+
+        {tab === "cadastro" && (
+          <div className="fg"><label className="fl">Código de Convite</label><input className="fi" value={convite} onChange={e=>setConvite(e.target.value)} placeholder="Ex: VETBETA01" style={{textTransform:"uppercase",fontFamily:"monospace",letterSpacing:1}}/></div>
+        )}
+
+        <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={tab==="login"?handleLogin:handleCadastro} disabled={loading}>
+          {loading ? "Aguarde..." : tab==="login" ? "Entrar" : "Criar conta"}
+        </button>
+
+        {tab === "login" && (
+          <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"var(--gr4)"}}>
+            Não tem conta? <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setTab("cadastro")}>Solicite um convite</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────────────
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [fazendas,   setFazendas]   = useState(() => DB.get("iatf_f")  || []);
+  const [protocolos, setProtocolos] = useState(() => DB.get("iatf_p")  || []);
+  const [animais,    setAnimais]    = useState(() => DB.get("iatf_a")  || []);
+  const [tab,    setTab]    = useState("home");
+  const [screen, setScreen] = useState(null);
+  const [modal,  setModal]  = useState(null);
+  const [toast,  setToast]  = useState(null);
+
+  // Check auth session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Pedir permissão de notificação e agendar
+  useEffect(() => {
+    if (!user) return;
+    pedirPermissaoNotificacao();
+    agendaNotificacoes(protocolos);
+  }, [user, protocolos]);
+
+  useEffect(() => DB.set("iatf_f",  fazendas),   [fazendas]);
+  useEffect(() => DB.set("iatf_p",  protocolos), [protocolos]);
+  useEffect(() => DB.set("iatf_a",  animais),    [animais]);
+
+  const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
+  const logout = async () => { await supabase.auth.signOut(); setUser(null); };
+
+  const addFazenda   = (f) => { const n={...f,id:uid(),at:Date.now()}; setFazendas(x=>[n,...x]); ping("Fazenda cadastrada!"); return n; };
+  const updFazenda   = (id,ch) => { setFazendas(x=>x.map(f=>f.id===id?{...f,...ch}:f)); ping("Fazenda atualizada!"); };
+  const addProtocolo = (p) => { const n={...p,id:uid(),at:Date.now()}; setProtocolos(x=>[n,...x]); ping("Protocolo iniciado!"); return n; };
+  const updProtocolo = (id,ch) => { setProtocolos(x=>x.map(p=>p.id===id?{...p,...ch}:p)); ping("Protocolo atualizado!"); };
+  const delProtocolo = (id) => { setProtocolos(x=>x.filter(p=>p.id!==id)); setAnimais(x=>x.filter(a=>a.protocoloId!==id)); ping("Protocolo excluído."); };
+  const addAnimal    = (a) => { const n={...a,id:uid(),at:Date.now()}; setAnimais(x=>[n,...x]); ping("Animal adicionado!"); };
+  const updAnimal    = (id,ch) => setAnimais(x=>x.map(a=>a.id===id?{...a,...ch}:a));
+  const delAnimal    = (id) => { setAnimais(x=>x.filter(a=>a.id!==id)); ping("Removido."); };
+  const delFazenda   = (id) => {
+    const pids = protocolos.filter(p=>p.fazendaId===id).map(p=>p.id);
+    setFazendas(x=>x.filter(f=>f.id!==id));
+    setProtocolos(x=>x.filter(p=>p.fazendaId!==id));
+    setAnimais(x=>x.filter(a=>!pids.includes(a.protocoloId)));
+    ping("Fazenda excluída.");
+  };
+
+  const sendWA = (pid) => {
+    const p  = protocolos.find(x=>x.id===pid);
+    const f  = fazendas.find(x=>x.id===p?.fazendaId);
+    const as = animais.filter(a=>a.protocoloId===pid);
+    const pr = as.filter(a=>a.diagnostico==="P").length;
+    const di = as.filter(a=>a.diagnostico).length;
+    const tx = di>0?Math.round(pr/di*100):0;
+    let t=`🐄 *RELATÓRIO IATF*\n🏡 *${f?.nome||"—"}*\n👤 Proprietário: ${f?.proprietario||"—"}\n📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}\n🩺 Veterinário: ${p?.veterinario||"—"}\n📅 D0: ${fmtDH(p?.d0,p?.h0)} | D8: ${fmtDH(p?.d8,p?.h8)} | IA: ${fmtDH(p?.ia,p?.hia)}\n`;
+    if(p?.ia){
+      const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
+      const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
+      t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}\n`;
+      t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}\n`;
+    }
+    t+=`\n━━━━━━━━━\n📊 *RESUMO*\n• Total: ${as.length} vacas\n• Prenhas (P+): ${pr}\n• Vazias (V-): ${di-pr}\n• *Taxa: ${tx}%*\n\n`;
+    if(as.length>0){
+      t+=`━━━━━━━━━\n📋 *INDIVIDUAL*\n`;
+      as.forEach(a=>{
+        const st=a.diagnostico==="P"?"✅ Prenha":a.diagnostico==="V"?"❌ Vazia":"⏳ Pendente";
+        const diasP=calcDiasParida(a.dataUltimoParto);
+        const categoria=a.novilha?"🌟 Novilha":(diasP!==null?`${diasP}d parida`:"");
+        t+=`• ${a.nome}${a.numero?" #"+a.numero:""} — ECC ${a.ecc||"—"}${categoria?" — "+categoria:""} — ${st}`;
+        if(a.dataServico) t+=` — IA: ${fmt(a.dataServico)}`;
+        if(a.touro) t+=`\n  🐂 ${a.touro}${a.partida?" · "+a.partida:""}`;
+        if(a.obs) t+=`\n  📝 ${a.obs}`;
+        t+="\n";
+      });
+    }
+    t+=`\n_Gerado pelo Controle IATF — controleiatf.com.br_`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+  };
+
+  // Notificações pendentes para hoje/amanhã
+  const getNotificacoesPendentes = () => {
+    const alertas = [];
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const amanha = new Date(hoje); amanha.setDate(amanha.getDate()+1);
+    protocolos.forEach(p => {
+      const f = fazendas.find(x=>x.id===p.fazendaId);
+      [["D0",p.d0],["D8",p.d8],["IA",p.ia]].forEach(([lbl,dt])=>{
+        if(!dt) return;
+        const d = new Date(dt+"T12:00:00"); d.setHours(0,0,0,0);
+        const diff = Math.round((d-hoje)/86400000);
+        if(diff===1) alertas.push(`⚠️ Amanhã: ${lbl} — ${f?.nome||"Fazenda"}`);
+        if(diff===0) alertas.push(`🔔 Hoje: ${lbl} — ${f?.nome||"Fazenda"}`);
+      });
+    });
+    return alertas;
+  };
+
+  if (loading) return <div className="app"><style>{CSS}</style><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:"var(--g)",fontWeight:700}}>Carregando...</div></div>;
+  if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
+
+  if(screen?.type==="fazenda"){
+    const f=fazendas.find(x=>x.id===screen.id);
+    if(!f){setScreen(null);return null;}
+    return <div className="app"><style>{CSS}</style>
+      <FazendaScreen fazenda={f} protocolos={protocolos.filter(p=>p.fazendaId===f.id)}
+        onBack={()=>setScreen(null)} onAddProtocolo={(p)=>addProtocolo({...p,fazendaId:f.id})}
+        onUpdProtocolo={updProtocolo} onUpdFazenda={(ch)=>updFazenda(f.id,ch)}
+        onOpenProtocolo={(id)=>setScreen({type:"protocolo",id})}
+        onDelete={()=>{delFazenda(f.id);setScreen(null);}} setModal={setModal} ping={ping}/>
+      {toast&&<div className="toast">{toast}</div>}
+      {modal&&<Modal modal={modal} setModal={setModal}/>}
+    </div>;
+  }
+
+  if(screen?.type==="protocolo"){
+    const p=protocolos.find(x=>x.id===screen.id);
+    const f=p&&fazendas.find(x=>x.id===p.fazendaId);
+    if(!p){setScreen(null);return null;}
+    return <div className="app"><style>{CSS}</style>
+      <ProtocoloScreen protocolo={p} fazenda={f} animais={animais.filter(a=>a.protocoloId===p.id)}
+        onBack={()=>setScreen({type:"fazenda",id:p.fazendaId})}
+        onAddAnimal={(a)=>addAnimal({...a,protocoloId:p.id})}
+        onUpdAnimal={updAnimal} onDelAnimal={delAnimal}
+        onUpdProtocolo={(ch)=>updProtocolo(p.id,ch)}
+        onDelProtocolo={()=>{delProtocolo(p.id);setScreen({type:"fazenda",id:p.fazendaId});}}
+        onWA={()=>sendWA(p.id)} setModal={setModal} ping={ping}/>
+      {toast&&<div className="toast">{toast}</div>}
+      {modal&&<Modal modal={modal} setModal={setModal}/>}
+    </div>;
+  }
+
+  const totalA=animais.length, totalP=animais.filter(a=>a.diagnostico==="P").length;
+  const totalD=animais.filter(a=>a.diagnostico).length, taxa=totalD>0?Math.round(totalP/totalD*100):0;
+  const alertas = getNotificacoesPendentes();
+
+  return <div className="app"><style>{CSS}</style>
+    <div className="hdr">
+      <div style={{flex:1}}><div className="hdr-title">🐄 Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
+      <button className="hdr-btn" title="Sair" onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}><Icon name="logout" size={18}/></button>
+    </div>
+
+    {tab==="home"&&<div className="scr">
+      <div style={{fontSize:20,fontWeight:800,marginBottom:2}}>Olá, Doutor! 👋</div>
+      <div style={{fontSize:12,color:"var(--gr4)",marginBottom:16}}>Resumo geral do sistema</div>
+
+      {alertas.map((a,i)=><div key={i} className="notif-banner"><Icon name="bell" size={18}/>{a}</div>)}
+
+      <div className="stats">
+        <div className="stat"><div className="stat-n">{fazendas.length}</div><div className="stat-l">Fazendas</div></div>
+        <div className="stat"><div className="stat-n">{protocolos.length}</div><div className="stat-l">Protocolos</div></div>
+        <div className="stat"><div className="stat-n">{totalA}</div><div className="stat-l">Animais</div></div>
+        <div className="stat"><div className="stat-n" style={{color:taxa>0?(taxa>=50?"var(--g)":"var(--y)"):"var(--gr3)"}}>{taxa>0?taxa+"%":"—"}</div><div className="stat-l">Prenhez</div></div>
+      </div>
+      {totalD>0&&<div className="info-box">
+        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:6,textTransform:"uppercase",letterSpacing:.4}}>Diagnóstico geral</div>
+        <div className="rowsb" style={{fontSize:13,marginBottom:6}}>
+          <span>✅ Prenhas: <strong>{totalP}</strong></span>
+          <span>❌ Vazias: <strong>{totalD-totalP}</strong></span>
+          <span style={{fontWeight:800,color:"var(--g)"}}>{taxa}%</span>
+        </div>
+        <div className="prog"><div className="prog-fill" style={{width:taxa+"%"}}/></div>
+      </div>}
+      {fazendas.length===0
+        ?<div className="empty"><Icon name="farm" size={44}/><div className="empty-t">Nenhuma fazenda cadastrada</div><div className="empty-s">Vá em Fazendas para começar</div></div>
+        :<><div className="sec">Fazendas recentes</div>
+          {fazendas.slice(0,5).map(f=>{
+            const ps=protocolos.filter(p=>p.fazendaId===f.id);
+            const as=animais.filter(a=>ps.some(p=>p.id===a.protocoloId));
+            return <div key={f.id} className="card" onClick={()=>setScreen({type:"fazenda",id:f.id})}>
+              <div className="rowsb">
+                <div><div className="card-title">{f.nome}</div><div className="card-sub">{f.proprietario} · {f.municipio}{f.uf?" - "+f.uf:""}</div></div>
+                <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+                  <span className="badge b-g">{as.length} animais</span>
+                  <span className="badge b-gr">{ps.length} prot.</span>
+                </div>
+              </div>
+            </div>;
+          })}</>
+      }
+    </div>}
+
+    {tab==="fazendas"&&<FazendasTab fazendas={fazendas} protocolos={protocolos} animais={animais} onOpen={(id)=>setScreen({type:"fazenda",id})} onAdd={addFazenda}/>}
+    {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA}/>}
+
+    <nav className="nav">
+      {[["home","home","Início"],["fazendas","farm","Fazendas"],["biblioteca","list","Biblioteca"]].map(([key,icon,lbl])=>(
+        <button key={key} className={`nav-btn${tab===key?" on":""}`} onClick={()=>setTab(key)}>
+          <Icon name={icon} size={22}/>{lbl}
+        </button>
+      ))}
+    </nav>
+
+    {tab==="fazendas"&&<button className="fab" onClick={()=>setModal({type:"addFazenda",onSave:addFazenda})}><Icon name="plus" size={24}/></button>}
+    {toast&&<div className="toast">{toast}</div>}
+    {modal&&<Modal modal={modal} setModal={setModal}/>}
+  </div>;
+}
+
+function FazendasTab({fazendas,protocolos,animais,onOpen,onAdd}){
+  const[q,setQ]=useState("");
+  const list=fazendas.filter(f=>f.nome.toLowerCase().includes(q.toLowerCase())||f.proprietario.toLowerCase().includes(q.toLowerCase())||(f.municipio||"").toLowerCase().includes(q.toLowerCase()));
+  return <div className="scr">
+    <div style={{position:"relative",marginBottom:12}}>
+      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--gr3)"}}><Icon name="search" size={16}/></span>
+      <input className="fi" style={{paddingLeft:34}} placeholder="Buscar fazenda ou proprietário..." value={q} onChange={e=>setQ(e.target.value)}/>
+    </div>
+    {list.length===0&&<div className="empty"><Icon name="farm" size={44}/><div className="empty-t">{q?"Nenhum resultado":"Nenhuma fazenda"}</div><div className="empty-s">{q?"Tente outro termo":"Toque no + para cadastrar"}</div></div>}
+    {list.map(f=>{
+      const ps=protocolos.filter(p=>p.fazendaId===f.id);
+      const as=animais.filter(a=>ps.some(p=>p.id===a.protocoloId));
+      const pr=as.filter(a=>a.diagnostico==="P").length;
+      return <div key={f.id} className="card" onClick={()=>onOpen(f.id)}>
+        <div className="rowsb" style={{marginBottom:6}}>
+          <div><div className="card-title">{f.nome}</div><div className="card-sub">👤 {f.proprietario}</div><div className="card-sub">📍 {f.municipio}{f.uf?" - "+f.uf:""}</div></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+            <span className="badge b-g">{as.length} animais</span>
+            {pr>0&&<span className="badge b-g">✅ {pr} prenhas</span>}
+          </div>
+        </div>
+        {f.telefone&&<div className="card-sub">📞 {f.telefone}</div>}
+      </div>;
+    })}
+  </div>;
+}
+
+function FazendaScreen({fazenda,protocolos,onBack,onAddProtocolo,onUpdProtocolo,onUpdFazenda,onOpenProtocolo,onDelete,setModal,ping}){
+  const[showForm,setShowForm]=useState(false);
+  const[editFazenda,setEditFazenda]=useState(false);
+  return <div>
+    <div className="hdr">
+      <button className="hdr-btn" onClick={onBack}><Icon name="back" size={20}/></button>
+      <div style={{flex:1}}><div className="hdr-title">{fazenda.nome}</div><div className="hdr-sub">👤 {fazenda.proprietario}</div></div>
+      <button className="hdr-btn" style={{marginRight:4}} onClick={()=>setEditFazenda(true)}><Icon name="edit" size={17}/></button>
+      <button className="hdr-btn danger" onClick={()=>setModal({type:"confirm",msg:"Excluir fazenda e todos os dados?",onOk:onDelete})}><Icon name="trash" size={18}/></button>
+    </div>
+    <div className="scr">
+      {editFazenda
+        ?<FazendaForm initial={fazenda} onSave={(ch)=>{onUpdFazenda(ch);setEditFazenda(false);}} onCancel={()=>setEditFazenda(false)}/>
+        :null
+      }
+      <div className="sec">Protocolos</div>
+      {protocolos.length===0&&!showForm&&<div className="empty" style={{padding:"20px 0"}}><Icon name="note" size={36}/><div className="empty-t">Nenhum protocolo</div><div className="empty-s">Inicie o primeiro protocolo IATF</div></div>}
+      {protocolos.map(p=><div key={p.id} className="card" onClick={()=>onOpenProtocolo(p.id)}>
+        <div className="rowsb">
+          <div><div className="card-title">Protocolo {new Date(p.at).toLocaleDateString("pt-BR")}</div>
+            {p.veterinario&&<div className="card-sub">🩺 {p.veterinario}</div>}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+            {p.d0&&<span className="badge b-gr">D0: {fmtDH(p.d0,p.h0)}</span>}
+            {p.ia&&<span className="badge b-g">IA: {fmtDH(p.ia,p.hia)}</span>}
+          </div>
+        </div>
+      </div>)}
+      {showForm
+        ?<ProtocoloForm onSave={(p)=>{onAddProtocolo(p);setShowForm(false);}} onCancel={()=>setShowForm(false)}/>
+        :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Iniciar Novo Protocolo</button>
+      }
+    </div>
+  </div>;
+}
+
+function FazendaForm({initial,onSave,onCancel}){
+  const[f,setF]=useState(initial||{nome:"",proprietario:"",municipio:"",uf:"",endereco:"",telefone:""});
+  const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  return <div className="form-box">
+    <div className="form-box-title">{initial?"✏️ Editar Dados da Fazenda":"🏡 Nova Fazenda"}</div>
+    <div className="fg"><label className="fl">Nome da Fazenda *</label><input className="fi" value={f.nome} onChange={e=>s("nome",e.target.value)} placeholder="Ex: Fazenda Santa Fé"/></div>
+    <div className="fg"><label className="fl">Proprietário *</label><input className="fi" value={f.proprietario} onChange={e=>s("proprietario",e.target.value)} placeholder="Nome completo"/></div>
+    <div className="frow">
+      <div className="fg" style={{flex:3}}><label className="fl">Município</label><input className="fi" value={f.municipio} onChange={e=>s("municipio",e.target.value)} placeholder="Ex: Uberlândia"/></div>
+      <div className="fg" style={{flex:1}}><label className="fl">UF</label><input className="fi" value={f.uf} onChange={e=>s("uf",e.target.value.toUpperCase())} placeholder="MG" maxLength={2}/></div>
+    </div>
+    <div className="fg"><label className="fl">Endereço</label><input className="fi" value={f.endereco} onChange={e=>s("endereco",e.target.value)} placeholder="Estrada, km, referência..."/></div>
+    <div className="fg"><label className="fl">Telefone</label><input className="fi" value={f.telefone} onChange={e=>s("telefone",e.target.value)} placeholder="(xx) 9xxxx-xxxx"/></div>
+    <div className="row" style={{gap:8,marginTop:4}}>
+      <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome||!f.proprietario)return alert("Preencha nome e proprietário");onSave(f);}}><Icon name="check" size={16}/> Salvar</button>
+    </div>
+  </div>;
+}
+
+function ProtocoloForm({initial,onSave,onCancel}){
+  const[f,setF]=useState(initial||{d0:"",h0:"",d8:"",h8:"",ia:"",hia:"",veterinario:""});
+  const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  const isEdit=!!initial;
+  return <div className="form-box">
+    <div className="form-box-title">{isEdit?"✏️ Editar Protocolo":"📋 Novo Protocolo IATF — 3 Passagens"}</div>
+    {[["D0","Início","d0","h0"],["D8","Segunda Passagem","d8","h8"],["IA","Inseminação (D10)","ia","hia"]].map(([lbl,desc,dk,hk])=>(
+      <div key={dk} style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
+        <div style={{fontSize:11,fontWeight:800,color:"var(--g)",marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{lbl} — {desc}</div>
+        <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={f[dk]} onChange={e=>s(dk,e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+        <div><label className="fl">Horário</label><input type="time" className="fi" value={f[hk]} onChange={e=>s(hk,e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+      </div>
+    ))}
+    <div className="div"/>
+    <div className="fg"><label className="fl">Veterinário Responsável</label><input className="fi" value={f.veterinario} onChange={e=>s("veterinario",e.target.value)} placeholder="Nome do veterinário"/></div>
+    <div className="row" style={{gap:8,marginTop:4}}>
+      <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.d0)return alert("Informe a data do D0");onSave(f);}}><Icon name="check" size={16}/> {isEdit?"Atualizar":"Salvar Protocolo"}</button>
+    </div>
+  </div>;
+}
+
+function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,setModal,ping}){
+  const[showForm,setShowForm]=useState(false);
+  const[editA,setEditA]=useState(null);
+  const[editProt,setEditProt]=useState(false);
+  const[q,setQ]=useState("");
+  const list=animais.filter(a=>(a.nome+a.numero).toLowerCase().includes(q.toLowerCase()));
+  const pr=animais.filter(a=>a.diagnostico==="P").length;
+  const va=animais.filter(a=>a.diagnostico==="V").length;
+  const di=animais.filter(a=>a.diagnostico).length;
+  const tx=di>0?Math.round(pr/di*100):0;
+  const isDone=(d)=>d&&new Date(d+"T12:00:00")<=new Date();
+  return <div>
+    <div className="hdr">
+      <button className="hdr-btn" onClick={onBack}><Icon name="back" size={20}/></button>
+      <div style={{flex:1}}><div className="hdr-title">{f?.nome}</div><div className="hdr-sub">Protocolo IATF · 3 passagens</div></div>
+      <button className="hdr-btn" style={{marginRight:4}} onClick={()=>setEditProt(true)}><Icon name="edit" size={17}/></button>
+      <button className="hdr-btn danger" style={{marginRight:4}} onClick={()=>setModal({type:"confirm",msg:"Excluir este protocolo e todos os animais?",onOk:onDelProtocolo})}><Icon name="trash" size={17}/></button>
+      <button className="hdr-btn" style={{background:"rgba(37,211,102,.25)"}} onClick={onWA}><Icon name="wa" size={20} color="#25D366"/></button>
+    </div>
+    <div className="scr">
+      {editProt
+        ?<ProtocoloForm initial={p} onSave={(ch)=>{onUpdProtocolo(ch);setEditProt(false);}} onCancel={()=>setEditProt(false)}/>
+        :<div className="info-box">
+            <div className="rowsb" style={{marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4}}>Cronograma</div>
+              <span style={{fontSize:11,color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setEditProt(true)}>✏️ Editar</span>
+            </div>
+            <div className="tl">
+              {[["D0",p.d0,p.h0],["D8",p.d8,p.h8],["IA",p.ia,p.hia]].map(([lbl,dt,hr])=>{
+                const done=isDone(dt);
+                return <div key={lbl} className="tl-step">
+                  <div className={`tl-dot${done?" done":""}`}>{done?<Icon name="check" size={11}/>:lbl}</div>
+                  <div className={`tl-lbl${done?" done":""}`}>{lbl}</div>
+                  {dt&&<div className="tl-date">{new Date(dt+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div>}
+                  {hr&&<div className="tl-date">{hr}h</div>}
+                </div>;
+              })}
+            </div>
+            <div className="div" style={{margin:"10px 0 8px"}}/>
+            <div style={{fontSize:12,color:"var(--gr5)"}}>
+              {p.veterinario&&<div style={{marginBottom:6}}>🩺 {p.veterinario}</div>}
+              {p.ia&&(()=>{
+                const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
+                const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
+                const opts={day:"2-digit",month:"2-digit",year:"numeric"};
+                return <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  <div style={{background:"var(--yl)",border:"1px solid #e8c96a",borderRadius:"var(--r8)",padding:"7px 10px",fontSize:12,fontWeight:600,color:"var(--y)"}}>
+                    📅 DG previsto: <strong>{dg.toLocaleDateString("pt-BR",opts)}</strong> <span style={{fontWeight:400,fontSize:11}}>(35 dias após IA)</span>
+                  </div>
+                  <div style={{background:"#e3f0ff",border:"1px solid #a8cff5",borderRadius:"var(--r8)",padding:"7px 10px",fontSize:12,fontWeight:600,color:"#1565c0"}}>
+                    🐮 Parto previsto: <strong>{parto.toLocaleDateString("pt-BR",opts)}</strong> <span style={{fontWeight:400,fontSize:11}}>(283 dias após IA)</span>
+                  </div>
+                </div>;
+              })()}
+            </div>
+          </div>
+      }
+
+      {di>0&&<div className="info-box">
+        <div className="rowsb" style={{fontSize:13,marginBottom:6}}>
+          <span>✅ Prenhas: <strong>{pr}</strong></span>
+          <span>❌ Vazias: <strong>{va}</strong></span>
+          <span style={{fontWeight:800,color:"var(--g)",fontSize:16}}>{tx}%</span>
+        </div>
+        <div className="prog"><div className="prog-fill" style={{width:tx+"%"}}/></div>
+      </div>}
+
+      <div className="sec">Animais ({animais.length})</div>
+      <div style={{position:"relative",marginBottom:12}}>
+        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--gr3)"}}><Icon name="search" size={16}/></span>
+        <input className="fi" style={{paddingLeft:34}} placeholder="Buscar por nome ou brinco..." value={q} onChange={e=>setQ(e.target.value)}/>
+      </div>
+
+      {list.map(a=><AnimalCard key={a.id} animal={a}
+        onUpdDiag={(d)=>{onUpdAnimal(a.id,{diagnostico:d});ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
+        onUpdMj={(mj)=>onUpdAnimal(a.id,mj)}
+        onEdit={()=>setEditA(a)}
+        onDel={()=>setModal({type:"confirm",msg:`Remover ${a.nome}?`,onOk:()=>onDelAnimal(a.id)})}
+      />)}
+
+      {animais.length===0&&!showForm&&!editA&&<div className="empty"><Icon name="cow" size={44}/><div className="empty-t">Nenhum animal cadastrado</div><div className="empty-s">Adicione as vacas do protocolo</div></div>}
+
+      {(showForm||editA)
+        ?<AnimalForm initial={editA}
+            onSave={(a)=>{if(editA){onUpdAnimal(editA.id,a);setEditA(null);ping("Animal atualizado!");}else{onAddAnimal(a);setShowForm(false);}}}
+            onCancel={()=>{setShowForm(false);setEditA(null);}}/>
+        :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
+      }
+      {animais.length>0&&<button className="btn btn-wa btn-full" style={{marginTop:10}} onClick={onWA}><Icon name="wa" size={16}/> Enviar Relatório via WhatsApp</button>}
+    </div>
+  </div>;
+}
+
+function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
+  const[open,setOpen]=useState(false);
+  const ini=(a.nome||"??").slice(0,2).toUpperCase();
+  const diagBadge=a.diagnostico==="P"?<span className="badge b-g">✅ Prenha</span>:a.diagnostico==="V"?<span className="badge b-r">❌ Vazia</span>:<span className="badge b-gr">⏳ Pendente</span>;
+  const dias=calcDiasParida(a.dataUltimoParto);
+  return <div className="ac">
+    <div className="ac-head" onClick={()=>setOpen(o=>!o)}>
+      <div className="ac-av">{ini}</div>
+      <div className="ac-info">
+        <div className="ac-name">{a.nome}{a.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{a.numero}</span>}
+          {a.novilha&&<span style={{marginLeft:6,fontSize:10,fontWeight:700,color:"var(--y)",background:"var(--yl)",padding:"1px 6px",borderRadius:99}}>NOVILHA</span>}
+        </div>
+        <div className="ac-meta">
+          ECC: {a.ecc||"—"} · {a.novilha?"Nunca pariu":(dias!==null?`${dias} dias parida`:"Sem data de parto")}
+          {a.dataServico&&<><br/>📅 IA: {fmt(a.dataServico)}</>}
+        </div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+        {diagBadge}
+        <Icon name="chevron" size={14} color="var(--gr3)"/>
+      </div>
+    </div>
+    {open&&<div className="ac-body">
+      <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Manejos realizados</div>
+      <div className="manejos" style={{marginBottom:14}}>
+        {["d0","d8","ia"].map(d=><div key={d} className={`mj${a[d]?" on":""}`} onClick={()=>onUpdMj({[d]:!a[d]})}>{d.toUpperCase()}</div>)}
+      </div>
+      <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Diagnóstico de gestação</div>
+      <div className="diag-row" style={{marginBottom:14}}>
+        <button className={`diag-btn${a.diagnostico==="P"?" p":""}`} onClick={()=>onUpdDiag("P")}>✅ Prenha (P+)</button>
+        <button className={`diag-btn${a.diagnostico==="V"?" v":""}`} onClick={()=>onUpdDiag("V")}>❌ Vazia (V−)</button>
+      </div>
+      {(a.touro||a.obs)&&<>
+        {a.touro&&<div style={{fontSize:12,color:"var(--gr5)",marginBottom:6}}>🐂 <strong>{a.touro}</strong>{a.partida?" · Partida "+a.partida:""}</div>}
+        {a.obs&&<>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:4}}>Observações</div>
+          <div style={{fontSize:13,color:"var(--gr5)",background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:14,lineHeight:1.5}}>{a.obs}</div>
+        </>}
+      </>}
+      <div className="div"/>
+      <div className="row" style={{gap:8}}>
+        <button className="btn btn-gh btn-sm" style={{flex:1}} onClick={onEdit}><Icon name="edit" size={14}/> Editar</button>
+        <button className="btn btn-d btn-sm" style={{flex:1}} onClick={onDel}><Icon name="trash" size={14}/> Remover</button>
+      </div>
+    </div>}
+  </div>;
+}
+
+function AnimalForm({onSave,onCancel,initial}){
+  const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,ia:false,diagnostico:"",obs:""});
+  const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  const dias=calcDiasParida(f.dataUltimoParto);
+  return <div className="form-box" style={{marginTop:12}}>
+    <div className="form-box-title">{initial?"✏️ Editar Animal":"🐄 Novo Animal"}</div>
+    <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Identificação</div>
+    <div className="frow">
+      <div className="fg" style={{flex:2}}><label className="fl">Nome da Vaca *</label><input className="fi" value={f.nome} onChange={e=>s("nome",e.target.value)} placeholder="Ex: Mimosa"/></div>
+      <div className="fg" style={{flex:1}}><label className="fl">Nº Brinco</label><input className="fi" value={f.numero} onChange={e=>s("numero",e.target.value)} placeholder="142"/></div>
+    </div>
+    <div className="frow">
+      <div className="fg"><label className="fl">ECC (1–5)</label>
+        <select className="fi fi-sel" value={f.ecc} onChange={e=>s("ecc",e.target.value)}>
+          <option value="">—</option>
+          {["1","1.5","2","2.5","3","3.5","4","4.5","5"].map(v=><option key={v}>{v}</option>)}
+        </select>
+      </div>
+      <div className="fg"><label className="fl">Raça</label><input className="fi" value={f.raca} onChange={e=>s("raca",e.target.value)} placeholder="Nelore"/></div>
+    </div>
+    <div className="fg">
+      <label className="fl">Categoria</label>
+      <div style={{display:"flex",gap:8}}>
+        <div onClick={()=>s("novilha",false)} style={{flex:1,textAlign:"center",padding:"9px 6px",borderRadius:"var(--r8)",border:`1.5px solid ${!f.novilha?"var(--g)":"var(--gr2)"}`,background:!f.novilha?"var(--gp)":"var(--w)",fontWeight:700,fontSize:13,color:!f.novilha?"var(--g)":"var(--gr4)",cursor:"pointer",userSelect:"none"}}>🐄 Vaca parida</div>
+        <div onClick={()=>s("novilha",true)} style={{flex:1,textAlign:"center",padding:"9px 6px",borderRadius:"var(--r8)",border:`1.5px solid ${f.novilha?"var(--y)":"var(--gr2)"}`,background:f.novilha?"var(--yl)":"var(--w)",fontWeight:700,fontSize:13,color:f.novilha?"var(--y)":"var(--gr4)",cursor:"pointer",userSelect:"none"}}>🌟 Novilha</div>
+      </div>
+    </div>
+    {!f.novilha&&<div className="fg">
+      <label className="fl">Data do Último Parto</label>
+      <input type="date" className="fi" value={f.dataUltimoParto||""} onChange={e=>s("dataUltimoParto",e.target.value)}/>
+      {dias!==null&&<div style={{marginTop:6,padding:"6px 10px",background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",fontSize:12,fontWeight:600,color:"var(--g)"}}>📆 {dias} dias de parida</div>}
+    </div>}
+    <div className="div"/>
+    <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Serviço</div>
+    <div className="fg"><label className="fl">Data do Serviço (IA)</label><input type="date" className="fi" value={f.dataServico||""} onChange={e=>s("dataServico",e.target.value)}/></div>
+    <div className="frow">
+      <div className="fg" style={{flex:2}}><label className="fl">Touro utilizado</label><input className="fi" value={f.touro||""} onChange={e=>s("touro",e.target.value)} placeholder="Nome do touro"/></div>
+      <div className="fg" style={{flex:1}}><label className="fl">Nº Partida</label><input className="fi" value={f.partida||""} onChange={e=>s("partida",e.target.value)} placeholder="Ex: 2024/01"/></div>
+    </div>
+    <div className="fg">
+      <label className="fl">Manejos realizados</label>
+      <div className="manejos">
+        {["d0","d8","ia"].map(d=><div key={d} className={`mj${f[d]?" on":""}`} onClick={()=>s(d,!f[d])}>{d.toUpperCase()}</div>)}
+      </div>
+    </div>
+    <div className="div"/>
+    <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Diagnóstico</div>
+    <div className="fg">
+      <label className="fl">Resultado</label>
+      <div className="diag-row">
+        <button className={`diag-btn${f.diagnostico===""?" pend":""}`} onClick={()=>s("diagnostico","")}>⏳ Pendente</button>
+        <button className={`diag-btn${f.diagnostico==="P"?" p":""}`} onClick={()=>s("diagnostico","P")}>✅ P+</button>
+        <button className={`diag-btn${f.diagnostico==="V"?" v":""}`} onClick={()=>s("diagnostico","V")}>❌ V−</button>
+      </div>
+    </div>
+    <div className="div"/>
+    <div className="fg">
+      <label className="fl">Observações</label>
+      <textarea className="fi fi-ta" value={f.obs||""} onChange={e=>s("obs",e.target.value)} placeholder="Anotações livres: achados de ultrassom, anomalias, intercorrências..."/>
+    </div>
+    <div className="row" style={{gap:8,marginTop:4}}>
+      <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome)return alert("Informe o nome do animal");onSave(f);}}><Icon name="check" size={16}/> {initial?"Atualizar":"Salvar Animal"}</button>
+    </div>
+  </div>;
+}
+
+function BibliotecaTab({protocolos,fazendas,animais,onOpen,onWA}){
+  const sorted=[...protocolos].sort((a,b)=>b.at-a.at);
+  return <div className="scr">
+    <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Biblioteca 📚</div>
+    <div style={{fontSize:12,color:"var(--gr4)",marginBottom:16}}>Todos os protocolos realizados</div>
+    {sorted.length===0&&<div className="empty"><Icon name="list" size={44}/><div className="empty-t">Nenhum protocolo</div><div className="empty-s">Os protocolos aparecerão aqui</div></div>}
+    {sorted.map(p=>{
+      const f=fazendas.find(x=>x.id===p.fazendaId);
+      const as=animais.filter(a=>a.protocoloId===p.id);
+      const pr=as.filter(a=>a.diagnostico==="P").length;
+      const di=as.filter(a=>a.diagnostico).length;
+      const tx=di>0?Math.round(pr/di*100):null;
+      return <div key={p.id} className="card">
+        <div className="rowsb" style={{marginBottom:8}}>
+          <div>
+            <div className="card-title">{f?.nome||"Fazenda"}</div>
+            <div className="card-sub">👤 {f?.proprietario}</div>
+            <div className="card-sub">📅 {new Date(p.at).toLocaleDateString("pt-BR")} · D0: {fmt(p.d0)}</div>
+          </div>
+          {tx!==null&&<div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"var(--g)",lineHeight:1}}>{tx}%</div><div style={{fontSize:10,color:"var(--gr4)"}}>prenhez</div></div>}
+        </div>
+        <div className="row" style={{gap:6,marginBottom:8,flexWrap:"wrap"}}>
+          <span className="badge b-gr">🐄 {as.length} vacas</span>
+          {pr>0&&<span className="badge b-g">✅ {pr} prenhas</span>}
+        </div>
+        {tx!==null&&<div className="prog" style={{marginBottom:10}}><div className="prog-fill" style={{width:tx+"%"}}/></div>}
+        <div className="row" style={{gap:8}}>
+          <button className="btn btn-gh btn-sm" style={{flex:1}} onClick={()=>onOpen(p.id)}><Icon name="edit" size={14}/> Abrir</button>
+          <button className="btn btn-wa btn-sm" style={{flex:1}} onClick={()=>onWA(p.id)}><Icon name="wa" size={14}/> Relatório</button>
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+
+function Modal({modal,setModal}){
+  const close=()=>setModal(null);
+  return <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)close();}}>
+    <div className="modal">
+      {modal.type==="addFazenda"&&<>
+        <div className="modal-hdr"><div className="modal-title">🏡 Nova Fazenda</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
+        <FazendaForm onSave={(f)=>{modal.onSave(f);close();}} onCancel={close}/>
+      </>}
+      {modal.type==="confirm"&&<>
+        <div className="modal-hdr"><div className="modal-title">⚠️ Confirmar</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
+        <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20}}>{modal.msg}</div>
+        <div className="row" style={{gap:8}}>
+          <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
+          <button className="btn btn-d" style={{flex:1}} onClick={()=>{modal.onOk();close();}}>Confirmar</button>
+        </div>
+      </>}
+    </div>
+  </div>;
+}
