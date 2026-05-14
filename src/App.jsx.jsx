@@ -308,11 +308,130 @@ function LandingPage({ onEnterApp }) {
 }
 
 
+// ── Trial helpers ─────────────────────────────────────────────────────────
+const TRIAL_DIAS = 7;
+const PRECO = "R$ 29,90";
+const MP_PUBLIC_KEY = "APP_USR-74191f84-bf5c-44f9-8b96-c1bf23575f6c";
+const MP_ACCESS_TOKEN = "APP_USR-3342211906787456-051419-da5a20a472cfe3efa09e2448efb460bb-22023055";
+
+function diasRestantesTrial(createdAt) {
+  if (!createdAt) return 0;
+  const criado = new Date(createdAt);
+  const hoje = new Date();
+  const diff = Math.floor((hoje - criado) / 86400000);
+  return Math.max(0, TRIAL_DIAS - diff);
+}
+
+// ── Tela de pagamento com Mercado Pago ────────────────────────────────────
+function PaywallScreen({ user, onLogout }) {
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const handlePagamento = async () => {
+    setLoading(true);
+    setErro("");
+    try {
+      // Cria preferência de pagamento no Mercado Pago
+      const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${MP_ACCESS_TOKEN}`,
+        },
+        body: JSON.stringify({
+          items: [{
+            title: "Controle IATF — Assinatura Mensal",
+            quantity: 1,
+            unit_price: 29.90,
+            currency_id: "BRL",
+          }],
+          payer: { email: user?.email },
+          back_urls: {
+            success: "https://controleiatf.com.br/app?pagamento=sucesso",
+            failure: "https://controleiatf.com.br/app?pagamento=falha",
+            pending: "https://controleiatf.com.br/app?pagamento=pendente",
+          },
+          auto_return: "approved",
+          statement_descriptor: "CONTROLE IATF",
+        }),
+      });
+      const data = await res.json();
+      if (data.init_point) {
+        window.location.href = data.init_point;
+      } else {
+        setErro("Erro ao iniciar pagamento. Tente novamente.");
+      }
+    } catch {
+      setErro("Erro de conexão. Verifique sua internet.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%)"}}>
+      <div style={{fontFamily:"var(--f)",fontSize:28,fontWeight:800,color:"#fff",marginBottom:6}}>
+        Controle<span style={{color:"#6fcf8e"}}>IATF</span>
+      </div>
+      <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginBottom:36}}>controleiatf.com.br</div>
+
+      <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:380,textAlign:"center"}}>
+        <div style={{fontSize:40,marginBottom:12}}>⏰</div>
+        <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:"var(--gr5)"}}>Seu período de teste encerrou</div>
+        <div style={{fontSize:14,color:"var(--gr4)",marginBottom:24,lineHeight:1.6}}>
+          Assine o Controle IATF para continuar usando o sistema com acesso completo.
+        </div>
+
+        <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:14,padding:16,marginBottom:20}}>
+          <div style={{fontSize:13,color:"var(--gr4)",marginBottom:4}}>Plano mensal</div>
+          <div style={{fontSize:36,fontWeight:800,color:"var(--g)",lineHeight:1}}>{PRECO}</div>
+          <div style={{fontSize:12,color:"var(--gr4)",marginTop:4}}>/mês · PIX ou cartão de crédito</div>
+        </div>
+
+        <div style={{textAlign:"left",marginBottom:20}}>
+          {["✅ Fazendas ilimitadas","✅ Protocolos ilimitados","✅ Relatórios via WhatsApp","✅ Funciona offline","✅ DG e parto calculados automaticamente","✅ Suporte técnico"].map(item=>(
+            <div key={item} style={{fontSize:13,color:"var(--gr5)",padding:"5px 0",borderBottom:"1px solid var(--gr1)"}}>{item}</div>
+          ))}
+        </div>
+
+        {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
+
+        <button
+          onClick={handlePagamento}
+          disabled={loading}
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:loading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:loading?"not-allowed":"pointer",width:"100%",marginBottom:12}}
+        >
+          {loading ? "Aguarde..." : <>
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
+            Pagar com Mercado Pago
+          </>}
+        </button>
+
+        <div style={{fontSize:11,color:"var(--gr4)",marginBottom:16}}>
+          🔒 Pagamento seguro via Mercado Pago · PIX, cartão de crédito ou débito
+        </div>
+
+        <a
+          href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Preciso de ajuda com o Controle IATF.")}`}
+          target="_blank"
+          rel="noreferrer"
+          style={{display:"block",fontSize:12,color:"#25D366",fontWeight:600,textDecoration:"none",marginBottom:12}}
+        >
+          💬 Precisa de ajuda? Fale no WhatsApp
+        </a>
+
+        <button onClick={onLogout} style={{background:"none",border:"none",color:"var(--gr4)",fontSize:13,cursor:"pointer",fontFamily:"var(--f)"}}>
+          Sair da conta
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── AUTH SCREEN ───────────────────────────────────────────────────────────
 function AuthScreen({ onAuth }) {
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [convite, setConvite] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [ok, setOk] = useState("");
@@ -322,26 +441,26 @@ function AuthScreen({ onAuth }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
     setLoading(false);
     if (error) { setErro("Email ou senha incorretos."); return; }
+    // Registra sessão única — salva token no perfil
+    const sessionToken = uid();
+    await supabase.from("perfis").upsert({
+      id: data.user.id,
+      email: data.user.email,
+      session_token: sessionToken,
+      ultimo_login: new Date().toISOString(),
+    });
+    DB.set("session_token", sessionToken);
     onAuth(data.user);
   };
 
   const handleCadastro = async () => {
     setErro(""); setLoading(true);
-    // Verificar código de convite
-    const { data: conv } = await supabase.from("convites").select("*").eq("codigo", convite.toUpperCase()).single();
-    if (!conv) { setErro("Código de convite inválido."); setLoading(false); return; }
-    if (conv.usado) { setErro("Este código já foi utilizado."); setLoading(false); return; }
-
+    if (senha.length < 6) { setErro("Senha deve ter no mínimo 6 caracteres."); setLoading(false); return; }
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
     if (error) { setErro(error.message); setLoading(false); return; }
-
-    // Marcar convite como usado
-    await supabase.from("convites").update({ usado: true, usado_por: email }).eq("codigo", convite.toUpperCase());
-    // Criar perfil
-    await supabase.from("perfis").insert({ id: data.user.id, email, ativo: true, convite_usado: convite.toUpperCase() });
-
+    await supabase.from("perfis").insert({ id: data.user.id, email, ativo: true, trial_inicio: new Date().toISOString() });
     setLoading(false);
-    setOk("Conta criada! Verifique seu email para confirmar.");
+    setOk("Conta criada! Você tem 7 dias de acesso completo.");
   };
 
   return (
@@ -359,35 +478,21 @@ function AuthScreen({ onAuth }) {
         {ok && <div className="auth-ok">✅ {ok}</div>}
 
         {tab === "cadastro" && (
-          <div className="invite-box">
-            <div className="invite-title">🔑 Código de convite obrigatório</div>
-            <div style={{fontSize:12,color:"var(--gr4)",marginBottom:10}}>Não tem um código? Solicite pelo WhatsApp:</div>
-            <a
-              href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Gostaria de solicitar um código de acesso ao Controle IATF.")}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#25D366",color:"#fff",borderRadius:"var(--r8)",padding:"10px 16px",fontFamily:"var(--f)",fontSize:13,fontWeight:700,textDecoration:"none",width:"100%"}}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-              Solicitar código via WhatsApp
-            </a>
+          <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:14,fontSize:13,color:"var(--g)",fontWeight:600,textAlign:"center"}}>
+            🎉 7 dias grátis · sem cartão de crédito
           </div>
         )}
 
         <div className="fg"><label className="fl">Email</label><input className="fi" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com"/></div>
         <div className="fg"><label className="fl">Senha</label><input className="fi" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/></div>
 
-        {tab === "cadastro" && (
-          <div className="fg"><label className="fl">Código de Convite</label><input className="fi" value={convite} onChange={e=>setConvite(e.target.value)} placeholder="Ex: VETBETA01" style={{textTransform:"uppercase",fontFamily:"monospace",letterSpacing:1}}/></div>
-        )}
-
         <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={tab==="login"?handleLogin:handleCadastro} disabled={loading}>
-          {loading ? "Aguarde..." : tab==="login" ? "Entrar" : "Criar conta"}
+          {loading ? "Aguarde..." : tab==="login" ? "Entrar" : "Criar conta grátis"}
         </button>
 
         {tab === "login" && (
           <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"var(--gr4)"}}>
-            Não tem conta? <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setTab("cadastro")}>Solicite um convite</span>
+            Não tem conta? <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setTab("cadastro")}>Criar grátis por 7 dias</span>
           </div>
         )}
       </div>
@@ -422,6 +527,25 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Verificar sessão única a cada 2 minutos
+  useEffect(() => {
+    if (!user) return;
+    const checkSession = async () => {
+      const localToken = DB.get("session_token");
+      if (!localToken) return;
+      const { data } = await supabase.from("perfis").select("session_token").eq("id", user.id).single();
+      if (data && data.session_token !== localToken) {
+        // Sessão inválida — outro dispositivo fez login
+        await supabase.auth.signOut();
+        setUser(null);
+        alert("Sua sessão foi encerrada porque outro dispositivo fez login com sua conta.");
+      }
+    };
+    checkSession();
+    const interval = setInterval(checkSession, 120000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Pedir permissão de notificação e agendar
   useEffect(() => {
@@ -510,6 +634,10 @@ export default function App() {
 
   if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
 
+  // Verificar trial
+  const diasRestantes = diasRestantesTrial(user.created_at);
+  if (diasRestantes === 0) return <PaywallScreen user={user} onLogout={logout} />;
+
   if(screen?.type==="fazenda"){
     const f=fazendas.find(x=>x.id===screen.id);
     if(!f){setScreen(null);return null;}
@@ -548,6 +676,11 @@ export default function App() {
   return <div className="app"><style>{CSS}</style>
     <div className="hdr">
       <div style={{flex:1}}><div className="hdr-title">🐄 Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
+      {diasRestantes <= 3 && diasRestantes > 0 && (
+        <span style={{fontSize:11,fontWeight:700,background:"var(--yl)",color:"var(--y)",padding:"3px 8px",borderRadius:99,marginRight:6}}>
+          {diasRestantes}d trial
+        </span>
+      )}
       <button className="hdr-btn" title="Sair" onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}><Icon name="logout" size={18}/></button>
     </div>
 
