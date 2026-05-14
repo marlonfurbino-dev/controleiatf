@@ -235,7 +235,78 @@ const pedirPermissaoNotificacao = async () => {
   return perm === "granted";
 };
 
-// ── AUTH SCREEN ───────────────────────────────────────────────────────────
+// ── Landing Page ──────────────────────────────────────────────────────────
+const LANDING_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+  .lp * { box-sizing:border-box; margin:0; padding:0; }
+  .lp { min-height:100vh; background:linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%); font-family:'DM Sans',sans-serif; color:#fff; overflow-x:hidden; }
+  .lp-nav { position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:16px 24px; background:rgba(14,31,20,.85); backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.07); }
+  .lp-logo { font-family:'DM Serif Display',serif; font-size:20px; color:#fff; }
+  .lp-logo span { color:#6fcf8e; }
+  .lp-nav-btn { background:var(--g,#1b6b3a); color:#fff; border:none; border-radius:99px; padding:9px 22px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; }
+  .lp-hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:100px 24px 60px; }
+  .lp-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(27,107,58,.3); border:1px solid rgba(111,207,142,.25); border-radius:99px; padding:6px 16px; font-size:12px; font-weight:600; color:#6fcf8e; letter-spacing:.5px; text-transform:uppercase; margin-bottom:28px; }
+  .lp-h1 { font-family:'DM Serif Display',serif; font-size:clamp(38px,8vw,68px); line-height:1.08; letter-spacing:-1px; color:#fff; max-width:700px; margin-bottom:20px; }
+  .lp-h1 em { font-style:italic; color:#6fcf8e; }
+  .lp-sub { font-size:clamp(14px,2.5vw,17px); color:rgba(255,255,255,.6); max-width:480px; line-height:1.65; margin-bottom:36px; }
+  .lp-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; background:#1b6b3a; color:#fff; border:none; border-radius:14px; padding:15px 32px; font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 8px 32px rgba(27,107,58,.4); margin-bottom:12px; width:100%; max-width:320px; }
+  .lp-hint { font-size:12px; color:rgba(255,255,255,.35); margin-bottom:40px; }
+  .lp-features { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; max-width:900px; margin:0 auto; padding:0 24px 80px; }
+  .lp-feat { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:24px; text-align:left; }
+  .lp-feat-icon { font-size:24px; margin-bottom:12px; }
+  .lp-feat-title { font-size:16px; font-weight:700; margin-bottom:6px; }
+  .lp-feat-desc { font-size:13px; color:rgba(255,255,255,.5); line-height:1.6; }
+  .lp-footer { border-top:1px solid rgba(255,255,255,.06); padding:32px 24px; text-align:center; color:rgba(255,255,255,.3); font-size:13px; }
+  .lp-footer a { color:#6fcf8e; text-decoration:none; }
+`;
+
+function LandingPage({ onEnterApp }) {
+  return (
+    <div className="lp">
+      <style>{LANDING_CSS}</style>
+      <nav className="lp-nav">
+        <div className="lp-logo">Controle<span>IATF</span></div>
+        <button className="lp-nav-btn" onClick={onEnterApp}>Entrar</button>
+      </nav>
+
+      <div className="lp-hero">
+        <div className="lp-badge">🟢 Funciona offline · Para veterinários</div>
+        <h1 className="lp-h1">O app do veterinário para <em>controle de IATF</em></h1>
+        <p className="lp-sub">Gerencie protocolos, cadastre animais, calcule datas automaticamente e envie relatórios pelo WhatsApp — direto do campo.</p>
+        <button className="lp-btn" onClick={onEnterApp}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Acessar o sistema
+        </button>
+        <p className="lp-hint">📱 Instale como app no iPhone e Android</p>
+      </div>
+
+      <div className="lp-features">
+        {[
+          ["📋","Protocolo completo","D0, D8 e IA com data e horário. Cronograma visual em tempo real."],
+          ["🐄","Ficha individual","Nome, brinco, ECC, raça, touro utilizado e observações clínicas."],
+          ["📅","Datas automáticas","DG previsto (35 dias) e parto previsto (283 dias) calculados na hora."],
+          ["📲","Relatório via WhatsApp","Um toque gera e envia o relatório completo ao proprietário."],
+          ["📡","Funciona offline","Use no campo sem internet. Sincroniza quando voltar a conexão."],
+          ["🏡","Múltiplas fazendas","Gerencie quantas propriedades quiser com histórico completo."],
+        ].map(([icon,title,desc])=>(
+          <div key={title} className="lp-feat">
+            <div className="lp-feat-icon">{icon}</div>
+            <div className="lp-feat-title">{title}</div>
+            <div className="lp-feat-desc">{desc}</div>
+          </div>
+        ))}
+      </div>
+
+      <footer className="lp-footer">
+        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:18,color:"#fff",marginBottom:8}}>Controle<span style={{color:"#6fcf8e"}}>IATF</span></div>
+        <p>Desenvolvido para médicos veterinários · <a href="https://controleiatf.com.br">controleiatf.com.br</a></p>
+        <p style={{marginTop:6}}>© 2026 Controle IATF · Todos os direitos reservados</p>
+      </footer>
+    </div>
+  );
+}
+
+
 function AuthScreen({ onAuth }) {
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");
@@ -318,6 +389,10 @@ function AuthScreen({ onAuth }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(() => {
+    // Se URL contém /app, vai direto para o app
+    return window.location.pathname.includes("/app") ? "app" : "landing";
+  });
   const [fazendas,   setFazendas]   = useState(() => DB.get("iatf_f")  || []);
   const [protocolos, setProtocolos] = useState(() => DB.get("iatf_p")  || []);
   const [animais,    setAnimais]    = useState(() => DB.get("iatf_a")  || []);
@@ -419,6 +494,10 @@ export default function App() {
   };
 
   if (loading) return <div className="app"><style>{CSS}</style><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:"var(--g)",fontWeight:700}}>Carregando...</div></div>;
+
+  // Mostra landing page se não está na rota /app
+  if (page === "landing") return <LandingPage onEnterApp={() => setPage("app")} />;
+
   if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
 
   if(screen?.type==="fazenda"){
