@@ -34,6 +34,9 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
     logout:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
     bell:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
     key:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
+    semen:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="3" ry="4"/><path d="M12 9c0 6-6 9-6 9h12s-6-3-6-9z"/><line x1="12" y1="18" x2="12" y2="22"/></svg>,
+    user:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    doc:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
   };
   return d[name] || null;
 };
@@ -70,6 +73,31 @@ const CSS = `
   .invite-title { font-size:13px; font-weight:700; color:var(--gr4); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
   .invite-codes { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
   .invite-code { background:var(--g); color:#fff; padding:4px 12px; border-radius:99px; font-size:12px; font-weight:700; font-family:monospace; }
+  
+  /* Semen bank */
+  .semen-card { background:var(--w); border:1.5px solid var(--gr2); border-radius:var(--r12); padding:14px; margin-bottom:10px; }
+  .semen-raca { font-size:10px; font-weight:800; color:var(--g); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+  .semen-item { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--gr1); }
+  .semen-item:last-child { border-bottom:none; padding-bottom:0; }
+  .semen-nome { font-size:14px; font-weight:600; }
+  .semen-qty { font-size:20px; font-weight:800; color:var(--g); min-width:40px; text-align:center; }
+  .semen-qty.low { color:var(--r); }
+  .semen-qty-btn { width:32px; height:32px; border-radius:50%; border:1.5px solid var(--gr2); background:var(--gr0); font-size:18px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  
+  /* Autocomplete */
+  .autocomplete { position:relative; }
+  .autocomplete-list { position:absolute; top:100%; left:0; right:0; background:var(--w); border:1.5px solid var(--g); border-radius:0 0 var(--r8) var(--r8); z-index:100; max-height:160px; overflow-y:auto; box-shadow:var(--shm); }
+  .autocomplete-item { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--gr1); }
+  .autocomplete-item:hover { background:var(--gp); }
+  
+  /* Profile */
+  .profile-section { background:var(--w); border:1.5px solid var(--gr2); border-radius:var(--r12); padding:16px; margin-bottom:12px; }
+  .profile-label { font-size:10px; font-weight:800; color:var(--gr4); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+  .profile-value { font-size:15px; font-weight:600; color:var(--gr5); }
+  
+  /* Terms modal */
+  .terms-content { max-height:60vh; overflow-y:auto; font-size:13px; line-height:1.7; color:var(--gr4); }
+  .terms-content h3 { color:var(--gr5); font-size:14px; margin:16px 0 6px; }
 
   /* Header */
   .hdr { background:var(--g); color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:50; box-shadow:var(--shm); }
@@ -413,6 +441,11 @@ function AuthScreen({ onAuth }) {
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [termos, setTermos] = useState(false);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [ok, setOk] = useState("");
@@ -434,12 +467,20 @@ function AuthScreen({ onAuth }) {
 
   const handleCadastro = async () => {
     setErro(""); setLoading(true);
+    if (!nome) { setErro("Informe seu nome."); setLoading(false); return; }
+    if (!sobrenome) { setErro("Informe seu sobrenome."); setLoading(false); return; }
+    if (!cidade) { setErro("Informe sua cidade."); setLoading(false); return; }
+    if (!whatsapp) { setErro("Informe seu WhatsApp."); setLoading(false); return; }
+    if (!termos) { setErro("Aceite os termos de uso para continuar."); setLoading(false); return; }
     if (senha.length < 6) { setErro("Senha deve ter no mínimo 6 caracteres."); setLoading(false); return; }
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password: senha });
+      const { data, error } = await supabase.auth.signUp({ email, password: senha, options: { data: { nome, sobrenome, cidade, whatsapp } } });
+      if (error) { setLoading(false); setErro("Erro: " + error.message); return; }
+      if (data?.user) {
+        await supabase.from("perfis").upsert({ id: data.user.id, nome, sobrenome, cidade, whatsapp, email, created_at: new Date().toISOString() });
+      }
       setLoading(false);
-      if (error) { setErro("Erro: " + error.message); return; }
-      setOk("Conta criada! Você tem 7 dias de acesso completo.");
+      setOk("Conta criada! Verifique sua caixa de email e clique no link de confirmação para ativar o acesso.");
     } catch(e) {
       setLoading(false);
       setErro("Erro de conexão: " + e.message);
@@ -483,8 +524,22 @@ function AuthScreen({ onAuth }) {
           </div>
         )}
 
+        {tab === "cadastro" && <>
+          <div className="frow">
+            <div className="fg"><label className="fl">Nome</label><input className="fi" value={nome} onChange={e=>setNome(e.target.value)} placeholder="Seu nome"/></div>
+            <div className="fg"><label className="fl">Sobrenome</label><input className="fi" value={sobrenome} onChange={e=>setSobrenome(e.target.value)} placeholder="Sobrenome"/></div>
+          </div>
+          <div className="fg"><label className="fl">Cidade</label><input className="fi" value={cidade} onChange={e=>setCidade(e.target.value)} placeholder="Ex: Belo Horizonte - MG"/></div>
+          <div className="fg"><label className="fl">WhatsApp</label><input className="fi" type="tel" value={whatsapp} onChange={e=>setWhatsapp(e.target.value)} placeholder="(31) 99999-9999"/></div>
+        </>}
         <div className="fg"><label className="fl">Email</label><input className="fi" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com"/></div>
         {tab !== "recuperar" && <div className="fg"><label className="fl">Senha</label><input className="fi" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/></div>}
+        {tab === "cadastro" && (
+          <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:12,fontSize:12,color:"var(--gr4)"}}>
+            <input type="checkbox" checked={termos} onChange={e=>setTermos(e.target.checked)} style={{marginTop:2,flexShrink:0}}/>
+            <span>Li e aceito os <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>window.open("https://controleiatf.com.br/termos","_blank")}>Termos de Uso</span> e a <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>window.open("https://controleiatf.com.br/privacidade","_blank")}>Política de Privacidade</span></span>
+          </div>
+        )}
 
         <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={tab==="login"?handleLogin:tab==="cadastro"?handleCadastro:handleRecuperar} disabled={loading}>
           {loading ? "Aguarde..." : tab==="login" ? "Entrar" : tab==="cadastro" ? "Criar conta grátis" : "Enviar link de recuperação"}
@@ -510,6 +565,7 @@ function AuthScreen({ onAuth }) {
 // ── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
+  const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(() => {
     // Se URL contém /app, vai direto para o app
@@ -518,6 +574,7 @@ export default function App() {
   const [fazendas,   setFazendas]   = useState(() => DB.get("iatf_f")  || []);
   const [protocolos, setProtocolos] = useState(() => DB.get("iatf_p")  || []);
   const [animais,    setAnimais]    = useState(() => DB.get("iatf_a")  || []);
+  const [semenBank,  setSemenBank]  = useState(() => DB.get("iatf_s")  || []);
   const [tab,    setTab]    = useState("home");
   const [screen, setScreen] = useState(null);
   const [modal,  setModal]  = useState(null);
@@ -525,12 +582,22 @@ export default function App() {
 
   // Check auth session
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user || null);
+      if (session?.user) {
+        const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
+        if (data) setPerfil(data);
+        else if (session.user.user_metadata?.nome) setPerfil(session.user.user_metadata);
+      }
       setLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user || null);
+      if (session?.user) {
+        const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
+        if (data) setPerfil(data);
+        else if (session.user.user_metadata?.nome) setPerfil(session.user.user_metadata);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -564,6 +631,7 @@ export default function App() {
   useEffect(() => DB.set("iatf_f",  fazendas),   [fazendas]);
   useEffect(() => DB.set("iatf_p",  protocolos), [protocolos]);
   useEffect(() => DB.set("iatf_a",  animais),    [animais]);
+  useEffect(() => DB.set("iatf_s",  semenBank),  [semenBank]);
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
   const logout = async () => { await supabase.auth.signOut(); setUser(null); };
@@ -692,7 +760,7 @@ export default function App() {
     </div>
 
     {tab==="home"&&<div className="scr">
-      <div style={{fontSize:20,fontWeight:800,marginBottom:2}}>Olá, Doutor! 👋</div>
+      <div style={{fontSize:20,fontWeight:800,marginBottom:2}}>Olá, {perfil?.nome || "Doutor"}! 👋</div>
       <div style={{fontSize:12,color:"var(--gr4)",marginBottom:16}}>Resumo geral do sistema</div>
 
       {alertas.map((a,i)=><div key={i} className="notif-banner"><Icon name="bell" size={18}/>{a}</div>)}
@@ -732,10 +800,12 @@ export default function App() {
     </div>}
 
     {tab==="fazendas"&&<FazendasTab fazendas={fazendas} protocolos={protocolos} animais={animais} onOpen={(id)=>setScreen({type:"fazenda",id})} onAdd={addFazenda}/>}
-    {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA}/>}
+    {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
+    {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
+    {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes}/>}
 
     <nav className="nav">
-      {[["home","home","Início"],["fazendas","farm","Fazendas"],["biblioteca","list","Biblioteca"]].map(([key,icon,lbl])=>(
+      {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["biblioteca","list","Biblioteca"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
         <button key={key} className={`nav-btn${tab===key?" on":""}`} onClick={()=>setTab(key)}>
           <Icon name={icon} size={22}/>{lbl}
         </button>
@@ -743,6 +813,7 @@ export default function App() {
     </nav>
 
     {tab==="fazendas"&&<button className="fab" onClick={()=>setModal({type:"addFazenda",onSave:addFazenda})}><Icon name="plus" size={24}/></button>}
+    {tab==="semen"&&<button className="fab" onClick={()=>setModal({type:"addSemen",onSave:(s)=>setSemenBank(x=>[...x,{...s,id:uid(),at:Date.now()}])})}><Icon name="plus" size={24}/></button>}
     {toast&&<div className="toast">{toast}</div>}
     {modal&&<Modal modal={modal} setModal={setModal}/>}
   </div>;
@@ -832,12 +903,30 @@ function FazendaForm({initial,onSave,onCancel}){
 }
 
 function ProtocoloForm({initial,onSave,onCancel}){
-  const[f,setF]=useState(initial||{d0:"",h0:"",d8:"",h8:"",ia:"",hia:"",veterinario:""});
+  const PROTOCOLOS_PADRAO = ["3 Passagens (D0/D8/IA)","2 Passagens (D0/IA)","Protocolo J-Synch","Protocolo 5-Day CO-Synch","Outro"];
+  const[f,setF]=useState(initial||{d0:"",h0:"",d8:"",h8:"",ia:"",hia:"",veterinario:"",passagens:"3",medicamento:"",protocolo_tipo:"3 Passagens (D0/D8/IA)"});
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
   const isEdit=!!initial;
+  const passagens3 = [["D0","Início do protocolo","d0","h0"],["D8","Segunda passagem","d8","h8"],["IA","Inseminação artificial","ia","hia"]];
+  const passagens2 = [["D0","Início do protocolo","d0","h0"],["IA","Inseminação artificial","ia","hia"]];
+  const steps = f.passagens==="2" ? passagens2 : passagens3;
   return <div className="form-box">
-    <div className="form-box-title">{isEdit?"✏️ Editar Protocolo":"📋 Novo Protocolo IATF — 3 Passagens"}</div>
-    {[["D0","Início","d0","h0"],["D8","Segunda Passagem","d8","h8"],["IA","Inseminação (D10)","ia","hia"]].map(([lbl,desc,dk,hk])=>(
+    <div className="form-box-title">{isEdit?"✏️ Editar Protocolo":"📋 Novo Protocolo IATF"}</div>
+    <div className="fg">
+      <label className="fl">Tipo de Protocolo</label>
+      <select className="fi fi-sel" value={f.protocolo_tipo} onChange={e=>{s("protocolo_tipo",e.target.value);s("passagens",e.target.value.includes("2 Passagens")?"2":"3");}}>
+        {PROTOCOLOS_PADRAO.map(p=><option key={p}>{p}</option>)}
+      </select>
+    </div>
+    <div className="fg">
+      <label className="fl">Nº de Passagens</label>
+      <div style={{display:"flex",gap:8}}>
+        {["2","3"].map(n=><div key={n} onClick={()=>s("passagens",n)} style={{flex:1,textAlign:"center",padding:"9px",borderRadius:"var(--r8)",border:`1.5px solid ${f.passagens===n?"var(--g)":"var(--gr2)"}`,background:f.passagens===n?"var(--gp)":"var(--w)",fontWeight:700,fontSize:14,color:f.passagens===n?"var(--g)":"var(--gr4)",cursor:"pointer"}}>{n} passagens</div>)}
+      </div>
+    </div>
+    <div className="fg"><label className="fl">Protocolo medicamentoso utilizado</label><textarea className="fi fi-ta" value={f.medicamento} onChange={e=>s("medicamento",e.target.value)} placeholder="Ex: D0 — Sincrogest + Sincrogest ear implant + BE 1mg&#10;D8 — PGF2α + eCG 400UI + BE 1mg&#10;D10 — IA"/></div>
+    <div className="div"/>
+    {steps.map(([lbl,desc,dk,hk])=>(
       <div key={dk} style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
         <div style={{fontSize:11,fontWeight:800,color:"var(--g)",marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{lbl} — {desc}</div>
         <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={f[dk]} onChange={e=>s(dk,e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
@@ -978,11 +1067,19 @@ function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
         <button className={`diag-btn${a.diagnostico==="P"?" p":""}`} onClick={()=>onUpdDiag("P")}>✅ Prenha (P+)</button>
         <button className={`diag-btn${a.diagnostico==="V"?" v":""}`} onClick={()=>onUpdDiag("V")}>❌ Vazia (V−)</button>
       </div>
-      {(a.touro||a.obs)&&<>
+      {(a.touro||a.obs||a.obsProdutor||a.protocolo_individual)&&<>
         {a.touro&&<div style={{fontSize:12,color:"var(--gr5)",marginBottom:6}}>🐂 <strong>{a.touro}</strong>{a.partida?" · Partida "+a.partida:""}</div>}
+        {a.protocolo_individual&&<>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--y)",textTransform:"uppercase",letterSpacing:.4,marginBottom:4}}>⚠️ Protocolo individual</div>
+          <div style={{fontSize:12,color:"var(--gr5)",background:"var(--yl)",border:"1px solid #e8c96a",borderRadius:"var(--r8)",padding:"8px 10px",marginBottom:10,lineHeight:1.5}}>{a.protocolo_individual}</div>
+        </>}
         {a.obs&&<>
-          <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:4}}>Observações</div>
-          <div style={{fontSize:13,color:"var(--gr5)",background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:14,lineHeight:1.5}}>{a.obs}</div>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:4}}>🩺 Obs. Veterinário</div>
+          <div style={{fontSize:13,color:"var(--gr5)",background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:8,lineHeight:1.5}}>{a.obs}</div>
+        </>}
+        {a.obsProdutor&&<>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.4,marginBottom:4}}>👤 Obs. para o Produtor</div>
+          <div style={{fontSize:13,color:"var(--gr5)",background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:14,lineHeight:1.5}}>{a.obsProdutor}</div>
         </>}
       </>}
       <div className="div"/>
@@ -994,9 +1091,22 @@ function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
   </div>;
 }
 
-function AnimalForm({onSave,onCancel,initial}){
-  const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,ia:false,diagnostico:"",obs:""});
+function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
+  const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,ia:false,diagnostico:"",obs:"",obsProdutor:"",protocolo_individual:""});
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  const[touроSuggestions,setTouroSuggestions]=useState([]);
+  const onTouroChange=(v)=>{
+    s("touro",v);
+    if(v.length>=2){
+      const matches=semenBank.filter(s=>s.touro.toLowerCase().includes(v.toLowerCase())&&s.quantidade>0);
+      setTouroSuggestions(matches);
+    } else setTouroSuggestions([]);
+  };
+  const selectTouro=(item)=>{
+    s("touro",item.touro);
+    s("partida",item.partida||"");
+    setTouroSuggestions([]);
+  };
   const dias=calcDiasParida(f.dataUltimoParto);
   return <div className="form-box" style={{marginTop:12}}>
     <div className="form-box-title">{initial?"✏️ Editar Animal":"🐄 Novo Animal"}</div>
@@ -1030,7 +1140,15 @@ function AnimalForm({onSave,onCancel,initial}){
     <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Serviço</div>
     <div className="fg"><label className="fl">Data do Serviço (IA)</label><input type="date" className="fi" value={f.dataServico||""} onChange={e=>s("dataServico",e.target.value)}/></div>
     <div className="frow">
-      <div className="fg" style={{flex:2}}><label className="fl">Touro utilizado</label><input className="fi" value={f.touro||""} onChange={e=>s("touro",e.target.value)} placeholder="Nome do touro"/></div>
+      <div className="fg autocomplete" style={{flex:2}}>
+        <label className="fl">Touro utilizado</label>
+        <input className="fi" value={f.touro||""} onChange={e=>onTouroChange(e.target.value)} placeholder="Digite para buscar no banco..."/>
+        {touроSuggestions.length>0&&<div className="autocomplete-list">
+          {touроSuggestions.map((item,i)=><div key={i} className="autocomplete-item" onClick={()=>selectTouro(item)}>
+            🐂 {item.touro} <span style={{color:"var(--gr4)",fontSize:11}}>({item.raca} · {item.quantidade} doses)</span>
+          </div>)}
+        </div>}
+      </div>
       <div className="fg" style={{flex:1}}><label className="fl">Nº Partida</label><input className="fi" value={f.partida||""} onChange={e=>s("partida",e.target.value)} placeholder="Ex: 2024/01"/></div>
     </div>
     <div className="fg">
@@ -1051,8 +1169,16 @@ function AnimalForm({onSave,onCancel,initial}){
     </div>
     <div className="div"/>
     <div className="fg">
-      <label className="fl">Observações</label>
-      <textarea className="fi fi-ta" value={f.obs||""} onChange={e=>s("obs",e.target.value)} placeholder="Anotações livres: achados de ultrassom, anomalias, intercorrências..."/>
+      <label className="fl">Protocolo individual (se diferente do protocolo geral)</label>
+      <textarea className="fi fi-ta" rows={2} value={f.protocolo_individual||""} onChange={e=>s("protocolo_individual",e.target.value)} placeholder="Ex: Esta vaca recebeu protocolo diferente: ..."/>
+    </div>
+    <div className="fg">
+      <label className="fl">Observação do Veterinário</label>
+      <textarea className="fi fi-ta" value={f.obs||""} onChange={e=>s("obs",e.target.value)} placeholder="Achados de ultrassom, anomalias, intercorrências..."/>
+    </div>
+    <div className="fg">
+      <label className="fl">Observação para o Produtor</label>
+      <textarea className="fi fi-ta" value={f.obsProdutor||""} onChange={e=>s("obsProdutor",e.target.value)} placeholder="Informações para o produtor sobre este animal..."/>
     </div>
     <div className="row" style={{gap:8,marginTop:4}}>
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
@@ -1061,7 +1187,7 @@ function AnimalForm({onSave,onCancel,initial}){
   </div>;
 }
 
-function BibliotecaTab({protocolos,fazendas,animais,onOpen,onWA}){
+function BibliotecaTab({protocolos,fazendas,animais,onOpen,onWA,sendWAProdutor}){
   const sorted=[...protocolos].sort((a,b)=>b.at-a.at);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Biblioteca 📚</div>
@@ -1087,12 +1213,104 @@ function BibliotecaTab({protocolos,fazendas,animais,onOpen,onWA}){
           {pr>0&&<span className="badge b-g">✅ {pr} prenhas</span>}
         </div>
         {tx!==null&&<div className="prog" style={{marginBottom:10}}><div className="prog-fill" style={{width:tx+"%"}}/></div>}
-        <div className="row" style={{gap:8}}>
+        <div className="row" style={{gap:6,flexWrap:"wrap"}}>
           <button className="btn btn-gh btn-sm" style={{flex:1}} onClick={()=>onOpen(p.id)}><Icon name="edit" size={14}/> Abrir</button>
-          <button className="btn btn-wa btn-sm" style={{flex:1}} onClick={()=>onWA(p.id)}><Icon name="wa" size={14}/> Relatório</button>
+          <button className="btn btn-wa btn-sm" style={{flex:1}} onClick={()=>onWA(p.id)}><Icon name="wa" size={14}/> Rel. Vet</button>
+          <button className="btn btn-p btn-sm" style={{flex:1}} onClick={()=>sendWAProdutor(p.id)}><Icon name="wa" size={14}/> Rel. Produtor</button>
         </div>
       </div>;
     })}
+  </div>;
+}
+
+function SemenTab({semenBank,setSemenBank,ping}){
+  const racas=[...new Set(semenBank.map(s=>s.raca||"Sem raça"))].sort();
+  const[q,setQ]=useState("");
+  const filtered=semenBank.filter(s=>(s.touro+s.raca).toLowerCase().includes(q.toLowerCase()));
+  const updQty=(id,delta)=>{
+    setSemenBank(x=>x.map(s=>s.id===id?{...s,quantidade:Math.max(0,(s.quantidade||0)+delta)}:s));
+  };
+  const del=(id)=>setSemenBank(x=>x.filter(s=>s.id!==id));
+  const grouped=racas.reduce((acc,r)=>{acc[r]=filtered.filter(s=>(s.raca||"Sem raça")===r);return acc;},{});
+  const total=semenBank.reduce((a,s)=>(a+(s.quantidade||0)),0);
+  return <div className="scr">
+    <div style={{fontSize:18,fontWeight:800,marginBottom:2}}>Banco de Sêmen 🧪</div>
+    <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12}}>Total: <strong>{total} doses</strong> em estoque</div>
+    <div style={{position:"relative",marginBottom:12}}>
+      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--gr3)"}}><Icon name="search" size={16}/></span>
+      <input className="fi" style={{paddingLeft:34}} placeholder="Buscar touro ou raça..." value={q} onChange={e=>setQ(e.target.value)}/>
+    </div>
+    {semenBank.length===0&&<div className="empty"><Icon name="semen" size={44}/><div className="empty-t">Banco vazio</div><div className="empty-s">Toque no + para cadastrar o sêmen do botijão</div></div>}
+    {racas.filter(r=>grouped[r]?.length>0).map(raca=><div key={raca} className="semen-card">
+      <div className="semen-raca">🐂 {raca}</div>
+      {grouped[raca].map(s=><div key={s.id} className="semen-item">
+        <div>
+          <div className="semen-nome">{s.touro}</div>
+          {s.partida&&<div style={{fontSize:11,color:"var(--gr4)"}}>Partida: {s.partida}</div>}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <button className="semen-qty-btn" onClick={()=>updQty(s.id,-1)}>−</button>
+          <div className={`semen-qty${(s.quantidade||0)<=3?" low":""}`}>{s.quantidade||0}</div>
+          <button className="semen-qty-btn" onClick={()=>updQty(s.id,1)}>+</button>
+          <button className="hdr-btn light" style={{width:28,height:28}} onClick={()=>del(s.id)}><Icon name="trash" size={13}/></button>
+        </div>
+      </div>)}
+    </div>)}
+  </div>;
+}
+
+function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes}){
+  const[editing,setEditing]=useState(false);
+  const[f,setF]=useState({nome:perfil?.nome||"",sobrenome:perfil?.sobrenome||"",cidade:perfil?.cidade||"",whatsapp:perfil?.whatsapp||""});
+  const save=async()=>{
+    await supabase.from("perfis").upsert({id:user.id,...f});
+    setPerfil(x=>({...x,...f}));
+    setEditing(false);
+    ping("Perfil atualizado!");
+  };
+  return <div className="scr">
+    <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
+    <div className="profile-section">
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
+        <div style={{width:56,height:56,borderRadius:"50%",background:"var(--g)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:800,color:"#fff"}}>
+          {(perfil?.nome||user?.email||"?")[0].toUpperCase()}
+        </div>
+        <div>
+          <div style={{fontSize:18,fontWeight:800}}>{perfil?.nome||""} {perfil?.sobrenome||""}</div>
+          <div style={{fontSize:13,color:"var(--gr4)"}}>{user?.email}</div>
+        </div>
+      </div>
+      {diasRestantes!==null&&<div style={{background:diasRestantes>3?"var(--gp)":"var(--rl)",border:`1px solid ${diasRestantes>3?"var(--gm)":"var(--r)"}`,borderRadius:"var(--r8)",padding:"10px 12px",fontSize:13,fontWeight:600,color:diasRestantes>3?"var(--g)":"var(--r)",marginBottom:12}}>
+        {diasRestantes>0?`⏳ ${diasRestantes} dias restantes no período trial`:"⚠️ Período trial encerrado — assine para continuar"}
+      </div>}
+    </div>
+    {editing
+      ?<div className="form-box">
+        <div className="form-box-title">✏️ Editar Perfil</div>
+        <div className="frow">
+          <div className="fg"><label className="fl">Nome</label><input className="fi" value={f.nome} onChange={e=>setF(x=>({...x,nome:e.target.value}))}/></div>
+          <div className="fg"><label className="fl">Sobrenome</label><input className="fi" value={f.sobrenome} onChange={e=>setF(x=>({...x,sobrenome:e.target.value}))}/></div>
+        </div>
+        <div className="fg"><label className="fl">Cidade</label><input className="fi" value={f.cidade} onChange={e=>setF(x=>({...x,cidade:e.target.value}))}/></div>
+        <div className="fg"><label className="fl">WhatsApp</label><input className="fi" value={f.whatsapp} onChange={e=>setF(x=>({...x,whatsapp:e.target.value}))}/></div>
+        <div className="row" style={{gap:8,marginTop:8}}>
+          <button className="btn btn-gh" style={{flex:1}} onClick={()=>setEditing(false)}>Cancelar</button>
+          <button className="btn btn-p" style={{flex:2}} onClick={save}><Icon name="check" size={16}/> Salvar</button>
+        </div>
+      </div>
+      :<div className="profile-section">
+        <div className="profile-label">Cidade</div><div className="profile-value" style={{marginBottom:12}}>{perfil?.cidade||"—"}</div>
+        <div className="profile-label">WhatsApp</div><div className="profile-value" style={{marginBottom:12}}>{perfil?.whatsapp||"—"}</div>
+        <div className="profile-label">Email</div><div className="profile-value" style={{marginBottom:12}}>{user?.email}</div>
+        <button className="btn btn-gh btn-full" style={{marginTop:4}} onClick={()=>setEditing(true)}><Icon name="edit" size={15}/> Editar dados</button>
+      </div>
+    }
+    <button className="btn btn-d btn-full" style={{marginTop:8}} onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}>Sair da conta</button>
+    <div style={{marginTop:24,fontSize:12,color:"var(--gr4)",textAlign:"center"}}>
+      <span style={{cursor:"pointer",textDecoration:"underline"}} onClick={()=>setModal({type:"termos"})}>Termos de Uso</span>
+      {" · "}
+      <span style={{cursor:"pointer",textDecoration:"underline"}} onClick={()=>setModal({type:"privacidade"})}>Política de Privacidade</span>
+    </div>
   </div>;
 }
 
@@ -1112,6 +1330,61 @@ function Modal({modal,setModal}){
           <button className="btn btn-d" style={{flex:1}} onClick={()=>{modal.onOk();close();}}>Confirmar</button>
         </div>
       </>}
+      {modal.type==="addSemen"&&<>
+        <div className="modal-hdr"><div className="modal-title">🧪 Novo Sêmen</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
+        <SemenForm onSave={(s)=>{modal.onSave(s);close();}} onCancel={close}/>
+      </>}
+      {modal.type==="termos"&&<>
+        <div className="modal-hdr"><div className="modal-title">📄 Termos de Uso</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
+        <div className="terms-content">
+          <h3>1. Aceitação dos Termos</h3>
+          <p>Ao utilizar o Controle IATF, você concorda com estes termos de uso. O serviço é fornecido para fins profissionais de gerenciamento de protocolos IATF em medicina veterinária.</p>
+          <h3>2. Uso do Serviço</h3>
+          <p>O Controle IATF é uma ferramenta de apoio profissional. O veterinário é inteiramente responsável pelas decisões clínicas e protocolos aplicados. O aplicativo não substitui o julgamento clínico profissional.</p>
+          <h3>3. Dados e Privacidade</h3>
+          <p>Os dados inseridos no sistema são de responsabilidade do usuário. Tratamos seus dados conforme nossa Política de Privacidade e a Lei Geral de Proteção de Dados (LGPD).</p>
+          <h3>4. Pagamento e Assinatura</h3>
+          <p>Após o período trial de 7 dias, o serviço requer assinatura mensal. O cancelamento pode ser feito a qualquer momento.</p>
+          <h3>5. Limitação de Responsabilidade</h3>
+          <p>O Controle IATF não se responsabiliza por decisões tomadas com base nas informações do sistema. O profissional veterinário é o único responsável pelo diagnóstico e tratamento dos animais.</p>
+          <h3>6. Contato</h3>
+          <p>Dúvidas: contato@controleiatf.com.br</p>
+        </div>
+        <button className="btn btn-p btn-full" style={{marginTop:16}} onClick={close}>Entendido</button>
+      </>}
+      {modal.type==="privacidade"&&<>
+        <div className="modal-hdr"><div className="modal-title">🔒 Política de Privacidade</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
+        <div className="terms-content">
+          <h3>1. Dados Coletados</h3>
+          <p>Coletamos: nome, sobrenome, cidade, WhatsApp e email no cadastro. Dados de protocolos, fazendas e animais inseridos pelo usuário.</p>
+          <h3>2. Uso dos Dados</h3>
+          <p>Seus dados são usados exclusivamente para: operação do serviço, suporte ao usuário e melhorias do produto. Nunca vendemos ou compartilhamos seus dados com terceiros.</p>
+          <h3>3. Armazenamento</h3>
+          <p>Dados armazenados com segurança via Supabase (PostgreSQL), com criptografia em trânsito e em repouso.</p>
+          <h3>4. Seus Direitos (LGPD)</h3>
+          <p>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento pelo email: contato@controleiatf.com.br</p>
+          <h3>5. Cookies</h3>
+          <p>Usamos apenas cookies essenciais para manutenção da sessão do usuário.</p>
+        </div>
+        <button className="btn btn-p btn-full" style={{marginTop:16}} onClick={close}>Entendido</button>
+      </>}
+    </div>
+  </div>;
+}
+
+function SemenForm({onSave,onCancel}){
+  const[f,setF]=useState({touro:"",raca:"",partida:"",quantidade:10});
+  const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  return <div>
+    <div className="fg"><label className="fl">Nome do Touro *</label><input className="fi" value={f.touro} onChange={e=>s("touro",e.target.value)} placeholder="Ex: Capitão FIV da Boa Fé"/></div>
+    <div className="frow">
+      <div className="fg"><label className="fl">Raça *</label><input className="fi" value={f.raca} onChange={e=>s("raca",e.target.value)} placeholder="Ex: Nelore"/></div>
+      <div className="fg"><label className="fl">Nº Partida</label><input className="fi" value={f.partida} onChange={e=>s("partida",e.target.value)} placeholder="2024/01"/></div>
+    </div>
+    <div className="fg"><label className="fl">Quantidade de doses</label><input className="fi" type="number" min="0" value={f.quantidade} onChange={e=>s("quantidade",parseInt(e.target.value)||0)}/></div>
+    <div className="row" style={{gap:8,marginTop:8}}>
+      <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.touro||!f.raca)return alert("Preencha touro e raça");onSave(f);}}><Icon name="check" size={16}/> Salvar</button>
     </div>
   </div>;
 }
