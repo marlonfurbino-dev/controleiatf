@@ -441,15 +441,8 @@ function AuthScreen({ onAuth }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
     setLoading(false);
     if (error) { setErro("Email ou senha incorretos."); return; }
-    // Registra sessão única — salva token no perfil
-    const sessionToken = uid();
-    await supabase.from("perfis").upsert({
-      id: data.user.id,
-      email: data.user.email,
-      session_token: sessionToken,
-      ultimo_login: new Date().toISOString(),
-    });
-    DB.set("session_token", sessionToken);
+    const sessionToken = Math.random().toString(36).slice(2);
+    DB.set("session_token_" + data.user.id, sessionToken);
     onAuth(data.user);
   };
 
@@ -458,7 +451,6 @@ function AuthScreen({ onAuth }) {
     if (senha.length < 6) { setErro("Senha deve ter no mínimo 6 caracteres."); setLoading(false); return; }
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
     if (error) { setErro(error.message); setLoading(false); return; }
-    await supabase.from("perfis").insert({ id: data.user.id, email, ativo: true, trial_inicio: new Date().toISOString() });
     setLoading(false);
     setOk("Conta criada! Você tem 7 dias de acesso completo.");
   };
