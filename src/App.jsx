@@ -1262,8 +1262,18 @@ function SemenTab({semenBank,setSemenBank,ping}){
 function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes}){
   const[editing,setEditing]=useState(false);
   const[f,setF]=useState({nome:perfil?.nome||"",sobrenome:perfil?.sobrenome||"",cidade:perfil?.cidade||"",whatsapp:perfil?.whatsapp||""});
+  const[saveErr,setSaveErr]=useState("");
   const save=async()=>{
-    await supabase.from("perfis").upsert({id:user.id,...f});
+    setSaveErr("");
+    const {error} = await supabase.from("perfis").upsert({id:user.id,...f},{onConflict:"id"});
+    if(error){
+      // Fallback: try update directly
+      const {error:err2} = await supabase.from("perfis").update({...f}).eq("id",user.id);
+      if(err2){
+        setSaveErr("Erro ao salvar: "+err2.message);
+        return;
+      }
+    }
     setPerfil(x=>({...x,...f}));
     setEditing(false);
     ping("Perfil atualizado!");
@@ -1293,6 +1303,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes}){
         </div>
         <div className="fg"><label className="fl">Cidade</label><input className="fi" value={f.cidade} onChange={e=>setF(x=>({...x,cidade:e.target.value}))}/></div>
         <div className="fg"><label className="fl">WhatsApp</label><input className="fi" value={f.whatsapp} onChange={e=>setF(x=>({...x,whatsapp:e.target.value}))}/></div>
+        {saveErr&&<div className="auth-err" style={{marginBottom:8}}>{saveErr}</div>}
         <div className="row" style={{gap:8,marginTop:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={()=>setEditing(false)}>Cancelar</button>
           <button className="btn btn-p" style={{flex:2}} onClick={save}><Icon name="check" size={16}/> Salvar</button>
