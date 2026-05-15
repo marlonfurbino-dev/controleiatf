@@ -438,21 +438,31 @@ function AuthScreen({ onAuth }) {
 
   const handleLogin = async () => {
     setErro(""); setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
-    setLoading(false);
-    if (error) { setErro("Email ou senha incorretos."); return; }
-    const sessionToken = Math.random().toString(36).slice(2);
-    DB.set("session_token_" + data.user.id, sessionToken);
-    onAuth(data.user);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+      setLoading(false);
+      if (error) { setErro("Email ou senha incorretos."); return; }
+      const sessionToken = Math.random().toString(36).slice(2);
+      DB.set("session_token_" + data.user.id, sessionToken);
+      onAuth(data.user);
+    } catch(e) {
+      setLoading(false);
+      setErro("Erro de conexão: " + e.message);
+    }
   };
 
   const handleCadastro = async () => {
     setErro(""); setLoading(true);
     if (senha.length < 6) { setErro("Senha deve ter no mínimo 6 caracteres."); setLoading(false); return; }
-    const { data, error } = await supabase.auth.signUp({ email, password: senha });
-    if (error) { setErro(error.message); setLoading(false); return; }
-    setLoading(false);
-    setOk("Conta criada! Você tem 7 dias de acesso completo.");
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password: senha });
+      setLoading(false);
+      if (error) { setErro("Erro: " + error.message); return; }
+      setOk("Conta criada! Você tem 7 dias de acesso completo.");
+    } catch(e) {
+      setLoading(false);
+      setErro("Erro de conexão: " + e.message);
+    }
   };
 
   return (
