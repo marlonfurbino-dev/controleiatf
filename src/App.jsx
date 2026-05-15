@@ -312,7 +312,7 @@ function LandingPage({ onEnterApp }) {
 const TRIAL_DIAS = 7;
 const PRECO = "R$ 29,90";
 const MP_PUBLIC_KEY = "APP_USR-74191f84-bf5c-44f9-8b96-c1bf23575f6c";
-const MP_ACCESS_TOKEN = "APP_USR-3342211906787456-051419-da5a20a472cfe3efa09e2448efb460bb-22023055";
+const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 
 function diasRestantesTrial(createdAt) {
   if (!createdAt) return 0;
@@ -331,29 +331,10 @@ function PaywallScreen({ user, onLogout }) {
     setLoading(true);
     setErro("");
     try {
-      // Cria preferência de pagamento no Mercado Pago
-      const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
+      const res = await fetch(EDGE_FUNCTION_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${MP_ACCESS_TOKEN}`,
-        },
-        body: JSON.stringify({
-          items: [{
-            title: "Controle IATF — Assinatura Mensal",
-            quantity: 1,
-            unit_price: 29.90,
-            currency_id: "BRL",
-          }],
-          payer: { email: user?.email },
-          back_urls: {
-            success: "https://controleiatf.com.br/app?pagamento=sucesso",
-            failure: "https://controleiatf.com.br/app?pagamento=falha",
-            pending: "https://controleiatf.com.br/app?pagamento=pendente",
-          },
-          auto_return: "approved",
-          statement_descriptor: "CONTROLE IATF",
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user?.email }),
       });
       const data = await res.json();
       if (data.init_point) {
@@ -465,6 +446,22 @@ function AuthScreen({ onAuth }) {
     }
   };
 
+  const handleRecuperar = async () => {
+    setErro(""); setLoading(true);
+    if (!email) { setErro("Informe seu email."); setLoading(false); return; }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: "https://controleiatf.com.br/app",
+      });
+      setLoading(false);
+      if (error) { setErro("Erro: " + error.message); return; }
+      setOk("✅ Email de recuperação enviado! Verifique sua caixa de entrada.");
+    } catch(e) {
+      setLoading(false);
+      setErro("Erro de conexão: " + e.message);
+    }
+  };
+
   return (
     <div className="auth-screen">
       <div className="auth-logo">Controle<span>IATF</span></div>
@@ -474,6 +471,7 @@ function AuthScreen({ onAuth }) {
         <div className="auth-tabs">
           <div className={`auth-tab${tab==="login"?" on":""}`} onClick={()=>{setTab("login");setErro("");setOk("");}}>Entrar</div>
           <div className={`auth-tab${tab==="cadastro"?" on":""}`} onClick={()=>{setTab("cadastro");setErro("");setOk("");}}>Criar conta</div>
+          {tab==="recuperar"&&<div className="auth-tab on" style={{color:"var(--g)"}}>Recuperar senha</div>}
         </div>
 
         {erro && <div className="auth-err">⚠️ {erro}</div>}
@@ -486,15 +484,22 @@ function AuthScreen({ onAuth }) {
         )}
 
         <div className="fg"><label className="fl">Email</label><input className="fi" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com"/></div>
-        <div className="fg"><label className="fl">Senha</label><input className="fi" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/></div>
+        {tab !== "recuperar" && <div className="fg"><label className="fl">Senha</label><input className="fi" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/></div>}
 
-        <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={tab==="login"?handleLogin:handleCadastro} disabled={loading}>
-          {loading ? "Aguarde..." : tab==="login" ? "Entrar" : "Criar conta grátis"}
+        <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={tab==="login"?handleLogin:tab==="cadastro"?handleCadastro:handleRecuperar} disabled={loading}>
+          {loading ? "Aguarde..." : tab==="login" ? "Entrar" : tab==="cadastro" ? "Criar conta grátis" : "Enviar link de recuperação"}
         </button>
 
         {tab === "login" && (
           <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"var(--gr4)"}}>
+            <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>{setTab("recuperar");setErro("");setOk("");}}>Esqueceu a senha?</span>
+            {" · "}
             Não tem conta? <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setTab("cadastro")}>Criar grátis por 7 dias</span>
+          </div>
+        )}
+        {tab === "recuperar" && (
+          <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"var(--gr4)"}}>
+            <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>{setTab("login");setErro("");setOk("");}}>← Voltar para o login</span>
           </div>
         )}
       </div>
