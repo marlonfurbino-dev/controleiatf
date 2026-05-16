@@ -952,7 +952,7 @@ _Controle IATF — controleiatf.com.br_`;
     </div>}
 
     {tab==="fazendas"&&<FazendasTab fazendas={fazendas} protocolos={protocolos} animais={animais} onOpen={(id)=>setScreen({type:"fazenda",id})} onAdd={addFazenda}/>}
-    {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
+    {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor} onRelatorio={(pid)=>setModal({type:"relatorio",pid})}/>}
     {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
     {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante}/>}
 
@@ -1195,7 +1195,7 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
       <div style={{flex:1}}><div className="hdr-title">{f?.nome}</div><div className="hdr-sub">Protocolo IATF · 3 passagens</div></div>
       <button className="hdr-btn" style={{marginRight:4}} onClick={()=>setEditProt(true)}><Icon name="edit" size={17}/></button>
       <button className="hdr-btn danger" style={{marginRight:4}} onClick={()=>setModal({type:"confirm",msg:"Excluir este protocolo e todos os animais?",onOk:onDelProtocolo})}><Icon name="trash" size={17}/></button>
-      <button className="hdr-btn" style={{background:"rgba(37,211,102,.25)"}} onClick={onWA}><Icon name="wa" size={20} color="#25D366"/></button>
+      <button className="hdr-btn" style={{background:"rgba(37,211,102,.25)"}} onClick={()=>setModal({type:"relatorio",pid:p.id})}><Icon name="wa" size={20} color="#25D366"/></button>
     </div>
     <div className="scr">
       {editProt
@@ -1271,8 +1271,7 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
         :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
       }
       {animais.length>0&&<div className="row" style={{gap:8,marginTop:10}}>
-        <button className="btn btn-wa btn-sm" style={{flex:1}} onClick={onWA}><Icon name="wa" size={14}/> Rel. Veterinário</button>
-        <button className="btn btn-p btn-sm" style={{flex:1}} onClick={()=>onWAProdutor(p.id)}><Icon name="wa" size={14}/> Rel. Produtor</button>
+        <button className="btn btn-wa btn-full" onClick={()=>setModal({type:"relatorio",pid:p.id})}><Icon name="wa" size={16}/> Enviar Relatório via WhatsApp</button>
       </div>}
     </div>
   </div>;
@@ -1452,7 +1451,7 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
   </div>;
 }
 
-function BibliotecaTab({protocolos=[],fazendas=[],animais=[],onOpen,onWA,sendWAProdutor}){
+function BibliotecaTab({protocolos=[],fazendas=[],animais=[],onOpen,onWA,sendWAProdutor,onRelatorio}){
   const sorted=[...protocolos].sort((a,b)=>b.at-a.at);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Biblioteca 📚</div>
@@ -1480,8 +1479,7 @@ function BibliotecaTab({protocolos=[],fazendas=[],animais=[],onOpen,onWA,sendWAP
         {tx!==null&&<div className="prog" style={{marginBottom:10}}><div className="prog-fill" style={{width:tx+"%"}}/></div>}
         <div className="row" style={{gap:6,flexWrap:"wrap"}}>
           <button className="btn btn-gh btn-sm" style={{flex:1}} onClick={()=>onOpen(p.id)}><Icon name="edit" size={14}/> Abrir</button>
-          <button className="btn btn-wa btn-sm" style={{flex:1}} onClick={()=>onWA(p.id)}><Icon name="wa" size={14}/> Rel. Vet</button>
-          <button className="btn btn-p btn-sm" style={{flex:1}} onClick={()=>sendWAProdutor(p.id)}><Icon name="wa" size={14}/> Rel. Produtor</button>
+          <button className="btn btn-wa btn-full" style={{marginTop:4}} onClick={()=>onRelatorio(p.id)}><Icon name="wa" size={14}/> Enviar Relatório</button>
         </div>
       </div>;
     })}
@@ -1635,6 +1633,26 @@ function Modal({modal,setModal}){
       {modal.type==="addFazenda"&&<>
         <div className="modal-hdr"><div className="modal-title">🏡 Nova Fazenda</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <FazendaForm onSave={(f)=>{modal.onSave(f);close();}} onCancel={close}/>
+      </>}
+      {modal.type==="relatorio"&&<>
+        <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
+        <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <button onClick={()=>{sendWA(modal.pid);close();}} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
+            <span style={{fontSize:28}}>🩺</span>
+            <div>
+              <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
+              <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
+            </div>
+          </button>
+          <button onClick={()=>{sendWAProdutor(modal.pid);close();}} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
+            <span style={{fontSize:28}}>🌾</span>
+            <div>
+              <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
+              <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Enxuto — nome, touro, diagnóstico e obs para o produtor</div>
+            </div>
+          </button>
+        </div>
       </>}
       {modal.type==="confirm"&&<>
         <div className="modal-hdr"><div className="modal-title">⚠️ Confirmar</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
