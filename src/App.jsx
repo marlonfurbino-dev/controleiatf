@@ -343,8 +343,9 @@ const MP_PUBLIC_KEY = "APP_USR-74191f84-bf5c-44f9-8b96-c1bf23575f6c";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 
 function diasRestantesTrial(createdAt) {
-  if (!createdAt) return 0;
+  if (!createdAt) return TRIAL_DIAS; // sem data = considera trial completo
   const criado = new Date(createdAt);
+  if (isNaN(criado.getTime())) return TRIAL_DIAS;
   const hoje = new Date();
   const diff = Math.floor((hoje - criado) / 86400000);
   return Math.max(0, TRIAL_DIAS - diff);
@@ -709,8 +710,9 @@ export default function App() {
 
   if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
 
-  // Verificar trial — assinante ativo nunca vai para o paywall
-  const diasRestantes = diasRestantesTrial(user.created_at);
+  // Verificar trial — usa created_at do perfil (mais confiável) ou do auth
+  const createdAtRef = perfil?.created_at || user.created_at;
+  const diasRestantes = diasRestantesTrial(createdAtRef);
   const ehAssinante = perfil?.assinante === true;
   if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} onLogout={logout} />;
 
@@ -907,65 +909,125 @@ function FazendaForm({initial,onSave,onCancel}){
 }
 
 function ProtocoloForm({initial,onSave,onCancel}){
-  const PROTOCOLOS_PADRAO = ["3 Passagens (D0/D8/IA)","4 Passagens (D0/D8/D10/IA)","2 Passagens (D0/IA)","Outro"];
-  const[f,setF]=useState(initial||{d0:"",h0:"",d8:"",h8:"",d10:"",h10:"",ia:"",hia:"",veterinario:"",passagens:"3",medicamento:"",protocolo_tipo:"3 Passagens (D0/D8/IA)"});
-  const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  // manejos: quantos campos intermediários entre D0 e IA
+  // "2" = D0 + IA
+  // "3" = D0 + 1 intermediário + IA
+  // "4" = D0 + 2 intermediários + IA
+  const[manejos,setManejos]=useState(initial?.passagens||"3");
+  const[datas,setDatas]=useState(()=>{
+    // datas[0]=D0, datas[1..n-2]=intermediários, datas[n-1]=IA
+    const n=parseInt(initial?.passagens||"3");
+    if(initial){
+      if(n===2) return [{data:initial.d0||"",hora:initial.h0||""},{data:initial.ia||"",hora:initial.hia||""}];
+      if(n===3) return [{data:initial.d0||"",hora:initial.h0||""},{data:initial.d8||"",hora:initial.h8||""},{data:initial.ia||"",hora:initial.hia||""}];
+      if(n===4) return [{data:initial.d0||"",hora:initial.h0||""},{data:initial.d8||"",hora:initial.h8||""},{data:initial.d10||"",hora:initial.h10||""},{data:initial.ia||"",hora:initial.hia||""}];
+    }
+    return Array.from({length:n},()=>({data:"",hora:""}));
+  });
+  const[medicamento,setMedicamento]=useState(initial?.medicamento||"");
+  const[veterinario,setVeterinario]=useState(initial?.veterinario||"");
   const isEdit=!!initial;
+
   const diasDesdeD0=(dateStr)=>{
-    if(!f.d0||!dateStr) return null;
-    const diff=Math.round((new Date(dateStr+"T12:00:00")-new Date(f.d0+"T12:00:00"))/86400000);
-    return diff>=0?diff:null;
+    if(!datas[0]?.data||!dateStr) return null;
+    const diff=Math.round((new Date(dateStr+"T12:00:00")-new Date(datas[0].data+"T12:00:00"))/86400000);
+    return diff>0?diff:null;
   };
-  const allSteps=[
-    {lbl:"D0",desc:"Início do protocolo",dk:"d0",hk:"h0",prev:null},
-    {lbl:"D8",desc:"Segunda passagem",dk:"d8",hk:"h8",prev:"d0"},
-    {lbl:"D10",desc:"Terceira passagem",dk:"d10",hk:"h10",prev:"d8"},
-    {lbl:"IA",desc:"Inseminação artificial",dk:"ia",hk:"hia",prev:f.passagens==="4"?"d10":f.passagens==="3"?"d8":"d0"},
-  ];
-  const steps=f.passagens==="2"
-    ?allSteps.filter(s=>["D0","IA"].includes(s.lbl))
-    :f.passagens==="4"
-      ?allSteps
-      :allSteps.filter(s=>["D0","D8","IA"].includes(s.lbl));
+
+  const handleManejos=(n)=>{
+    setManejos(n);
+    const ni=parseInt(n);
+    setDatas(prev=>{
+      const next=Array.from({length:ni},(_,i)=>prev[i]||{data:"",hora:""});
+      return next;
+    });
+  };
+
+  const setData=(idx,field,val)=>{
+    setDatas(prev=>prev.map((d,i)=>i===idx?{...d,[field]:val}:d));
+  };
+
+  const handleSave=()=>{
+    if(!datas[0]?.data) return alert("Informe a data do D0");
+    const n=parseInt(manejos);
+    const out={
+      passagens:manejos,
+      protocolo_tipo:`${manejos} manejos`,
+      medicamento,
+      veterinario,
+      d0:datas[0]?.data||"",  h0:datas[0]?.hora||"",
+      d8:n>=3?datas[1]?.data||"":"",  h8:n>=3?datas[1]?.hora||"":"",
+      d10:n>=4?datas[2]?.data||"":"", h10:n>=4?datas[2]?.hora||"":"",
+      ia:datas[n-1]?.data||"", hia:datas[n-1]?.hora||"",
+    };
+    onSave(out);
+  };
+
+  const nInt=parseInt(manejos);
+
   return <div className="form-box">
     <div className="form-box-title">{isEdit?"✏️ Editar Protocolo":"📋 Novo Protocolo IATF"}</div>
+
+    {/* Escolha de manejos */}
     <div className="fg">
-      <label className="fl">Tipo de Protocolo</label>
-      <select className="fi fi-sel" value={f.protocolo_tipo} onChange={e=>{
-        const v=e.target.value;s("protocolo_tipo",v);
-        if(v.includes("4 Passagens"))s("passagens","4");
-        else if(v.includes("2 Passagens"))s("passagens","2");
-        else s("passagens","3");
-      }}>
-        {PROTOCOLOS_PADRAO.map(p=><option key={p}>{p}</option>)}
-      </select>
-    </div>
-    <div className="fg">
-      <label className="fl">Nº de Passagens</label>
+      <label className="fl">Quantos manejos?</label>
       <div style={{display:"flex",gap:8}}>
-        {[["2","2x"],["3","3x"],["4","4x"]].map(([n,lbl])=><div key={n} onClick={()=>s("passagens",n)} style={{flex:1,textAlign:"center",padding:"9px",borderRadius:"var(--r8)",border:`1.5px solid ${f.passagens===n?"var(--g)":"var(--gr2)"}`,background:f.passagens===n?"var(--gp)":"var(--w)",fontWeight:700,fontSize:14,color:f.passagens===n?"var(--g)":"var(--gr4)",cursor:"pointer"}}>{lbl}</div>)}
+        {[["2","2 manejos"],["3","3 manejos"],["4","4 manejos"]].map(([n,lbl])=>(
+          <div key={n} onClick={()=>handleManejos(n)} style={{flex:1,textAlign:"center",padding:"11px 6px",borderRadius:"var(--r8)",border:`1.5px solid ${manejos===n?"var(--g)":"var(--gr2)"}`,background:manejos===n?"var(--gp)":"var(--w)",fontWeight:700,fontSize:13,color:manejos===n?"var(--g)":"var(--gr4)",cursor:"pointer",transition:"all .15s"}}>
+            {lbl}
+          </div>
+        ))}
       </div>
     </div>
-    <div className="fg"><label className="fl">Protocolo medicamentoso utilizado</label><textarea className="fi fi-ta" value={f.medicamento} onChange={e=>s("medicamento",e.target.value)} placeholder="Ex: D0 — Sincrogest + BE 1mg&#10;D8 — PGF2α + eCG 400UI&#10;D10 — BE 1mg&#10;IA"/></div>
+
+    <div className="fg">
+      <label className="fl">Protocolo medicamentoso utilizado</label>
+      <textarea className="fi fi-ta" value={medicamento} onChange={e=>setMedicamento(e.target.value)} placeholder="Ex: D0 — Sincrogest + BE 1mg&#10;Próximo manejo — PGF2α + eCG 400UI&#10;IA"/>
+    </div>
+
     <div className="div"/>
-    {steps.map(({lbl,desc,dk,hk,prev},idx)=>{
-      const isVisible=idx===0||!!f[prev];
-      if(!isVisible) return null;
-      const dias=dk!=="d0"?diasDesdeD0(f[dk]):null;
-      return <div key={dk} style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
+
+    {/* Campo D0 — sempre visível */}
+    <div style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
+      <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>D0 — Início do protocolo</div>
+      <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={datas[0]?.data||""} onChange={e=>setData(0,"data",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+      <div><label className="fl">Horário</label><input type="time" className="fi" value={datas[0]?.hora||""} onChange={e=>setData(0,"hora",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+    </div>
+
+    {/* Campos intermediários — só aparecem se o campo anterior tiver data */}
+    {Array.from({length:nInt-2},(_,i)=>{
+      const idx=i+1;
+      const prevData=datas[idx-1]?.data;
+      if(!prevData) return null;
+      const diasLabel=diasDesdeD0(datas[idx]?.data);
+      const lbl=diasLabel!==null?`D${diasLabel}`:`Manejo ${idx+1}`;
+      return <div key={idx} style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5}}>{lbl} — {desc}</div>
-          {dias!==null&&<span style={{fontSize:11,fontWeight:800,background:"var(--gp)",color:"var(--g)",padding:"2px 8px",borderRadius:99}}>D{dias}</span>}
+          <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5}}>
+            {diasLabel!==null?`D${diasLabel} — Manejo ${idx+1}`:`Manejo ${idx+1}`}
+          </div>
+          {diasLabel===null&&datas[idx]?.data===""&&<span style={{fontSize:11,color:"var(--gr4)"}}>preencha a data para calcular</span>}
         </div>
-        <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={f[dk]} onChange={e=>s(dk,e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
-        <div><label className="fl">Horário</label><input type="time" className="fi" value={f[hk]} onChange={e=>s(hk,e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+        <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={datas[idx]?.data||""} onChange={e=>setData(idx,"data",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+        <div><label className="fl">Horário</label><input type="time" className="fi" value={datas[idx]?.hora||""} onChange={e=>setData(idx,"hora",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
       </div>;
     })}
+
+    {/* Campo IA — aparece após o último campo anterior ter data */}
+    {datas[nInt-2]?.data&&<div style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"12px",marginBottom:10,border:"1.5px solid var(--g)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5}}>IA — Inseminação Artificial</div>
+        {diasDesdeD0(datas[nInt-1]?.data)!==null&&<span style={{fontSize:11,fontWeight:800,background:"var(--gp)",color:"var(--g)",padding:"2px 8px",borderRadius:99}}>D{diasDesdeD0(datas[nInt-1]?.data)}</span>}
+      </div>
+      <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={datas[nInt-1]?.data||""} onChange={e=>setData(nInt-1,"data",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+      <div><label className="fl">Horário</label><input type="time" className="fi" value={datas[nInt-1]?.hora||""} onChange={e=>setData(nInt-1,"hora",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+    </div>}
+
     <div className="div"/>
-    <div className="fg"><label className="fl">Veterinário Responsável</label><input className="fi" value={f.veterinario} onChange={e=>s("veterinario",e.target.value)} placeholder="Nome do veterinário"/></div>
+    <div className="fg"><label className="fl">Veterinário Responsável</label><input className="fi" value={veterinario} onChange={e=>setVeterinario(e.target.value)} placeholder="Nome do veterinário"/></div>
     <div className="row" style={{gap:8,marginTop:4}}>
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
-      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.d0)return alert("Informe a data do D0");onSave(f);}}><Icon name="check" size={16}/> {isEdit?"Atualizar":"Salvar Protocolo"}</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={handleSave}><Icon name="check" size={16}/> {isEdit?"Atualizar":"Salvar Protocolo"}</button>
     </div>
   </div>;
 }
@@ -1333,16 +1395,16 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       </div>
       {ehAssinante
         ?<div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",padding:"10px 12px",fontSize:13,fontWeight:600,color:"var(--g)",marginBottom:12}}>✅ Assinatura ativa — acesso completo</div>
-        :diasRestantes!==null&&<div style={{background:diasRestantes>3?"var(--gp)":"var(--rl)",border:`1px solid ${diasRestantes>3?"var(--gm)":"var(--r)"}`,borderRadius:"var(--r8)",padding:"10px 12px",fontSize:13,fontWeight:600,color:diasRestantes>3?"var(--g)":"var(--r)",marginBottom:12}}>
-          {diasRestantes>0?`⏳ ${diasRestantes} dias restantes no período trial`:"⚠️ Período trial encerrado — assine para continuar"}
+        :<div style={{background:diasRestantes>3?"var(--gp)":diasRestantes>0?"var(--yl)":"var(--rl)",border:`1px solid ${diasRestantes>3?"var(--gm)":diasRestantes>0?"var(--y)":"var(--r)"}`,borderRadius:"var(--r8)",padding:"10px 12px",fontSize:13,fontWeight:600,color:diasRestantes>3?"var(--g)":diasRestantes>0?"var(--y)":"var(--r)",marginBottom:12}}>
+          {diasRestantes>0?`⏳ ${diasRestantes} dia${diasRestantes===1?"":"s"} restante${diasRestantes===1?"":"s"} no trial`:"⚠️ Trial encerrado — assine para continuar"}
         </div>
       }
     </div>
 
     {/* Bloco de assinatura — oculto se já assinante */}
-    {!ehAssinante&&diasRestantes!==null&&diasRestantes>0&&<div style={{background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
-      <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>💳 Assinar agora e não perder o acesso</div>
-      <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>Assine antes do trial vencer e continue sem interrupção. <strong style={{color:"var(--g)"}}>{PRECO}/mês</strong> · PIX ou cartão.</div>
+    {!ehAssinante&&<div style={{background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
+      <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>{diasRestantes>0?"💳 Assinar agora e não perder o acesso":"💳 Assinar para voltar a ter acesso"}</div>
+      <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>{diasRestantes>0?"Assine antes do trial vencer e continue sem interrupção.":"Seu trial encerrou. Assine para voltar a usar o app."} <strong style={{color:"var(--g)"}}>{PRECO}/mês</strong> · PIX ou cartão.</div>
       {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
       <button onClick={handleAssinar} disabled={pagLoading} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:8}}>
         {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Pagar com Mercado Pago</>}
