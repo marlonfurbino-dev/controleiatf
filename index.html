@@ -1,13 +1,119 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>controleiatf-app</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <!-- SEO -->
+  <title>Controle IATF — App para Gestão de Protocolos de Inseminação Artificial em Tempo Fixo</title>
+  <meta name="description" content="App completo para veterinários e produtores rurais gerenciarem protocolos IATF. Cadastre animais, calcule datas automaticamente, envie relatórios pelo WhatsApp. Funciona offline. Teste grátis por 7 dias."/>
+  <meta name="keywords" content="IATF, inseminação artificial em tempo fixo, app IATF, protocolo IATF, software veterinário, gestão reprodutiva bovina, controle reprodutivo, D0 D8 IA, sincronização de cio, veterinário bovino, app fazenda, pecuária, reprodução bovina"/>
+  <meta name="author" content="Controle IATF"/>
+  <meta name="robots" content="index, follow"/>
+  <link rel="canonical" href="https://controleiatf.com.br"/>
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://controleiatf.com.br"/>
+  <meta property="og:title" content="Controle IATF — Gestão de Protocolos de Inseminação Artificial"/>
+  <meta property="og:description" content="App para veterinários e produtores rurais. Protocolos IATF com 2, 3 ou 4 manejos, ficha de animais, relatórios WhatsApp, funciona offline. Teste grátis 7 dias."/>
+  <meta property="og:image" content="https://controleiatf.com.br/og-image.jpg"/>
+  <meta property="og:locale" content="pt_BR"/>
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="Controle IATF — App para Gestão de Protocolos IATF"/>
+  <meta name="twitter:description" content="Gerencie protocolos IATF, cadastre animais e envie relatórios pelo WhatsApp. Funciona offline. Teste grátis."/>
+  <meta name="twitter:image" content="https://controleiatf.com.br/og-image.jpg"/>
+
+  <!-- Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Controle IATF",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web, iOS, Android",
+    "url": "https://controleiatf.com.br",
+    "description": "App completo para veterinários e produtores rurais gerenciarem protocolos de Inseminação Artificial em Tempo Fixo (IATF).",
+    "offers": {
+      "@type": "Offer",
+      "price": "29.90",
+      "priceCurrency": "BRL",
+      "description": "Plano mensal com 7 dias grátis"
+    },
+    "featureList": [
+      "Protocolos IATF com 2, 3 ou 4 manejos",
+      "Cálculo automático de datas de DG e parto",
+      "Relatório via WhatsApp",
+      "Funciona offline",
+      "Múltiplas fazendas",
+      "Banco de sêmen",
+      "Alertas de manejo"
+    ],
+    "author": {
+      "@type": "Organization",
+      "name": "Controle IATF",
+      "url": "https://controleiatf.com.br"
+    }
+  }
+  </script>
+
+  <!-- FAQ Schema para Google -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "O que é IATF?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "IATF significa Inseminação Artificial em Tempo Fixo. É uma biotecnologia reprodutiva utilizada na pecuária bovina para sincronizar a ovulação das vacas e realizar a inseminação em um horário determinado, sem observação do cio."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "O Controle IATF funciona sem internet?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Sim. O app funciona 100% offline. Você cadastra fazendas, animais e protocolos sem conexão, e os dados sincronizam automaticamente quando a internet voltar."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Qual o preço do Controle IATF?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "R$ 29,90 por mês, com 7 dias de teste gratuito. Sem cartão de crédito para começar. Cancele quando quiser."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "O app funciona no iPhone e Android?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Sim. Funciona no navegador de qualquer celular e pode ser instalado como PWA na tela inicial do iPhone ou Android, funcionando como app nativo."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-9NN9QMWW4K"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-9NN9QMWW4K');
+  </script>
+
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
 </html>
