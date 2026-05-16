@@ -765,8 +765,7 @@ export default function App() {
   ⚠️ Protocolo individual: ${a.protocolo_individual}`;
         if(a.obs) t+=`
   📝 Obs: ${a.obs}`;
-        t+="
-";
+        t+="\n";
       });
     }
     t+=`
@@ -821,8 +820,7 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
         t+=` — ${st}`;
         if(a.obsProdutor) t+=`
   💬 ${a.obsProdutor}`;
-        t+="
-";
+        t+="\n";
       });
     }
     t+=`
