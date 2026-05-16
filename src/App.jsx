@@ -699,6 +699,7 @@ export default function App() {
     ping("Fazenda excluída.");
   };
 
+  // ── Relatório Veterinário ─────────────────────────────────────────────
   const sendWA = (pid) => {
     const p  = protocolos.find(x=>x.id===pid);
     const f  = fazendas.find(x=>x.id===p?.fazendaId);
@@ -706,29 +707,128 @@ export default function App() {
     const pr = as.filter(a=>a.diagnostico==="P").length;
     const di = as.filter(a=>a.diagnostico).length;
     const tx = di>0?Math.round(pr/di*100):0;
-    let t=`🐄 *RELATÓRIO IATF*\n🏡 *${f?.nome||"—"}*\n👤 Proprietário: ${f?.proprietario||"—"}\n📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}\n🩺 Veterinário: ${p?.veterinario||"—"}\n📅 D0: ${fmtDH(p?.d0,p?.h0)} | D8: ${fmtDH(p?.d8,p?.h8)}${p?.d10?" | D10: "+fmtDH(p?.d10,p?.h10):""} | IA: ${fmtDH(p?.ia,p?.hia)}\n`;
+    // Cabeçalho com todas as datas do protocolo
+    const n=parseInt(p?.passagens||"3");
+    let crono=`D0: ${fmtDH(p?.d0,p?.h0)}`;
+    if(n>=3) crono+=` | D8: ${fmtDH(p?.d8,p?.h8)}`;
+    if(n>=4) crono+=` | D10: ${fmtDH(p?.d10,p?.h10)}`;
+    crono+=` | IA: ${fmtDH(p?.ia,p?.hia)}`;
+    let t=`🐄 *RELATÓRIO VETERINÁRIO — IATF*
+`;
+    t+=`🏡 *${f?.nome||"—"}*
+`;
+    t+=`👤 Proprietário: ${f?.proprietario||"—"}
+`;
+    t+=`📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}
+`;
+    t+=`🩺 Veterinário: ${p?.veterinario||"—"}
+`;
+    t+=`📅 ${crono}
+`;
+    if(p?.medicamento) t+=`💊 Protocolo: ${p.medicamento}
+`;
     if(p?.ia){
       const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
       const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
-      t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}\n`;
-      t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}\n`;
+      t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
+`;
+      t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}
+`;
     }
-    t+=`\n━━━━━━━━━\n📊 *RESUMO*\n• Total: ${as.length} vacas\n• Prenhas (P+): ${pr}\n• Vazias (V-): ${di-pr}\n• *Taxa: ${tx}%*\n\n`;
+    t+=`
+━━━━━━━━━
+📊 *RESUMO*
+`;
+    t+=`• Total: ${as.length} vacas
+`;
+    t+=`• Prenhas (P+): ${pr}
+`;
+    t+=`• Vazias (V−): ${di-pr}
+`;
+    t+=`• *Taxa de prenhez: ${tx}%*
+`;
     if(as.length>0){
-      t+=`━━━━━━━━━\n📋 *INDIVIDUAL*\n`;
+      t+=`
+━━━━━━━━━
+📋 *INDIVIDUAL*
+`;
       as.forEach(a=>{
         const st=a.diagnostico==="P"?"✅ Prenha":a.diagnostico==="V"?"❌ Vazia":"⏳ Pendente";
         const diasP=calcDiasParida(a.dataUltimoParto);
-        const categoria=a.novilha?"🌟 Novilha":(diasP!==null?`${diasP}d parida`:"");
-        t+=`• ${a.nome}${a.numero?" #"+a.numero:""} — ECC ${a.ecc||"—"}${categoria?" — "+categoria:""} — ${st}`;
-        if(a.dataServico) t+=` — IA: ${fmt(a.dataServico)}`;
-        if(a.touro) t+=`\n  🐂 ${a.touro}${a.partida?" · "+a.partida:""}`;
-        if(a.obs) t+=`\n  📝 ${a.obs}`;
-        t+="\n";
+        const cat=a.novilha?"🌟 Novilha":(diasP!==null?`${diasP}d parida`:"");
+        t+=`• ${a.nome}${a.numero?" #"+a.numero:""} — ECC ${a.ecc||"—"}${cat?" — "+cat:""} — ${st}`;
+        if(a.touro) t+=`
+  🐂 ${a.touro}${a.partida?" · Partida "+a.partida:""}`;
+        if(a.raca) t+=`
+  🐾 Raça: ${a.raca}`;
+        if(a.protocolo_individual) t+=`
+  ⚠️ Protocolo individual: ${a.protocolo_individual}`;
+        if(a.obs) t+=`
+  📝 Obs: ${a.obs}`;
+        t+="
+";
       });
     }
-    t+=`\n_Gerado pelo Controle IATF — controleiatf.com.br_`;
-    trackEvent("relatorio_whatsapp_enviado"); window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+    t+=`
+_Gerado pelo Controle IATF — controleiatf.com.br_`;
+    trackEvent("relatorio_whatsapp_enviado");
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+  };
+
+  // ── Relatório Produtor ────────────────────────────────────────────────
+  const sendWAProdutor = (pid) => {
+    const p  = protocolos.find(x=>x.id===pid);
+    const f  = fazendas.find(x=>x.id===p?.fazendaId);
+    const as = animais.filter(a=>a.protocoloId===pid);
+    const pr = as.filter(a=>a.diagnostico==="P").length;
+    const di = as.filter(a=>a.diagnostico).length;
+    const tx = di>0?Math.round(pr/di*100):0;
+    let t=`🐄 *RELATÓRIO IATF — ${f?.nome||"Fazenda"}*
+`;
+    t+=`👤 Proprietário: ${f?.proprietario||"—"}
+`;
+    t+=`📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}
+`;
+    if(p?.ia){
+      const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
+      const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
+      t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
+`;
+      t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}
+`;
+    }
+    t+=`
+━━━━━━━━━
+📊 *RESUMO*
+`;
+    t+=`• Total: ${as.length} vacas
+`;
+    t+=`• Prenhas (P+): ${pr}
+`;
+    t+=`• Vazias (V−): ${di-pr}
+`;
+    t+=`• *Taxa de prenhez: ${tx}%*
+`;
+    if(as.length>0){
+      t+=`
+━━━━━━━━━
+🐄 *ANIMAIS*
+`;
+      as.forEach(a=>{
+        const st=a.diagnostico==="P"?"✅ Prenha":a.diagnostico==="V"?"❌ Vazia":"⏳ Pendente";
+        t+=`• ${a.nome}${a.numero?" #"+a.numero:""}`;
+        if(a.touro) t+=` — 🐂 ${a.touro}`;
+        t+=` — ${st}`;
+        if(a.obsProdutor) t+=`
+  💬 ${a.obsProdutor}`;
+        t+="
+";
+      });
+    }
+    t+=`
+_Controle IATF — controleiatf.com.br_`;
+    trackEvent("relatorio_produtor_enviado");
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
   };
 
   // Notificações pendentes para hoje/amanhã
@@ -787,7 +887,7 @@ export default function App() {
         onUpdAnimal={updAnimal} onDelAnimal={delAnimal}
         onUpdProtocolo={(ch)=>updProtocolo(p.id,ch)}
         onDelProtocolo={()=>{delProtocolo(p.id);setScreen({type:"fazenda",id:p.fazendaId});}}
-        onWA={()=>sendWA(p.id)} setModal={setModal} ping={ping}/>
+        onWA={()=>sendWA(p.id)} onWAProdutor={sendWAProdutor} setModal={setModal} ping={ping}/>
       {toast&&<div className="toast">{toast}</div>}
       {modal&&<Modal modal={modal} setModal={setModal}/>}
     </div>;
@@ -1078,7 +1178,7 @@ function ProtocoloForm({initial,onSave,onCancel}){
   </div>;
 }
 
-function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,setModal,ping}){
+function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
   const[showForm,setShowForm]=useState(false);
   const[editA,setEditA]=useState(null);
   const[editProt,setEditProt]=useState(false);
@@ -1156,9 +1256,8 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
         <input className="fi" style={{paddingLeft:34}} placeholder="Buscar por nome ou brinco..." value={q} onChange={e=>setQ(e.target.value)}/>
       </div>
 
-      {list.map(a=><AnimalCard key={a.id} animal={a}
+      {list.map(a=><AnimalCard key={a.id} animal={a} protocolo={p}
         onUpdDiag={(d)=>{onUpdAnimal(a.id,{diagnostico:d});ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
-        onUpdMj={(mj)=>onUpdAnimal(a.id,mj)}
         onEdit={()=>setEditA(a)}
         onDel={()=>setModal({type:"confirm",msg:`Remover ${a.nome}?`,onOk:()=>onDelAnimal(a.id)})}
       />)}
@@ -1171,16 +1270,30 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
             onCancel={()=>{setShowForm(false);setEditA(null);}}/>
         :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
       }
-      {animais.length>0&&<button className="btn btn-wa btn-full" style={{marginTop:10}} onClick={onWA}><Icon name="wa" size={16}/> Enviar Relatório via WhatsApp</button>}
+      {animais.length>0&&<div className="row" style={{gap:8,marginTop:10}}>
+        <button className="btn btn-wa btn-sm" style={{flex:1}} onClick={onWA}><Icon name="wa" size={14}/> Rel. Veterinário</button>
+        <button className="btn btn-p btn-sm" style={{flex:1}} onClick={()=>onWAProdutor(p.id)}><Icon name="wa" size={14}/> Rel. Produtor</button>
+      </div>}
     </div>
   </div>;
 }
 
-function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
+function AnimalCard({animal:a,onUpdDiag,onEdit,onDel,protocolo}){
   const[open,setOpen]=useState(false);
   const ini=(a.nome||"??").slice(0,2).toUpperCase();
   const diagBadge=a.diagnostico==="P"?<span className="badge b-g">✅ Prenha</span>:a.diagnostico==="V"?<span className="badge b-r">❌ Vazia</span>:<span className="badge b-gr">⏳ Pendente</span>;
   const dias=calcDiasParida(a.dataUltimoParto);
+  // Cronograma automático do protocolo
+  const crono=protocolo?(() => {
+    const n=parseInt(protocolo.passagens||"3");
+    const steps=n===2
+      ?[["D0",protocolo.d0,protocolo.h0],["IA",protocolo.ia,protocolo.hia]]
+      :n===4
+        ?[["D0",protocolo.d0,protocolo.h0],["D8",protocolo.d8,protocolo.h8],["D10",protocolo.d10,protocolo.h10],["IA",protocolo.ia,protocolo.hia]]
+        :[["D0",protocolo.d0,protocolo.h0],["D8",protocolo.d8,protocolo.h8],["IA",protocolo.ia,protocolo.hia]];
+    return steps.filter(([,d])=>d);
+  })():[];
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
   return <div className="ac">
     <div className="ac-head" onClick={()=>setOpen(o=>!o)}>
       <div className="ac-av">{ini}</div>
@@ -1190,7 +1303,7 @@ function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
         </div>
         <div className="ac-meta">
           ECC: {a.ecc||"—"} · {a.novilha?"Nunca pariu":(dias!==null?`${dias} dias parida`:"Sem data de parto")}
-          {a.dataServico&&<><br/>📅 IA: {fmt(a.dataServico)}</>}
+          {a.touro&&<><br/>🐂 {a.touro}</>}
         </div>
       </div>
       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
@@ -1199,10 +1312,26 @@ function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
       </div>
     </div>
     {open&&<div className="ac-body">
-      <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Manejos realizados</div>
-      <div className="manejos" style={{marginBottom:14}}>
-        {["d0","d8","d10","ia"].map(d=><div key={d} className={`mj${a[d]?" on":""}`} onClick={()=>onUpdMj({[d]:!a[d]})}>{d.toUpperCase()}</div>)}
-      </div>
+      {crono.length>0&&<>
+        <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:8}}>Cronograma do protocolo</div>
+        <div style={{display:"flex",gap:0,marginBottom:14,position:"relative"}}>
+          {crono.map(([lbl,dt,hr],i)=>{
+            const d=new Date(dt+"T12:00:00"); d.setHours(0,0,0,0);
+            const diff=Math.round((d-hoje)/86400000);
+            const done=diff<0;
+            const today=diff===0;
+            return <div key={lbl} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",position:"relative"}}>
+              {i<crono.length-1&&<div style={{position:"absolute",top:14,left:"50%",width:"100%",height:2,background:done?"var(--g)":"var(--gr2)",zIndex:0}}/>}
+              <div style={{width:28,height:28,borderRadius:"50%",background:done?"var(--g)":today?"var(--y)":"var(--gr2)",color:done||today?"#fff":"var(--gr4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,zIndex:1,border:today?"2px solid var(--y)":"none",boxShadow:today?"0 0 0 3px rgba(234,179,8,.2)":"none"}}>
+                {done?"✓":lbl}
+              </div>
+              <div style={{fontSize:9,fontWeight:700,color:done?"var(--g)":today?"var(--y)":"var(--gr4)",marginTop:3}}>{lbl}</div>
+              <div style={{fontSize:9,color:"var(--gr3)",marginTop:1}}>{new Date(dt+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div>
+              {hr&&<div style={{fontSize:9,color:"var(--gr3)"}}>{hr}h</div>}
+            </div>;
+          })}
+        </div>
+      </>}
       <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Diagnóstico de gestação</div>
       <div className="diag-row" style={{marginBottom:14}}>
         <button className={`diag-btn${a.diagnostico==="P"?" p":""}`} onClick={()=>onUpdDiag("P")}>✅ Prenha (P+)</button>
@@ -1292,12 +1421,7 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
       </div>
       <div className="fg" style={{flex:1}}><label className="fl">Nº Partida</label><input className="fi" value={f.partida||""} onChange={e=>s("partida",e.target.value)} placeholder="Ex: 2024/01"/></div>
     </div>
-    <div className="fg">
-      <label className="fl">Manejos realizados</label>
-      <div className="manejos">
-        {["d0","d8","d10","ia"].map(d=><div key={d} className={`mj${f[d]?" on":""}`} onClick={()=>s(d,!f[d])}>{d.toUpperCase()}</div>)}
-      </div>
-    </div>
+
     <div className="div"/>
     <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Diagnóstico</div>
     <div className="fg">
