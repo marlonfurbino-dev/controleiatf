@@ -5,7 +5,13 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://cwzcfovndjofpqgbjatw.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3emNmb3ZuZGpvZnBxZ2JqYXR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2OTgxMzcsImV4cCI6MjA5NDI3NDEzN30.O0YV2a0gvfAgX3TGENU3ytWKnOWHzXPgT-hSSYsnkHw";
 const WHATSAPP_CONTATO = "5531996999797";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: false,   // não salva sessão no localStorage — exige login ao fechar
+    autoRefreshToken: false, // não renova token em background
+    detectSessionInUrl: false,
+  }
+});
 
 // ── Offline-first Storage ─────────────────────────────────────────────────
 const DB = {
