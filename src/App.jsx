@@ -238,7 +238,7 @@ const agendaNotificacoes = (protocolos) => {
   if (Notification.permission !== "granted") return;
 
   protocolos.forEach(p => {
-    [["D0", p.d0], ["D8", p.d8], ["IA (Inseminação)", p.ia]].forEach(([label, date]) => {
+    [["D0", p.d0], ["D8", p.d8], ["D10", p.d10], ["IA (Inseminação)", p.ia]].forEach(([label, date]) => {
       if (!date) return;
       const target = new Date(date + "T08:00:00");
       const aviso = new Date(target);
@@ -659,7 +659,7 @@ export default function App() {
     const pr = as.filter(a=>a.diagnostico==="P").length;
     const di = as.filter(a=>a.diagnostico).length;
     const tx = di>0?Math.round(pr/di*100):0;
-    let t=`🐄 *RELATÓRIO IATF*\n🏡 *${f?.nome||"—"}*\n👤 Proprietário: ${f?.proprietario||"—"}\n📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}\n🩺 Veterinário: ${p?.veterinario||"—"}\n📅 D0: ${fmtDH(p?.d0,p?.h0)} | D8: ${fmtDH(p?.d8,p?.h8)} | IA: ${fmtDH(p?.ia,p?.hia)}\n`;
+    let t=`🐄 *RELATÓRIO IATF*\n🏡 *${f?.nome||"—"}*\n👤 Proprietário: ${f?.proprietario||"—"}\n📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}\n🩺 Veterinário: ${p?.veterinario||"—"}\n📅 D0: ${fmtDH(p?.d0,p?.h0)} | D8: ${fmtDH(p?.d8,p?.h8)}${p?.d10?" | D10: "+fmtDH(p?.d10,p?.h10):""} | IA: ${fmtDH(p?.ia,p?.hia)}\n`;
     if(p?.ia){
       const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
       const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
@@ -691,7 +691,7 @@ export default function App() {
     const amanha = new Date(hoje); amanha.setDate(amanha.getDate()+1);
     protocolos.forEach(p => {
       const f = fazendas.find(x=>x.id===p.fazendaId);
-      [["D0",p.d0],["D8",p.d8],["IA",p.ia]].forEach(([lbl,dt])=>{
+      [["D0",p.d0],["D8",p.d8],["D10",p.d10],["IA",p.ia]].forEach(([lbl,dt])=>{
         if(!dt) return;
         const d = new Date(dt+"T12:00:00"); d.setHours(0,0,0,0);
         const diff = Math.round((d-hoje)/86400000);
@@ -709,9 +709,10 @@ export default function App() {
 
   if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
 
-  // Verificar trial
+  // Verificar trial — assinante ativo nunca vai para o paywall
   const diasRestantes = diasRestantesTrial(user.created_at);
-  if (diasRestantes === 0) return <PaywallScreen user={user} onLogout={logout} />;
+  const ehAssinante = perfil?.assinante === true;
+  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} onLogout={logout} />;
 
   if(screen?.type==="fazenda"){
     const f=fazendas.find(x=>x.id===screen.id);
@@ -751,11 +752,14 @@ export default function App() {
   return <div className="app"><style>{CSS}</style>
     <div className="hdr">
       <div style={{flex:1}}><div className="hdr-title">🐄 Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
-      {diasRestantes <= 3 && diasRestantes > 0 && (
-        <span style={{fontSize:11,fontWeight:700,background:"var(--yl)",color:"var(--y)",padding:"3px 8px",borderRadius:99,marginRight:6}}>
-          {diasRestantes}d trial
-        </span>
-      )}
+      {ehAssinante
+        ? <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
+        : diasRestantes <= 3 && diasRestantes > 0 && (
+          <span style={{fontSize:11,fontWeight:700,background:"var(--yl)",color:"var(--y)",padding:"3px 8px",borderRadius:99,marginRight:6}}>
+            {diasRestantes}d trial
+          </span>
+        )
+      }
       <button className="hdr-btn" title="Sair" onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}><Icon name="logout" size={18}/></button>
     </div>
 
@@ -802,7 +806,7 @@ export default function App() {
     {tab==="fazendas"&&<FazendasTab fazendas={fazendas} protocolos={protocolos} animais={animais} onOpen={(id)=>setScreen({type:"fazenda",id})} onAdd={addFazenda}/>}
     {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
     {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
-    {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes}/>}
+    {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante}/>}
 
     <nav className="nav">
       {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["biblioteca","list","Biblioteca"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
@@ -903,36 +907,60 @@ function FazendaForm({initial,onSave,onCancel}){
 }
 
 function ProtocoloForm({initial,onSave,onCancel}){
-  const PROTOCOLOS_PADRAO = ["3 Passagens (D0/D8/IA)","2 Passagens (D0/IA)","Protocolo J-Synch","Protocolo 5-Day CO-Synch","Outro"];
-  const[f,setF]=useState(initial||{d0:"",h0:"",d8:"",h8:"",ia:"",hia:"",veterinario:"",passagens:"3",medicamento:"",protocolo_tipo:"3 Passagens (D0/D8/IA)"});
+  const PROTOCOLOS_PADRAO = ["3 Passagens (D0/D8/IA)","4 Passagens (D0/D8/D10/IA)","2 Passagens (D0/IA)","Outro"];
+  const[f,setF]=useState(initial||{d0:"",h0:"",d8:"",h8:"",d10:"",h10:"",ia:"",hia:"",veterinario:"",passagens:"3",medicamento:"",protocolo_tipo:"3 Passagens (D0/D8/IA)"});
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
   const isEdit=!!initial;
-  const passagens3 = [["D0","Início do protocolo","d0","h0"],["D8","Segunda passagem","d8","h8"],["IA","Inseminação artificial","ia","hia"]];
-  const passagens2 = [["D0","Início do protocolo","d0","h0"],["IA","Inseminação artificial","ia","hia"]];
-  const steps = f.passagens==="2" ? passagens2 : passagens3;
+  const diasDesdeD0=(dateStr)=>{
+    if(!f.d0||!dateStr) return null;
+    const diff=Math.round((new Date(dateStr+"T12:00:00")-new Date(f.d0+"T12:00:00"))/86400000);
+    return diff>=0?diff:null;
+  };
+  const allSteps=[
+    {lbl:"D0",desc:"Início do protocolo",dk:"d0",hk:"h0",prev:null},
+    {lbl:"D8",desc:"Segunda passagem",dk:"d8",hk:"h8",prev:"d0"},
+    {lbl:"D10",desc:"Terceira passagem",dk:"d10",hk:"h10",prev:"d8"},
+    {lbl:"IA",desc:"Inseminação artificial",dk:"ia",hk:"hia",prev:f.passagens==="4"?"d10":f.passagens==="3"?"d8":"d0"},
+  ];
+  const steps=f.passagens==="2"
+    ?allSteps.filter(s=>["D0","IA"].includes(s.lbl))
+    :f.passagens==="4"
+      ?allSteps
+      :allSteps.filter(s=>["D0","D8","IA"].includes(s.lbl));
   return <div className="form-box">
     <div className="form-box-title">{isEdit?"✏️ Editar Protocolo":"📋 Novo Protocolo IATF"}</div>
     <div className="fg">
       <label className="fl">Tipo de Protocolo</label>
-      <select className="fi fi-sel" value={f.protocolo_tipo} onChange={e=>{s("protocolo_tipo",e.target.value);s("passagens",e.target.value.includes("2 Passagens")?"2":"3");}}>
+      <select className="fi fi-sel" value={f.protocolo_tipo} onChange={e=>{
+        const v=e.target.value;s("protocolo_tipo",v);
+        if(v.includes("4 Passagens"))s("passagens","4");
+        else if(v.includes("2 Passagens"))s("passagens","2");
+        else s("passagens","3");
+      }}>
         {PROTOCOLOS_PADRAO.map(p=><option key={p}>{p}</option>)}
       </select>
     </div>
     <div className="fg">
       <label className="fl">Nº de Passagens</label>
       <div style={{display:"flex",gap:8}}>
-        {["2","3"].map(n=><div key={n} onClick={()=>s("passagens",n)} style={{flex:1,textAlign:"center",padding:"9px",borderRadius:"var(--r8)",border:`1.5px solid ${f.passagens===n?"var(--g)":"var(--gr2)"}`,background:f.passagens===n?"var(--gp)":"var(--w)",fontWeight:700,fontSize:14,color:f.passagens===n?"var(--g)":"var(--gr4)",cursor:"pointer"}}>{n} passagens</div>)}
+        {[["2","2x"],["3","3x"],["4","4x"]].map(([n,lbl])=><div key={n} onClick={()=>s("passagens",n)} style={{flex:1,textAlign:"center",padding:"9px",borderRadius:"var(--r8)",border:`1.5px solid ${f.passagens===n?"var(--g)":"var(--gr2)"}`,background:f.passagens===n?"var(--gp)":"var(--w)",fontWeight:700,fontSize:14,color:f.passagens===n?"var(--g)":"var(--gr4)",cursor:"pointer"}}>{lbl}</div>)}
       </div>
     </div>
-    <div className="fg"><label className="fl">Protocolo medicamentoso utilizado</label><textarea className="fi fi-ta" value={f.medicamento} onChange={e=>s("medicamento",e.target.value)} placeholder="Ex: D0 — Sincrogest + Sincrogest ear implant + BE 1mg&#10;D8 — PGF2α + eCG 400UI + BE 1mg&#10;D10 — IA"/></div>
+    <div className="fg"><label className="fl">Protocolo medicamentoso utilizado</label><textarea className="fi fi-ta" value={f.medicamento} onChange={e=>s("medicamento",e.target.value)} placeholder="Ex: D0 — Sincrogest + BE 1mg&#10;D8 — PGF2α + eCG 400UI&#10;D10 — BE 1mg&#10;IA"/></div>
     <div className="div"/>
-    {steps.map(([lbl,desc,dk,hk])=>(
-      <div key={dk} style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
-        <div style={{fontSize:11,fontWeight:800,color:"var(--g)",marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{lbl} — {desc}</div>
+    {steps.map(({lbl,desc,dk,hk,prev},idx)=>{
+      const isVisible=idx===0||!!f[prev];
+      if(!isVisible) return null;
+      const dias=dk!=="d0"?diasDesdeD0(f[dk]):null;
+      return <div key={dk} style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5}}>{lbl} — {desc}</div>
+          {dias!==null&&<span style={{fontSize:11,fontWeight:800,background:"var(--gp)",color:"var(--g)",padding:"2px 8px",borderRadius:99}}>D{dias}</span>}
+        </div>
         <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={f[dk]} onChange={e=>s(dk,e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
         <div><label className="fl">Horário</label><input type="time" className="fi" value={f[hk]} onChange={e=>s(hk,e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
-      </div>
-    ))}
+      </div>;
+    })}
     <div className="div"/>
     <div className="fg"><label className="fl">Veterinário Responsável</label><input className="fi" value={f.veterinario} onChange={e=>s("veterinario",e.target.value)} placeholder="Nome do veterinário"/></div>
     <div className="row" style={{gap:8,marginTop:4}}>
@@ -970,7 +998,12 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
               <span style={{fontSize:11,color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setEditProt(true)}>✏️ Editar</span>
             </div>
             <div className="tl">
-              {[["D0",p.d0,p.h0],["D8",p.d8,p.h8],["IA",p.ia,p.hia]].map(([lbl,dt,hr])=>{
+              {(p.passagens==="4"
+                ?[["D0",p.d0,p.h0],["D8",p.d8,p.h8],["D10",p.d10,p.h10],["IA",p.ia,p.hia]]
+                :p.passagens==="2"
+                  ?[["D0",p.d0,p.h0],["IA",p.ia,p.hia]]
+                  :[["D0",p.d0,p.h0],["D8",p.d8,p.h8],["IA",p.ia,p.hia]]
+              ).map(([lbl,dt,hr])=>{
                 const done=isDone(dt);
                 return <div key={lbl} className="tl-step">
                   <div className={`tl-dot${done?" done":""}`}>{done?<Icon name="check" size={11}/>:lbl}</div>
@@ -1060,7 +1093,7 @@ function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
     {open&&<div className="ac-body">
       <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Manejos realizados</div>
       <div className="manejos" style={{marginBottom:14}}>
-        {["d0","d8","ia"].map(d=><div key={d} className={`mj${a[d]?" on":""}`} onClick={()=>onUpdMj({[d]:!a[d]})}>{d.toUpperCase()}</div>)}
+        {["d0","d8","d10","ia"].map(d=><div key={d} className={`mj${a[d]?" on":""}`} onClick={()=>onUpdMj({[d]:!a[d]})}>{d.toUpperCase()}</div>)}
       </div>
       <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Diagnóstico de gestação</div>
       <div className="diag-row" style={{marginBottom:14}}>
@@ -1092,7 +1125,7 @@ function AnimalCard({animal:a,onUpdDiag,onUpdMj,onEdit,onDel}){
 }
 
 function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
-  const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,ia:false,diagnostico:"",obs:"",obsProdutor:"",protocolo_individual:""});
+  const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,d10:false,ia:false,diagnostico:"",obs:"",obsProdutor:"",protocolo_individual:""});
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
   const[touроSuggestions,setTouroSuggestions]=useState([]);
   const onTouroChange=(v)=>{
@@ -1154,7 +1187,7 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
     <div className="fg">
       <label className="fl">Manejos realizados</label>
       <div className="manejos">
-        {["d0","d8","ia"].map(d=><div key={d} className={`mj${f[d]?" on":""}`} onClick={()=>s(d,!f[d])}>{d.toUpperCase()}</div>)}
+        {["d0","d8","d10","ia"].map(d=><div key={d} className={`mj${f[d]?" on":""}`} onClick={()=>s(d,!f[d])}>{d.toUpperCase()}</div>)}
       </div>
     </div>
     <div className="div"/>
@@ -1187,7 +1220,7 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
   </div>;
 }
 
-function BibliotecaTab({protocolos,fazendas,animais,onOpen,onWA,sendWAProdutor}){
+function BibliotecaTab({protocolos=[],fazendas=[],animais=[],onOpen,onWA,sendWAProdutor}){
   const sorted=[...protocolos].sort((a,b)=>b.at-a.at);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Biblioteca 📚</div>
@@ -1259,24 +1292,32 @@ function SemenTab({semenBank,setSemenBank,ping}){
   </div>;
 }
 
-function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes}){
+function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehAssinante}){
   const[editing,setEditing]=useState(false);
   const[f,setF]=useState({nome:perfil?.nome||"",sobrenome:perfil?.sobrenome||"",cidade:perfil?.cidade||"",whatsapp:perfil?.whatsapp||""});
   const[saveErr,setSaveErr]=useState("");
+  const[pagLoading,setPagLoading]=useState(false);
+  const[pagErro,setPagErro]=useState("");
   const save=async()=>{
     setSaveErr("");
     const {error} = await supabase.from("perfis").upsert({id:user.id,...f},{onConflict:"id"});
     if(error){
-      // Fallback: try update directly
       const {error:err2} = await supabase.from("perfis").update({...f}).eq("id",user.id);
-      if(err2){
-        setSaveErr("Erro ao salvar: "+err2.message);
-        return;
-      }
+      if(err2){setSaveErr("Erro ao salvar: "+err2.message);return;}
     }
     setPerfil(x=>({...x,...f}));
     setEditing(false);
     ping("Perfil atualizado!");
+  };
+  const handleAssinar=async()=>{
+    setPagLoading(true);setPagErro("");
+    try{
+      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:user?.email})});
+      const data=await res.json();
+      if(data.init_point){window.location.href=data.init_point;}
+      else{setPagErro("Erro ao iniciar pagamento. Tente novamente.");}
+    }catch{setPagErro("Erro de conexão. Verifique sua internet.");}
+    setPagLoading(false);
   };
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
@@ -1290,10 +1331,25 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes}){
           <div style={{fontSize:13,color:"var(--gr4)"}}>{user?.email}</div>
         </div>
       </div>
-      {diasRestantes!==null&&<div style={{background:diasRestantes>3?"var(--gp)":"var(--rl)",border:`1px solid ${diasRestantes>3?"var(--gm)":"var(--r)"}`,borderRadius:"var(--r8)",padding:"10px 12px",fontSize:13,fontWeight:600,color:diasRestantes>3?"var(--g)":"var(--r)",marginBottom:12}}>
-        {diasRestantes>0?`⏳ ${diasRestantes} dias restantes no período trial`:"⚠️ Período trial encerrado — assine para continuar"}
-      </div>}
+      {ehAssinante
+        ?<div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",padding:"10px 12px",fontSize:13,fontWeight:600,color:"var(--g)",marginBottom:12}}>✅ Assinatura ativa — acesso completo</div>
+        :diasRestantes!==null&&<div style={{background:diasRestantes>3?"var(--gp)":"var(--rl)",border:`1px solid ${diasRestantes>3?"var(--gm)":"var(--r)"}`,borderRadius:"var(--r8)",padding:"10px 12px",fontSize:13,fontWeight:600,color:diasRestantes>3?"var(--g)":"var(--r)",marginBottom:12}}>
+          {diasRestantes>0?`⏳ ${diasRestantes} dias restantes no período trial`:"⚠️ Período trial encerrado — assine para continuar"}
+        </div>
+      }
     </div>
+
+    {/* Bloco de assinatura — oculto se já assinante */}
+    {!ehAssinante&&diasRestantes!==null&&diasRestantes>0&&<div style={{background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
+      <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>💳 Assinar agora e não perder o acesso</div>
+      <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>Assine antes do trial vencer e continue sem interrupção. <strong style={{color:"var(--g)"}}>{PRECO}/mês</strong> · PIX ou cartão.</div>
+      {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
+      <button onClick={handleAssinar} disabled={pagLoading} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:8}}>
+        {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Pagar com Mercado Pago</>}
+      </button>
+      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF.")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:600,textDecoration:"none"}}>💬 Prefiro pagar via WhatsApp</a>
+    </div>}
+
     {editing
       ?<div className="form-box">
         <div className="form-box-title">✏️ Editar Perfil</div>
