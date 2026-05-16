@@ -412,13 +412,13 @@ function PaywallScreen({ user, onLogout }) {
           <div onClick={()=>setPlano("individual")} style={{flex:1,padding:"12px 8px",borderRadius:12,border:`2px solid ${plano==="individual"?"var(--g)":"var(--gr2)"}`,background:plano==="individual"?"var(--gp)":"#fff",cursor:"pointer",transition:"all .15s"}}>
             <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",marginBottom:4}}>INDIVIDUAL</div>
             <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>R$ 43,90</div>
-            <div style={{fontSize:11,color:"var(--gr4)"}}>/mês · 1 acesso</div>
+            <div style={{fontSize:11,color:"var(--gr4)"}}>/mês · 1 usuário</div>
           </div>
           <div onClick={()=>setPlano("equipe")} style={{flex:1,padding:"12px 8px",borderRadius:12,border:`2px solid ${plano==="equipe"?"var(--g)":"var(--gr2)"}`,background:plano==="equipe"?"var(--gp)":"#fff",cursor:"pointer",position:"relative",transition:"all .15s"}}>
             <div style={{position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",background:"var(--g)",color:"#fff",fontSize:10,fontWeight:800,padding:"2px 10px",borderRadius:99,whiteSpace:"nowrap"}}>MAIS POPULAR</div>
             <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",marginBottom:4}}>EQUIPE</div>
             <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>R$ 99,00</div>
-            <div style={{fontSize:11,color:"var(--gr4)"}}>/mês · 3 acessos</div>
+            <div style={{fontSize:11,color:"var(--gr4)"}}>/mês · 3 usuários</div>
           </div>
         </div>
 
@@ -836,7 +836,7 @@ export default function App() {
     t+=`
 _Gerado pelo Controle IATF — controleiatf.com.br_`;
     trackEvent("relatorio_whatsapp_enviado");
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+    window.location.href=`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
   };
 
   // ── Relatório Produtor ────────────────────────────────────────────────
@@ -891,7 +891,7 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
     t+=`
 _Controle IATF — controleiatf.com.br_`;
     trackEvent("relatorio_produtor_enviado");
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+    window.location.href=`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
   };
 
   // Notificações pendentes para hoje/amanhã
@@ -1643,7 +1643,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>{diasRestantes>0?"💳 Assinar agora e não perder o acesso":"💳 Assinar para voltar a ter acesso"}</div>
       <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>{diasRestantes>0?"Assine antes do trial vencer.":"Seu trial encerrou."} Cancele quando quiser · sem fidelidade.</div>
       <div style={{display:"flex",gap:6,marginBottom:12}}>
-        {[["individual","Individual","R$ 43,90","1 acesso"],["equipe","Equipe","R$ 99,00","3 acessos"]].map(([k,lbl,preco,desc])=>(
+        {[["individual","Individual","R$ 43,90","1 usuário"],["equipe","Equipe","R$ 99,00","3 usuários"]].map(([k,lbl,preco,desc])=>(
           <div key={k} onClick={()=>setPagPlano(k)} style={{flex:1,padding:"10px 6px",borderRadius:10,border:`1.5px solid ${pagPlano===k?"var(--g)":"var(--gr2)"}`,background:pagPlano===k?"var(--gp)":"var(--w)",cursor:"pointer",textAlign:"center"}}>
             <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)"}}>{lbl}</div>
             <div style={{fontSize:16,fontWeight:800,color:"var(--g)"}}>{preco}</div>
@@ -1655,7 +1655,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       <button onClick={handleAssinar} disabled={pagLoading} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:8}}>
         {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Assinar plano {pagPlano==="equipe"?"Equipe":"Individual"}</>}
       </button>
-      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o plano ${pagPlano==="equipe"?"Equipe (R$ 99,00/mês - 3 acessos)":"Individual (R$ 43,90/mês)"} do Controle IATF.`)}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Pagar via PIX pelo WhatsApp</a>
+      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o plano ${pagPlano==="equipe"?"Equipe (R$ 99,00/mês - 3 usuários)":"Individual (R$ 43,90/mês)"} do Controle IATF.`)}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Pagar via PIX pelo WhatsApp</a>
     </div>}
 
     {editing
