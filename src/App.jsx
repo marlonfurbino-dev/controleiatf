@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 // ── Supabase ──────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://cwzcfovndjofpqgbjatw.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3emNmb3ZuZGpvZnBxZ2JqYXR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2OTgxMzcsImV4cCI6MjA5NDI3NDEzN30.O0YV2a0gvfAgX3TGENU3ytWKnOWHzXPgT-hSSYsnkHw";
-const WHATSAPP_CONTATO = "5531990805070";
+const WHATSAPP_CONTATO = "5531996999797";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Offline-first Storage ─────────────────────────────────────────────────
@@ -360,19 +360,22 @@ function PaywallScreen({ user, onLogout }) {
     setLoading(true);
     setErro("");
     try {
+      const {data:{session}} = await supabase.auth.getSession();
+      const token = session?.access_token||"";
       const res = await fetch(EDGE_FUNCTION_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ email: user?.email }),
       });
       const data = await res.json();
       if (data.init_point) {
         window.location.href = data.init_point;
       } else {
-        setErro("Erro ao iniciar pagamento. Tente novamente.");
+        const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
+        setErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
       }
-    } catch {
-      setErro("Erro de conexão. Verifique sua internet.");
+    } catch(e) {
+      setErro("Erro de conexão: " + e.message);
     }
     setLoading(false);
   };
@@ -563,6 +566,24 @@ function AuthScreen({ onAuth }) {
   );
 }
 
+// ── Google Analytics ─────────────────────────────────────────────────────
+const GA_ID = "G-9NN9QMWW4K";
+function initGA() {
+  if (window._gaInited) return;
+  window._gaInited = true;
+  const s1 = document.createElement("script");
+  s1.async = true;
+  s1.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+  document.head.appendChild(s1);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){window.dataLayer.push(arguments);};
+  window.gtag("js", new Date());
+  window.gtag("config", GA_ID);
+}
+function trackEvent(name, params={}) {
+  if (window.gtag) window.gtag("event", name, params);
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
@@ -581,6 +602,9 @@ export default function App() {
   const [modal,  setModal]  = useState(null);
   const [toast,  setToast]  = useState(null);
 
+  // Iniciar Google Analytics
+  useEffect(() => { initGA(); }, []);
+
   // Check auth session
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -589,6 +613,7 @@ export default function App() {
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
         if (data) setPerfil(data);
         else if (session.user.user_metadata?.nome) setPerfil(session.user.user_metadata);
+        trackEvent("login", {method:"email"});
       }
       setLoading(false);
     });
@@ -639,7 +664,7 @@ export default function App() {
 
   const addFazenda   = (f) => { const n={...f,id:uid(),at:Date.now()}; setFazendas(x=>[n,...x]); ping("Fazenda cadastrada!"); return n; };
   const updFazenda   = (id,ch) => { setFazendas(x=>x.map(f=>f.id===id?{...f,...ch}:f)); ping("Fazenda atualizada!"); };
-  const addProtocolo = (p) => { const n={...p,id:uid(),at:Date.now()}; setProtocolos(x=>[n,...x]); ping("Protocolo iniciado!"); return n; };
+  const addProtocolo = (p) => { const n={...p,id:uid(),at:Date.now()}; setProtocolos(x=>[n,...x]); ping("Protocolo iniciado!"); trackEvent("protocolo_criado"); return n; };
   const updProtocolo = (id,ch) => { setProtocolos(x=>x.map(p=>p.id===id?{...p,...ch}:p)); ping("Protocolo atualizado!"); };
   const delProtocolo = (id) => { setProtocolos(x=>x.filter(p=>p.id!==id)); setAnimais(x=>x.filter(a=>a.protocoloId!==id)); ping("Protocolo excluído."); };
   const addAnimal    = (a) => { const n={...a,id:uid(),at:Date.now()}; setAnimais(x=>[n,...x]); ping("Animal adicionado!"); };
@@ -682,7 +707,7 @@ export default function App() {
       });
     }
     t+=`\n_Gerado pelo Controle IATF — controleiatf.com.br_`;
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+    trackEvent("relatorio_whatsapp_enviado"); window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
   };
 
   // Notificações pendentes para hoje/amanhã
@@ -1374,11 +1399,16 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const handleAssinar=async()=>{
     setPagLoading(true);setPagErro("");
     try{
-      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:user?.email})});
+      const {data:{session}} = await supabase.auth.getSession();
+      const token = session?.access_token||"";
+      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email})});
       const data=await res.json();
       if(data.init_point){window.location.href=data.init_point;}
-      else{setPagErro("Erro ao iniciar pagamento. Tente novamente.");}
-    }catch{setPagErro("Erro de conexão. Verifique sua internet.");}
+      else{
+        const errMsg=data.message||data.error||"Erro ao iniciar pagamento.";
+        setPagErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+      }
+    }catch(e){setPagErro("Erro de conexão: "+e.message);}
     setPagLoading(false);
   };
   return <div className="scr">
