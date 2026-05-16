@@ -614,10 +614,10 @@ export default function App() {
     // Se URL contém /app, vai direto para o app
     return window.location.pathname.includes("/app") ? "app" : "landing";
   });
-  const [fazendas,   setFazendas]   = useState(() => DB.get("iatf_f")  || []);
-  const [protocolos, setProtocolos] = useState(() => DB.get("iatf_p")  || []);
-  const [animais,    setAnimais]    = useState(() => DB.get("iatf_a")  || []);
-  const [semenBank,  setSemenBank]  = useState(() => DB.get("iatf_s")  || []);
+  const [fazendas,   setFazendas]   = useState([]);
+  const [protocolos, setProtocolos] = useState([]);
+  const [animais,    setAnimais]    = useState([]);
+  const [semenBank,  setSemenBank]  = useState([]);
   const [tab,    setTab]    = useState("home");
   const [screen, setScreen] = useState(null);
   const [modal,  setModal]  = useState(null);
@@ -675,28 +675,93 @@ export default function App() {
     agendaNotificacoes(protocolos);
   }, [user, protocolos]);
 
-  useEffect(() => DB.set("iatf_f",  fazendas),   [fazendas]);
-  useEffect(() => DB.set("iatf_p",  protocolos), [protocolos]);
-  useEffect(() => DB.set("iatf_a",  animais),    [animais]);
-  useEffect(() => DB.set("iatf_s",  semenBank),  [semenBank]);
+  // ── Carregar dados do Supabase quando usuário logar ──────────────────
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const uid = user.id;
+      const [fz, pr, an, sm] = await Promise.all([
+        supabase.from("fazendas").select("*").eq("user_id", uid).order("at", {ascending:false}),
+        supabase.from("protocolos").select("*").eq("user_id", uid).order("at", {ascending:false}),
+        supabase.from("animais").select("*").eq("user_id", uid).order("at", {ascending:false}),
+        supabase.from("semen_bank").select("*").eq("user_id", uid).order("at", {ascending:false}),
+      ]);
+      if (fz.data) setFazendas(fz.data.map(f=>({...f, id:f.id, fazendaId:f.fazenda_id, proprietario:f.proprietario||"", municipio:f.municipio||"", uf:f.uf||""})));
+      if (pr.data) setProtocolos(pr.data.map(p=>({...p, id:p.id, fazendaId:p.fazenda_id})));
+      if (an.data) setAnimais(an.data.map(a=>({...a, id:a.id, protocoloId:a.protocolo_id, dataUltimoParto:a.data_ultimo_parto||"", dataServico:a.data_servico||"", obsProdutor:a.obs_produtor||"", protocolo_individual:a.protocolo_individual||"", novilha:a.novilha||false})));
+      if (sm.data) setSemenBank(sm.data.map(s=>({...s, id:s.id})));
+    };
+    load();
+  }, [user]);
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
-  const logout = async () => { await supabase.auth.signOut(); setUser(null); };
+  const logout = async () => { await supabase.auth.signOut(); setUser(null); setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); };
 
-  const addFazenda   = (f) => { const n={...f,id:uid(),at:Date.now()}; setFazendas(x=>[n,...x]); ping("Fazenda cadastrada!"); return n; };
-  const updFazenda   = (id,ch) => { setFazendas(x=>x.map(f=>f.id===id?{...f,...ch}:f)); ping("Fazenda atualizada!"); };
-  const addProtocolo = (p) => { const n={...p,id:uid(),at:Date.now()}; setProtocolos(x=>[n,...x]); ping("Protocolo iniciado!"); trackEvent("protocolo_criado"); return n; };
-  const updProtocolo = (id,ch) => { setProtocolos(x=>x.map(p=>p.id===id?{...p,...ch}:p)); ping("Protocolo atualizado!"); };
-  const delProtocolo = (id) => { setProtocolos(x=>x.filter(p=>p.id!==id)); setAnimais(x=>x.filter(a=>a.protocoloId!==id)); ping("Protocolo excluído."); };
-  const addAnimal    = (a) => { const n={...a,id:uid(),at:Date.now()}; setAnimais(x=>[n,...x]); ping("Animal adicionado!"); };
-  const updAnimal    = (id,ch) => setAnimais(x=>x.map(a=>a.id===id?{...a,...ch}:a));
-  const delAnimal    = (id) => { setAnimais(x=>x.filter(a=>a.id!==id)); ping("Removido."); };
-  const delFazenda   = (id) => {
+  const addFazenda = async (f) => {
+    const n={...f,id:uid(),at:Date.now(),user_id:user.id,fazenda_id:null};
+    setFazendas(x=>[n,...x]);
+    await supabase.from("fazendas").insert({id:n.id,user_id:user.id,nome:f.nome,proprietario:f.proprietario,municipio:f.municipio,uf:f.uf,telefone:f.telefone,email:f.email,obs:f.obs,at:n.at});
+    ping("Fazenda cadastrada!"); return n;
+  };
+  const updFazenda = async (id,ch) => {
+    setFazendas(x=>x.map(f=>f.id===id?{...f,...ch}:f));
+    await supabase.from("fazendas").update({...ch}).eq("id",id);
+    ping("Fazenda atualizada!");
+  };
+  const delFazenda = async (id) => {
     const pids = protocolos.filter(p=>p.fazendaId===id).map(p=>p.id);
     setFazendas(x=>x.filter(f=>f.id!==id));
     setProtocolos(x=>x.filter(p=>p.fazendaId!==id));
     setAnimais(x=>x.filter(a=>!pids.includes(a.protocoloId)));
+    await supabase.from("fazendas").delete().eq("id",id);
     ping("Fazenda excluída.");
+  };
+  const addProtocolo = async (p) => {
+    const n={...p,id:uid(),at:Date.now()};
+    setProtocolos(x=>[n,...x]);
+    await supabase.from("protocolos").insert({id:n.id,user_id:user.id,fazenda_id:p.fazendaId,passagens:p.passagens,protocolo_tipo:p.protocolo_tipo,medicamento:p.medicamento,veterinario:p.veterinario,d0:p.d0,h0:p.h0,d8:p.d8,h8:p.h8,d10:p.d10,h10:p.h10,ia:p.ia,hia:p.hia,at:n.at});
+    ping("Protocolo iniciado!"); trackEvent("protocolo_criado"); return n;
+  };
+  const updProtocolo = async (id,ch) => {
+    setProtocolos(x=>x.map(p=>p.id===id?{...p,...ch}:p));
+    await supabase.from("protocolos").update({...ch}).eq("id",id);
+    ping("Protocolo atualizado!");
+  };
+  const delProtocolo = async (id) => {
+    setProtocolos(x=>x.filter(p=>p.id!==id));
+    setAnimais(x=>x.filter(a=>a.protocoloId!==id));
+    await supabase.from("protocolos").delete().eq("id",id);
+    ping("Protocolo excluído.");
+  };
+  const addAnimal = async (a) => {
+    const n={...a,id:uid(),at:Date.now()};
+    setAnimais(x=>[n,...x]);
+    await supabase.from("animais").insert({id:n.id,user_id:user.id,protocolo_id:a.protocoloId,nome:a.nome,numero:a.numero,ecc:a.ecc,novilha:a.novilha||false,data_ultimo_parto:a.dataUltimoParto,raca:a.raca,data_servico:a.dataServico,touro:a.touro,partida:a.partida,diagnostico:a.diagnostico||"",obs:a.obs,obs_produtor:a.obsProdutor,protocolo_individual:a.protocolo_individual,at:n.at});
+    ping("Animal adicionado!");
+  };
+  const updAnimal = async (id,ch) => {
+    setAnimais(x=>x.map(a=>a.id===id?{...a,...ch}:a));
+    // Mapear campos do frontend para colunas do banco
+    const dbCh={};
+    if(ch.diagnostico!==undefined) dbCh.diagnostico=ch.diagnostico;
+    if(ch.nome!==undefined) dbCh.nome=ch.nome;
+    if(ch.numero!==undefined) dbCh.numero=ch.numero;
+    if(ch.ecc!==undefined) dbCh.ecc=ch.ecc;
+    if(ch.novilha!==undefined) dbCh.novilha=ch.novilha;
+    if(ch.dataUltimoParto!==undefined) dbCh.data_ultimo_parto=ch.dataUltimoParto;
+    if(ch.raca!==undefined) dbCh.raca=ch.raca;
+    if(ch.dataServico!==undefined) dbCh.data_servico=ch.dataServico;
+    if(ch.touro!==undefined) dbCh.touro=ch.touro;
+    if(ch.partida!==undefined) dbCh.partida=ch.partida;
+    if(ch.obs!==undefined) dbCh.obs=ch.obs;
+    if(ch.obsProdutor!==undefined) dbCh.obs_produtor=ch.obsProdutor;
+    if(ch.protocolo_individual!==undefined) dbCh.protocolo_individual=ch.protocolo_individual;
+    if(Object.keys(dbCh).length>0) await supabase.from("animais").update(dbCh).eq("id",id);
+  };
+  const delAnimal = async (id) => {
+    setAnimais(x=>x.filter(a=>a.id!==id));
+    await supabase.from("animais").delete().eq("id",id);
+    ping("Removido.");
   };
 
   // ── Relatório Veterinário ─────────────────────────────────────────────
