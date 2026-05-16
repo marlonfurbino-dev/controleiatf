@@ -836,7 +836,7 @@ export default function App() {
     t+=`
 _Gerado pelo Controle IATF — controleiatf.com.br_`;
     trackEvent("relatorio_whatsapp_enviado");
-    return `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
   };
 
   // ── Relatório Produtor ────────────────────────────────────────────────
@@ -891,7 +891,7 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
     t+=`
 _Controle IATF — controleiatf.com.br_`;
     trackEvent("relatorio_produtor_enviado");
-    return `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
   };
 
   // Notificações pendentes para hoje/amanhã
@@ -1701,14 +1701,14 @@ function Modal({modal,setModal}){
         <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <button onClick={()=>{const url=sendWA(modal.pid);close();setTimeout(()=>{window.location.href=url;},100);}} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
+          <button onClick={()=>{sendWA(modal.pid);close();}} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
             <span style={{fontSize:28}}>🩺</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
               <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
             </div>
           </button>
-          <button onClick={()=>{const url=sendWAProdutor(modal.pid);close();setTimeout(()=>{window.location.href=url;},100);}} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
+          <button onClick={()=>{sendWAProdutor(modal.pid);close();}} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
             <span style={{fontSize:28}}>🌾</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
