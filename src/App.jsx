@@ -1363,7 +1363,7 @@ function AnimalCard({animal:a,onUpdDiag,onEdit,onDel,protocolo}){
 function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
   const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,d10:false,ia:false,diagnostico:"",obs:"",obsProdutor:"",protocolo_individual:""});
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
-  const[touроSuggestions,setTouroSuggestions]=useState([]);
+  const[touroSuggestions,setTouroSuggestions]=useState([]);
   const onTouroChange=(v)=>{
     s("touro",v);
     if(v.length>=2){
@@ -1412,8 +1412,8 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
       <div className="fg autocomplete" style={{flex:2}}>
         <label className="fl">Touro utilizado</label>
         <input className="fi" value={f.touro||""} onChange={e=>onTouroChange(e.target.value)} placeholder="Digite para buscar no banco..."/>
-        {touроSuggestions.length>0&&<div className="autocomplete-list">
-          {touроSuggestions.map((item,i)=><div key={i} className="autocomplete-item" onClick={()=>selectTouro(item)}>
+        {touroSuggestions.length>0&&<div className="autocomplete-list">
+          {touroSuggestions.map((item,i)=><div key={i} className="autocomplete-item" onClick={()=>selectTouro(item)}>
             🐂 {item.touro} <span style={{color:"var(--gr4)",fontSize:11}}>({item.raca} · {item.quantidade} doses)</span>
           </div>)}
         </div>}
