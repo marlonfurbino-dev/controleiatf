@@ -1689,6 +1689,14 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   </div>;
 }
 
+function WALink({url,onClose,bg,border,children}){
+  return <a href={url} target="_blank" rel="noreferrer" onClick={onClose}
+    style={{display:"flex",alignItems:"center",gap:14,background:bg,border:border,
+    borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",
+    fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
+    {children}
+  </a>;
+}
 function Modal({modal,setModal}){
   const close=()=>setModal(null);
   return <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)close();}}>
@@ -1701,20 +1709,20 @@ function Modal({modal,setModal}){
         <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <button onClick={()=>{sendWA(modal.pid);close();}} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
+          <WALink url={sendWA(modal.pid)} onClose={close} bg="var(--gp)" border="1.5px solid var(--gm)">
             <span style={{fontSize:28}}>🩺</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
               <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
             </div>
-          </button>
-          <button onClick={()=>{sendWAProdutor(modal.pid);close();}} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
+          </WALink>
+          <WALink url={sendWAProdutor(modal.pid)} onClose={close} bg="#f0fdf4" border="1.5px solid #86efac">
             <span style={{fontSize:28}}>🌾</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
               <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Enxuto — nome, touro, diagnóstico e obs para o produtor</div>
             </div>
-          </button>
+          </WALink>
         </div>
       </>}
       {modal.type==="confirm"&&<>
