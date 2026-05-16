@@ -1701,20 +1701,20 @@ function Modal({modal,setModal}){
         <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <a href={sendWA(modal.pid)} onClick={close} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none"}}>
+          <button onClick={()=>{const url=sendWA(modal.pid);close();setTimeout(()=>{window.location.href=url;},100);}} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
             <span style={{fontSize:28}}>🩺</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
               <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
             </div>
-          </a>
-          <a href={sendWAProdutor(modal.pid)} onClick={close} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none"}}>
+          </button>
+          <button onClick={()=>{const url=sendWAProdutor(modal.pid);close();setTimeout(()=>{window.location.href=url;},100);}} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",fontFamily:"var(--f)",width:"100%"}}>
             <span style={{fontSize:28}}>🌾</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
               <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Enxuto — nome, touro, diagnóstico e obs para o produtor</div>
             </div>
-          </a>
+          </button>
         </div>
       </>}
       {modal.type==="confirm"&&<>
