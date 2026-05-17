@@ -1709,14 +1709,14 @@ function Modal({modal,setModal}){
         <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <WALink url={sendWA(modal.pid)} onClose={close} bg="var(--gp)" border="1.5px solid var(--gm)">
+          <WALink url={modal?.pid?sendWA(modal.pid):"#"} onClose={close} bg="var(--gp)" border="1.5px solid var(--gm)">
             <span style={{fontSize:28}}>🩺</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
               <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
             </div>
           </WALink>
-          <WALink url={sendWAProdutor(modal.pid)} onClose={close} bg="#f0fdf4" border="1.5px solid #86efac">
+          <WALink url={modal?.pid?sendWAProdutor(modal.pid):"#"} onClose={close} bg="#f0fdf4" border="1.5px solid #86efac">
             <span style={{fontSize:28}}>🌾</span>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
