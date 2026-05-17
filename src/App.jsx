@@ -1690,6 +1690,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
 }
 
 function WALink({url,onClose,bg,border,children}){
+  if(!url||url==="#") return null;
   return <a href={url} target="_blank" rel="noreferrer" onClick={onClose}
     style={{display:"flex",alignItems:"center",gap:14,background:bg,border:border,
     borderRadius:14,padding:"16px 18px",cursor:"pointer",textAlign:"left",
@@ -1705,26 +1706,31 @@ function Modal({modal,setModal}){
         <div className="modal-hdr"><div className="modal-title">🏡 Nova Fazenda</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <FazendaForm onSave={(f)=>{modal.onSave(f);close();}} onCancel={close}/>
       </>}
-      {modal.type==="relatorio"&&<>
-        <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
-        <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <WALink url={modal?.pid?sendWA(modal.pid):"#"} onClose={close} bg="var(--gp)" border="1.5px solid var(--gm)">
-            <span style={{fontSize:28}}>🩺</span>
-            <div>
-              <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
-              <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
-            </div>
-          </WALink>
-          <WALink url={modal?.pid?sendWAProdutor(modal.pid):"#"} onClose={close} bg="#f0fdf4" border="1.5px solid #86efac">
-            <span style={{fontSize:28}}>🌾</span>
-            <div>
-              <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
-              <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Enxuto — nome, touro, diagnóstico e obs para o produtor</div>
-            </div>
-          </WALink>
-        </div>
-      </>}
+      {modal.type==="relatorio"&&(()=>{
+        let urlVet="#", urlProd="#";
+        try { urlVet=sendWA(modal.pid)||"#"; } catch(e){}
+        try { urlProd=sendWAProdutor(modal.pid)||"#"; } catch(e){}
+        return <>
+          <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
+          <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <a href={urlVet} target="_blank" rel="noreferrer" onClick={close} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
+              <span style={{fontSize:28}}>🩺</span>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
+                <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
+              </div>
+            </a>
+            <a href={urlProd} target="_blank" rel="noreferrer" onClick={close} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
+              <span style={{fontSize:28}}>🌾</span>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
+                <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Enxuto — nome, touro, diagnóstico e obs para o produtor</div>
+              </div>
+            </a>
+          </div>
+        </>;
+      })()}
       {modal.type==="confirm"&&<>
         <div className="modal-hdr"><div className="modal-title">⚠️ Confirmar</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20}}>{modal.msg}</div>
