@@ -1260,7 +1260,7 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
       <div style={{flex:1}}><div className="hdr-title">{f?.nome}</div><div className="hdr-sub">Protocolo IATF · 3 passagens</div></div>
       <button className="hdr-btn" style={{marginRight:4}} onClick={()=>setEditProt(true)}><Icon name="edit" size={17}/></button>
       <button className="hdr-btn danger" style={{marginRight:4}} onClick={()=>setModal({type:"confirm",msg:"Excluir este protocolo e todos os animais?",onOk:onDelProtocolo})}><Icon name="trash" size={17}/></button>
-      <button className="hdr-btn" style={{background:"rgba(37,211,102,.25)"}} onClick={()=>setModal({type:"relatorio",pid:p.id})}><Icon name="wa" size={20} color="#25D366"/></button>
+
     </div>
     <div className="scr">
       {editProt
@@ -1335,9 +1335,6 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
             onCancel={()=>{setShowForm(false);setEditA(null);}}/>
         :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
       }
-      {animais.length>0&&<div className="row" style={{gap:8,marginTop:10}}>
-        <button className="btn btn-wa btn-full" onClick={()=>setModal({type:"relatorio",pid:p.id})}><Icon name="wa" size={16}/> Enviar Relatório via WhatsApp</button>
-      </div>}
     </div>
   </div>;
 }
@@ -1647,7 +1644,6 @@ function BibliotecaTab({protocolos=[],fazendas=[],animais=[],onOpen,onWA,sendWAP
         {tx!==null&&<div className="prog" style={{marginBottom:10}}><div className="prog-fill" style={{width:tx+"%"}}/></div>}
         <div className="row" style={{gap:6,flexWrap:"wrap"}}>
           <button className="btn btn-gh btn-sm" style={{flex:1}} onClick={()=>onOpen(p.id)}><Icon name="edit" size={14}/> Abrir</button>
-          <button className="btn btn-wa btn-full" style={{marginTop:4}} onClick={()=>onRelatorio(p.id)}><Icon name="wa" size={14}/> Enviar Relatório</button>
         </div>
       </div>;
     })}
