@@ -7,8 +7,8 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const WHATSAPP_CONTATO = "5531996999797";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
-    persistSession: false,   // não salva sessão no localStorage — exige login ao fechar
-    autoRefreshToken: false, // não renova token em background
+    persistSession: true,    // mantém sessão ao trocar de aba
+    autoRefreshToken: true,  // renova token automaticamente
     detectSessionInUrl: false,
   }
 });
@@ -1714,14 +1714,14 @@ function Modal({modal,setModal}){
           <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
           <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <a href={urlVet} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
+            <a href={urlVet} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:28}}>🩺</span>
               <div>
                 <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
                 <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
               </div>
             </a>
-            <a href={urlProd} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
+            <a href={urlProd} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:28}}>🌾</span>
               <div>
                 <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
