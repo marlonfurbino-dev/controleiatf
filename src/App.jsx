@@ -24,6 +24,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const Icon = ({ name, size = 20, color = "currentColor" }) => {
   const d = {
     home:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+    doc:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>,
     list:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
     farm:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
     plus:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
@@ -1017,10 +1018,11 @@ _Controle IATF — controleiatf.com.br_`;
     {tab==="fazendas"&&<FazendasTab fazendas={fazendas} protocolos={protocolos} animais={animais} onOpen={(id)=>setScreen({type:"fazenda",id})} onAdd={addFazenda}/>}
     {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor} onRelatorio={(pid)=>setModal({type:"relatorio",pid})}/>}
     {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
+    {tab==="relatorios"&&<RelatoriosTab protocolos={protocolos} fazendas={fazendas} animais={animais} sendWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
     {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante}/>}
 
     <nav className="nav">
-      {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["biblioteca","list","Biblioteca"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
+      {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["relatorios","doc","Relatórios"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
         <button key={key} className={`nav-btn${tab===key?" on":""}`} onClick={()=>setTab(key)}>
           <Icon name={icon} size={22}/>{lbl}
         </button>
@@ -1199,8 +1201,8 @@ function ProtocoloForm({initial,onSave,onCancel}){
     {/* Campo D0 — sempre visível */}
     <div style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
       <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>D0 — Início do protocolo</div>
-      <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={datas[0]?.data||""} onChange={e=>setData(0,"data",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
-      <div><label className="fl">Horário</label><input type="time" className="fi" value={datas[0]?.hora||""} onChange={e=>setData(0,"hora",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+      <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[0]?.data||""} onChange={e=>setData(0,"data",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[0]?.data&&<button type="button" onClick={()=>setData(0,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+      <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[0]?.hora||""} onChange={e=>setData(0,"hora",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[0]?.hora&&<button type="button" onClick={()=>setData(0,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
     </div>
 
     {/* Campos intermediários — só aparecem se o campo anterior tiver data */}
@@ -1217,8 +1219,8 @@ function ProtocoloForm({initial,onSave,onCancel}){
           </div>
           {diasLabel===null&&datas[idx]?.data===""&&<span style={{fontSize:11,color:"var(--gr4)"}}>preencha a data para calcular</span>}
         </div>
-        <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={datas[idx]?.data||""} onChange={e=>setData(idx,"data",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
-        <div><label className="fl">Horário</label><input type="time" className="fi" value={datas[idx]?.hora||""} onChange={e=>setData(idx,"hora",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+        <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[idx]?.data||""} onChange={e=>setData(idx,"data",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[idx]?.data&&<button type="button" onClick={()=>setData(idx,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+        <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[idx]?.hora||""} onChange={e=>setData(idx,"hora",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[idx]?.hora&&<button type="button" onClick={()=>setData(idx,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
       </div>;
     })}
 
@@ -1228,8 +1230,8 @@ function ProtocoloForm({initial,onSave,onCancel}){
         <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5}}>IA — Inseminação Artificial</div>
         {diasDesdeD0(datas[nInt-1]?.data)!==null&&<span style={{fontSize:11,fontWeight:800,background:"var(--gp)",color:"var(--g)",padding:"2px 8px",borderRadius:99}}>D{diasDesdeD0(datas[nInt-1]?.data)}</span>}
       </div>
-      <div style={{marginBottom:8}}><label className="fl">Data</label><input type="date" className="fi" value={datas[nInt-1]?.data||""} onChange={e=>setData(nInt-1,"data",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
-      <div><label className="fl">Horário</label><input type="time" className="fi" value={datas[nInt-1]?.hora||""} onChange={e=>setData(nInt-1,"hora",e.target.value)} style={{width:"100%",fontSize:15,padding:"10px 12px"}}/></div>
+      <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[nInt-1]?.data||""} onChange={e=>setData(nInt-1,"data",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[nInt-1]?.data&&<button type="button" onClick={()=>setData(nInt-1,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+      <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[nInt-1]?.hora||""} onChange={e=>setData(nInt-1,"hora",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[nInt-1]?.hora&&<button type="button" onClick={()=>setData(nInt-1,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
     </div>}
 
     <div className="div"/>
@@ -1469,8 +1471,7 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
       {dias!==null&&<div style={{marginTop:6,padding:"6px 10px",background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",fontSize:12,fontWeight:600,color:"var(--g)"}}>📆 {dias} dias de parida</div>}
     </div>}
     <div className="div"/>
-    <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Serviço</div>
-    <div className="fg"><label className="fl">Data do Serviço (IA)</label><input type="date" className="fi" value={f.dataServico||""} onChange={e=>s("dataServico",e.target.value)}/></div>
+
     <div className="frow">
       <div className="fg autocomplete" style={{flex:2}}>
         <label className="fl">Touro utilizado</label>
@@ -1511,6 +1512,110 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
       <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome)return alert("Informe o nome do animal");onSave(f);}}><Icon name="check" size={16}/> {initial?"Atualizar":"Salvar Animal"}</button>
     </div>
+  </div>;
+}
+
+function RelatoriosTab({protocolos,fazendas,animais,sendWA,sendWAProdutor}){
+  const[selected,setSelected]=useState(null); // {pid, tipo} tipo="vet"|"prod"
+  const[copied,setCopied]=useState(false);
+
+  // Agrupar protocolos por fazenda/proprietário
+  const grupos=fazendas.map(f=>{
+    const prots=protocolos.filter(p=>p.fazendaId===f.id).sort((a,b)=>b.at-a.at);
+    return {fazenda:f, protocolos:prots};
+  }).filter(g=>g.protocolos.length>0);
+
+  const getTexto=(pid,tipo)=>{
+    try{ return tipo==="vet"?sendWA(pid):sendWAProdutor(pid); }catch(e){ return ""; }
+  };
+
+  const copiar=(pid,tipo)=>{
+    const txt=getTexto(pid,tipo);
+    // Converter URL do WhatsApp de volta para texto legível
+    const decoded=decodeURIComponent(txt.replace("https://api.whatsapp.com/send?text=",""));
+    navigator.clipboard?.writeText(decoded).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  };
+
+  const baixar=(pid,tipo,fazNome)=>{
+    const txt=getTexto(pid,tipo);
+    const decoded=decodeURIComponent(txt.replace("https://api.whatsapp.com/send?text=",""));
+    const blob=new Blob([decoded],{type:"text/plain;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=`relatorio_${fazNome||"iatf"}_${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.txt`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const fmtData=(d)=>d?new Date(d+"T12:00:00").toLocaleDateString("pt-BR"):"—";
+
+  if(selected){
+    const p=protocolos.find(x=>x.id===selected.pid);
+    const f=fazendas.find(x=>x.id===p?.fazendaId);
+    const urlVet=getTexto(selected.pid,"vet");
+    const urlProd=getTexto(selected.pid,"prod");
+    const txtVet=decodeURIComponent(urlVet.replace("https://api.whatsapp.com/send?text=",""));
+    const txtProd=decodeURIComponent(urlProd.replace("https://api.whatsapp.com/send?text=",""));
+    const txt=selected.tipo==="vet"?txtVet:txtProd;
+    const url=selected.tipo==="vet"?urlVet:urlProd;
+    return <div className="scr">
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+        <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",cursor:"pointer",padding:4}}><Icon name="back" size={22}/></button>
+        <div>
+          <div style={{fontSize:16,fontWeight:800}}>{selected.tipo==="vet"?"🩺 Relatório Veterinário":"🌾 Relatório Produtor"}</div>
+          <div style={{fontSize:12,color:"var(--gr4)"}}>{f?.nome} · {fmtData(p?.d0)}</div>
+        </div>
+      </div>
+      {/* Texto do relatório */}
+      <div style={{background:"var(--gr1)",borderRadius:"var(--r8)",padding:16,marginBottom:16,fontFamily:"monospace",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap",wordBreak:"break-word",maxHeight:"50vh",overflowY:"auto",border:"1px solid var(--gr2)"}}>
+        {txt}
+      </div>
+      {/* Ações */}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <button onClick={()=>copiar(selected.pid,selected.tipo)} style={{display:"flex",alignItems:"center",gap:10,background:copied?"var(--g)":"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:12,padding:"13px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,color:copied?"#fff":"var(--g)",cursor:"pointer"}}>
+          {copied?"✅ Copiado!":"📋 Copiar texto"}
+        </button>
+        <button onClick={()=>baixar(selected.pid,selected.tipo,f?.nome)} style={{display:"flex",alignItems:"center",gap:10,background:"var(--gr1)",border:"1.5px solid var(--gr2)",borderRadius:12,padding:"13px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,color:"var(--gr5)",cursor:"pointer"}}>
+          📄 Baixar como .txt
+        </button>
+        <a href={url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,background:"rgba(37,211,102,.1)",border:"1.5px solid rgba(37,211,102,.3)",borderRadius:12,padding:"13px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,color:"#25D366",textDecoration:"none"}}>
+          💬 Enviar pelo WhatsApp
+        </a>
+      </div>
+      {/* Mudar tipo */}
+      <div style={{marginTop:16,display:"flex",gap:8}}>
+        <button onClick={()=>setSelected(s=>({...s,tipo:"vet"}))} style={{flex:1,padding:"10px",borderRadius:10,border:`1.5px solid ${selected.tipo==="vet"?"var(--g)":"var(--gr2)"}`,background:selected.tipo==="vet"?"var(--gp)":"var(--w)",fontFamily:"var(--f)",fontSize:13,fontWeight:700,color:selected.tipo==="vet"?"var(--g)":"var(--gr4)",cursor:"pointer"}}>🩺 Veterinário</button>
+        <button onClick={()=>setSelected(s=>({...s,tipo:"prod"}))} style={{flex:1,padding:"10px",borderRadius:10,border:`1.5px solid ${selected.tipo==="prod"?"var(--g)":"var(--gr2)"}`,background:selected.tipo==="prod"?"var(--gp)":"var(--w)",fontFamily:"var(--f)",fontSize:13,fontWeight:700,color:selected.tipo==="prod"?"var(--g)":"var(--gr4)",cursor:"pointer"}}>🌾 Produtor</button>
+      </div>
+    </div>;
+  }
+
+  return <div className="scr">
+    <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>📄 Relatórios</div>
+    <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Histórico de relatórios por proprietário</div>
+    {grupos.length===0&&<div className="empty"><Icon name="doc" size={44}/><div className="empty-t">Nenhum relatório disponível</div><div className="empty-s">Crie protocolos nas fazendas para gerar relatórios</div></div>}
+    {grupos.map(({fazenda:f,protocolos:prots})=>(
+      <div key={f.id} style={{marginBottom:20}}>
+        <div style={{fontSize:13,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:8,paddingBottom:6,borderBottom:"1px solid var(--gr2)"}}>{f.nome} · {f.proprietario||"—"}</div>
+        {prots.map(p=>{
+          const as=animais.filter(a=>a.protocoloId===p.id);
+          const pr=as.filter(a=>a.diagnostico==="P").length;
+          const di=as.filter(a=>a.diagnostico).length;
+          const tx=di>0?Math.round(pr/di*100):null;
+          return <div key={p.id} onClick={()=>setSelected({pid:p.id,tipo:"vet"})} style={{background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r8)",padding:"12px 14px",marginBottom:8,cursor:"pointer"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:700}}>D0: {p.d0?new Date(p.d0+"T12:00:00").toLocaleDateString("pt-BR"):"—"} · IA: {p.ia?new Date(p.ia+"T12:00:00").toLocaleDateString("pt-BR"):"—"}</div>
+                <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>{as.length} animais · {p.veterinario||"Veterinário não informado"}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                {tx!==null&&<div style={{fontSize:14,fontWeight:800,color:tx>=50?"var(--g)":"var(--r)"}}>{tx}%</div>}
+                <div style={{fontSize:10,color:"var(--gr3)"}}>{p.passagens} manejos</div>
+              </div>
+            </div>
+          </div>;
+        })}
+      </div>
+    ))}
   </div>;
 }
 
