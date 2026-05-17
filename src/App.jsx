@@ -699,10 +699,18 @@ export default function App() {
   const logout = async () => { await supabase.auth.signOut(); setUser(null); setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); };
 
   const addFazenda = async (f) => {
-    const n={...f,id:uid(),at:Date.now(),user_id:user.id,fazenda_id:null};
+    const n={...f,id:uid(),at:Date.now()};
     setFazendas(x=>[n,...x]);
-    await supabase.from("fazendas").insert({id:n.id,user_id:user.id,nome:f.nome,proprietario:f.proprietario,municipio:f.municipio,uf:f.uf,telefone:f.telefone,email:f.email,obs:f.obs,at:n.at});
-    ping("Fazenda cadastrada!"); return n;
+    const {error} = await supabase.from("fazendas").insert({
+      id:n.id, user_id:user.id,
+      nome:f.nome||"", proprietario:f.proprietario||"",
+      municipio:f.municipio||"", uf:f.uf||"",
+      telefone:f.telefone||"", email:f.email||"",
+      obs:f.obs||"", at:n.at
+    });
+    if(error){ console.error("addFazenda erro:",error); ping("Erro ao salvar fazenda!"); }
+    else ping("Fazenda cadastrada!");
+    return n;
   };
   const updFazenda = async (id,ch) => {
     setFazendas(x=>x.map(f=>f.id===id?{...f,...ch}:f));
@@ -720,8 +728,17 @@ export default function App() {
   const addProtocolo = async (p) => {
     const n={...p,id:uid(),at:Date.now()};
     setProtocolos(x=>[n,...x]);
-    await supabase.from("protocolos").insert({id:n.id,user_id:user.id,fazenda_id:p.fazendaId,passagens:p.passagens,protocolo_tipo:p.protocolo_tipo,medicamento:p.medicamento,veterinario:p.veterinario,d0:p.d0,h0:p.h0,d8:p.d8,h8:p.h8,d10:p.d10,h10:p.h10,ia:p.ia,hia:p.hia,at:n.at});
-    ping("Protocolo iniciado!"); trackEvent("protocolo_criado"); return n;
+    const {error} = await supabase.from("protocolos").insert({
+      id:n.id, user_id:user.id, fazenda_id:p.fazendaId,
+      passagens:p.passagens||"3", protocolo_tipo:p.protocolo_tipo||"",
+      medicamento:p.medicamento||"", veterinario:p.veterinario||"",
+      d0:p.d0||"", h0:p.h0||"", d8:p.d8||"", h8:p.h8||"",
+      d10:p.d10||"", h10:p.h10||"", ia:p.ia||"", hia:p.hia||"",
+      at:n.at
+    });
+    if(error) console.error("addProtocolo erro:",error);
+    else { ping("Protocolo iniciado!"); trackEvent("protocolo_criado"); }
+    return n;
   };
   const updProtocolo = async (id,ch) => {
     setProtocolos(x=>x.map(p=>p.id===id?{...p,...ch}:p));
@@ -737,8 +754,20 @@ export default function App() {
   const addAnimal = async (a) => {
     const n={...a,id:uid(),at:Date.now()};
     setAnimais(x=>[n,...x]);
-    await supabase.from("animais").insert({id:n.id,user_id:user.id,protocolo_id:a.protocoloId,nome:a.nome,numero:a.numero,ecc:a.ecc,novilha:a.novilha||false,data_ultimo_parto:a.dataUltimoParto,raca:a.raca,data_servico:a.dataServico,touro:a.touro,partida:a.partida,diagnostico:a.diagnostico||"",obs:a.obs,obs_produtor:a.obsProdutor,protocolo_individual:a.protocolo_individual,at:n.at});
-    ping("Animal adicionado!");
+    const {error} = await supabase.from("animais").insert({
+      id:n.id, user_id:user.id, protocolo_id:a.protocoloId,
+      nome:a.nome||"", numero:a.numero||"", ecc:a.ecc||"",
+      novilha:a.novilha||false,
+      data_ultimo_parto:a.dataUltimoParto||"",
+      raca:a.raca||"", data_servico:a.dataServico||"",
+      touro:a.touro||"", partida:a.partida||"",
+      diagnostico:a.diagnostico||"",
+      obs:a.obs||"", obs_produtor:a.obsProdutor||"",
+      protocolo_individual:a.protocolo_individual||"",
+      at:n.at
+    });
+    if(error){ console.error("addAnimal erro:",error); ping("Erro ao salvar animal!"); }
+    else ping("Animal adicionado!");
   };
   const updAnimal = async (id,ch) => {
     setAnimais(x=>x.map(a=>a.id===id?{...a,...ch}:a));
