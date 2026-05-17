@@ -616,6 +616,8 @@ export default function App() {
     return window.location.pathname.includes("/app") ? "app" : "landing";
   });
   const [fazendas,   setFazendas]   = useState([]);
+  const [isMembro,   setIsMembro]   = useState(false);  // true se for membro convidado
+  const [ownerIdRef, setOwnerIdRef] = useState(null);   // user_id do dono (se for membro)
   const [protocolos, setProtocolos] = useState([]);
   const [animais,    setAnimais]    = useState([]);
   const [semenBank,  setSemenBank]  = useState([]);
@@ -626,6 +628,42 @@ export default function App() {
 
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
+
+  // Verificar token de convite na URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (!token) return;
+    // Armazenar token para processar após login
+    sessionStorage.setItem("convite_token", token);
+    // Limpar URL
+    window.history.replaceState({}, "", "/");
+  }, []);
+
+  // Processar convite após login
+  useEffect(() => {
+    if (!user) return;
+    const token = sessionStorage.getItem("convite_token");
+    if (!token) return;
+    sessionStorage.removeItem("convite_token");
+    const processarConvite = async () => {
+      const {data, error} = await supabase
+        .from("membros_equipe")
+        .select("*")
+        .eq("token", token)
+        .eq("status", "pendente")
+        .single();
+      if (error || !data) { ping("Convite inválido ou já utilizado."); return; }
+      // Ativar membro
+      await supabase.from("membros_equipe")
+        .update({membro_id: user.id, status: "ativo"})
+        .eq("id", data.id);
+      ping("✅ Você entrou na equipe com sucesso!");
+      // Recarregar app para carregar dados do dono
+      setTimeout(() => window.location.reload(), 1500);
+    };
+    processarConvite();
+  }, [user]);
 
   // Check auth session
   useEffect(() => {
@@ -680,17 +718,34 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const uid = user.id;
+      // Verificar se é membro de alguma equipe
+      const {data:membroData} = await supabase
+        .from("membros_equipe")
+        .select("owner_id")
+        .eq("membro_id", user.id)
+        .eq("status", "ativo")
+        .single();
+
+      let targetId = user.id;
+      if (membroData?.owner_id) {
+        setIsMembro(true);
+        setOwnerIdRef(membroData.owner_id);
+        targetId = membroData.owner_id;
+      } else {
+        setIsMembro(false);
+        setOwnerIdRef(null);
+      }
+
       const [fz, pr, an, sm] = await Promise.all([
-        supabase.from("fazendas").select("*").eq("user_id", uid).order("at", {ascending:false}),
-        supabase.from("protocolos").select("*").eq("user_id", uid).order("at", {ascending:false}),
-        supabase.from("animais").select("*").eq("user_id", uid).order("at", {ascending:false}),
-        supabase.from("semen_bank").select("*").eq("user_id", uid).order("at", {ascending:false}),
+        supabase.from("fazendas").select("*").eq("user_id", targetId).order("at", {ascending:false}),
+        supabase.from("protocolos").select("*").eq("user_id", targetId).order("at", {ascending:false}),
+        supabase.from("animais").select("*").eq("user_id", targetId).order("at", {ascending:false}),
+        supabase.from("semen_bank").select("*").eq("user_id", targetId).order("at", {ascending:false}),
       ]);
-      if (fz.data) setFazendas(fz.data.map(f=>({...f, id:f.id, fazendaId:f.fazenda_id, proprietario:f.proprietario||"", municipio:f.municipio||"", uf:f.uf||""})));
-      if (pr.data) setProtocolos(pr.data.map(p=>({...p, id:p.id, fazendaId:p.fazenda_id})));
-      if (an.data) setAnimais(an.data.map(a=>({...a, id:a.id, protocoloId:a.protocolo_id, dataUltimoParto:a.data_ultimo_parto||"", dataServico:a.data_servico||"", obsProdutor:a.obs_produtor||"", protocolo_individual:a.protocolo_individual||"", novilha:a.novilha||false})));
-      if (sm.data) setSemenBank(sm.data.map(s=>({...s, id:s.id})));
+      if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
+      if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
+      if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
+      if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
     };
     load();
   }, [user]);
@@ -699,6 +754,7 @@ export default function App() {
   const logout = async () => { await supabase.auth.signOut(); setUser(null); setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); };
 
   const addFazenda = async (f) => {
+    if(isMembro){ ping("Apenas o dono pode criar fazendas."); return null; }
     const n={...f,id:uid(),at:Date.now()};
     setFazendas(x=>[n,...x]);
     const {error} = await supabase.from("fazendas").insert({
@@ -718,6 +774,7 @@ export default function App() {
     ping("Fazenda atualizada!");
   };
   const delFazenda = async (id) => {
+    if(isMembro){ ping("Apenas o dono pode excluir."); return; }
     const pids = protocolos.filter(p=>p.fazendaId===id).map(p=>p.id);
     setFazendas(x=>x.filter(f=>f.id!==id));
     setProtocolos(x=>x.filter(p=>p.fazendaId!==id));
@@ -728,8 +785,9 @@ export default function App() {
   const addProtocolo = async (p) => {
     const n={...p,id:uid(),at:Date.now()};
     setProtocolos(x=>[n,...x]);
+    const targetUserId = ownerIdRef || user.id;
     const {error} = await supabase.from("protocolos").insert({
-      id:n.id, user_id:user.id, fazenda_id:p.fazendaId,
+      id:n.id, user_id:targetUserId, fazenda_id:p.fazendaId,
       passagens:p.passagens||"3", protocolo_tipo:p.protocolo_tipo||"",
       medicamento:p.medicamento||"", veterinario:p.veterinario||"",
       d0:p.d0||"", h0:p.h0||"", d8:p.d8||"", h8:p.h8||"",
@@ -746,6 +804,7 @@ export default function App() {
     ping("Protocolo atualizado!");
   };
   const delProtocolo = async (id) => {
+    if(isMembro){ ping("Apenas o dono pode excluir."); return; }
     setProtocolos(x=>x.filter(p=>p.id!==id));
     setAnimais(x=>x.filter(a=>a.protocoloId!==id));
     await supabase.from("protocolos").delete().eq("id",id);
@@ -754,8 +813,9 @@ export default function App() {
   const addAnimal = async (a) => {
     const n={...a,id:uid(),at:Date.now()};
     setAnimais(x=>[n,...x]);
+    const targetUserId = ownerIdRef || user.id;
     const {error} = await supabase.from("animais").insert({
-      id:n.id, user_id:user.id, protocolo_id:a.protocoloId,
+      id:n.id, user_id:targetUserId, protocolo_id:a.protocoloId,
       nome:a.nome||"", numero:a.numero||"", ecc:a.ecc||"",
       novilha:a.novilha||false,
       data_ultimo_parto:a.dataUltimoParto||"",
@@ -789,6 +849,7 @@ export default function App() {
     if(Object.keys(dbCh).length>0) await supabase.from("animais").update(dbCh).eq("id",id);
   };
   const delAnimal = async (id) => {
+    if(isMembro){ ping("Apenas o dono pode excluir."); return; }
     setAnimais(x=>x.filter(a=>a.id!==id));
     await supabase.from("animais").delete().eq("id",id);
     ping("Removido.");
@@ -1048,7 +1109,7 @@ _Controle IATF — controleiatf.com.br_`;
     {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor} onRelatorio={(pid)=>setModal({type:"relatorio",pid})}/>}
     {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
     {tab==="relatorios"&&<RelatoriosTab protocolos={protocolos} fazendas={fazendas} animais={animais} sendWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
-    {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante}/>}
+    {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante} isMembro={isMembro} ownerIdRef={ownerIdRef}/>}
 
     <nav className="nav">
       {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["relatorios","doc","Relatórios"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
@@ -1715,13 +1776,53 @@ function SemenTab({semenBank,setSemenBank,ping}){
   </div>;
 }
 
-function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehAssinante}){
+function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehAssinante,isMembro,ownerIdRef}){
   const[editing,setEditing]=useState(false);
   const[f,setF]=useState({nome:perfil?.nome||"",sobrenome:perfil?.sobrenome||"",cidade:perfil?.cidade||"",whatsapp:perfil?.whatsapp||""});
   const[saveErr,setSaveErr]=useState("");
   const[pagLoading,setPagLoading]=useState(false);
   const[pagErro,setPagErro]=useState("");
   const[pagPlano,setPagPlano]=useState("individual");
+  const[membros,setMembros]=useState([]);
+  const[emailConvite,setEmailConvite]=useState("");
+  const[convidando,setConvidando]=useState(false);
+  const[showEquipe,setShowEquipe]=useState(false);
+
+  // Carregar membros da equipe
+  useEffect(()=>{
+    if(!ehAssinante||isMembro) return;
+    const loadMembros=async()=>{
+      const {data}=await supabase.from("membros_equipe").select("*").eq("owner_id",user.id);
+      if(data) setMembros(data);
+    };
+    loadMembros();
+  },[ehAssinante,isMembro,user.id]);
+
+  const convidar=async()=>{
+    if(!emailConvite.trim()) return;
+    setConvidando(true);
+    const token=Math.random().toString(36).slice(2)+Date.now().toString(36);
+    const id=Math.random().toString(36).slice(2);
+    const {error}=await supabase.from("membros_equipe").insert({
+      id, equipe_id:user.id, owner_id:user.id,
+      email:emailConvite.trim(), status:"pendente", token
+    });
+    if(!error){
+      setMembros(x=>[...x,{id,email:emailConvite.trim(),status:"pendente",token}]);
+      setEmailConvite("");
+      ping("Convite gerado!");
+    }
+    setConvidando(false);
+  };
+
+  const removerMembro=async(id)=>{
+    await supabase.from("membros_equipe").delete().eq("id",id);
+    setMembros(x=>x.filter(m=>m.id!==id));
+    ping("Membro removido.");
+  };
+
+  const getLinkConvite=(token)=>`https://controleiatf.com.br/convite?token=${token}`;
+  const getWAConvite=(token,email)=>`https://api.whatsapp.com/send?text=${encodeURIComponent(`Olá! Você foi convidado para a equipe do Controle IATF.%0AClique no link para aceitar:%0A${getLinkConvite(token)}`)}`;
   const save=async()=>{
     setSaveErr("");
     const {error} = await supabase.from("perfis").upsert({id:user.id,...f},{onConflict:"id"});
@@ -1786,6 +1887,47 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Assinar plano {pagPlano==="equipe"?"Equipe":"Individual"}</>}
       </button>
       <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o plano ${pagPlano==="equipe"?"Equipe (R$ 99,00/mês - 3 usuários)":"Individual (R$ 43,90/mês)"} do Controle IATF.`)}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Pagar via PIX pelo WhatsApp</a>
+    </div>}
+
+    {/* Seção Minha Equipe — só para donos assinantes do plano equipe */}
+    {ehAssinante&&!isMembro&&perfil?.plano==="equipe"&&<div style={{background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div style={{fontSize:14,fontWeight:800}}>👥 Minha Equipe</div>
+        <button onClick={()=>setShowEquipe(s=>!s)} style={{background:"none",border:"none",fontSize:12,color:"var(--g)",fontWeight:700,cursor:"pointer"}}>{showEquipe?"Fechar":"Gerenciar"}</button>
+      </div>
+      {showEquipe&&<>
+        <div style={{fontSize:12,color:"var(--gr4)",marginBottom:10}}>Você pode convidar até 2 membros. Eles podem criar protocolos e animais, mas não podem excluir dados nem criar fazendas.</div>
+        {/* Convidar */}
+        {membros.length<2&&<div style={{marginBottom:12}}>
+          <label className="fl">Email do convidado</label>
+          <div style={{display:"flex",gap:8,marginTop:4}}>
+            <input className="fi" value={emailConvite} onChange={e=>setEmailConvite(e.target.value)} placeholder="email@exemplo.com" style={{flex:1}}/>
+            <button onClick={convidar} disabled={convidando} className="btn btn-p" style={{flexShrink:0,padding:"10px 16px"}}>{convidando?"...":"Convidar"}</button>
+          </div>
+        </div>}
+        {/* Lista de membros */}
+        {membros.length===0&&<div style={{fontSize:13,color:"var(--gr4)",textAlign:"center",padding:"12px 0"}}>Nenhum membro convidado ainda</div>}
+        {membros.map(m=><div key={m.id} style={{background:"var(--gr1)",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700}}>{m.email}</div>
+              <div style={{fontSize:11,color:m.status==="ativo"?"var(--g)":"var(--y)",fontWeight:600}}>{m.status==="ativo"?"✅ Ativo":"⏳ Pendente"}</div>
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              {m.status==="pendente"&&<>
+                <a href={getWAConvite(m.token,m.email)} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"6px 10px",background:"rgba(37,211,102,.1)",borderRadius:8}}>📲 WA</a>
+                <a href={`mailto:${m.email}?subject=Convite Controle IATF&body=Você foi convidado! Clique: ${getLinkConvite(m.token)}`} style={{fontSize:11,color:"var(--g)",fontWeight:700,textDecoration:"none",padding:"6px 10px",background:"var(--gp)",borderRadius:8}}>📧 Email</a>
+              </>}
+              <button onClick={()=>removerMembro(m.id)} style={{fontSize:11,color:"var(--r)",fontWeight:700,background:"var(--rl)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer"}}>Remover</button>
+            </div>
+          </div>
+        </div>)}
+      </>}
+    </div>}
+
+    {/* Badge membro */}
+    {isMembro&&<div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:13,color:"var(--g)",fontWeight:600}}>
+      👥 Você é membro de uma equipe. Pode criar protocolos e animais, mas não pode excluir dados nem criar fazendas.
     </div>}
 
     {editing
