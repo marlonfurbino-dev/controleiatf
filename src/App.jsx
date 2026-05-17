@@ -699,10 +699,47 @@ export default function App() {
   const logout = async () => { await supabase.auth.signOut(); setUser(null); setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); };
 
   const addFazenda = async (f) => {
-    const n={...f,id:uid(),at:Date.now(),user_id:user.id,fazenda_id:null};
-    setFazendas(x=>[n,...x]);
-    await supabase.from("fazendas").insert({id:n.id,user_id:user.id,nome:f.nome,proprietario:f.proprietario,municipio:f.municipio,uf:f.uf,telefone:f.telefone,email:f.email,obs:f.obs,at:n.at});
-    ping("Fazenda cadastrada!"); return n;
+    if (!user?.id) {
+      ping("Usuário não logado.");
+      return null;
+    }
+
+    const n = {
+      ...f,
+      id: uid(),
+      at: Date.now(),
+      user_id: user.id,
+      fazenda_id: null,
+    };
+
+    const payload = {
+      id: n.id,
+      user_id: user.id,
+      nome: f.nome,
+      proprietario: f.proprietario,
+      municipio: f.municipio || "",
+      uf: f.uf || "",
+      endereco: f.endereco || "",
+      telefone: f.telefone || "",
+      at: n.at,
+    };
+
+    const { data, error } = await supabase
+      .from("fazendas")
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erro ao salvar fazenda:", error);
+      ping("Erro ao salvar fazenda.");
+      alert("Erro ao salvar fazenda: " + error.message);
+      return null;
+    }
+
+    setFazendas((x) => [data, ...x]);
+    ping("Fazenda cadastrada!");
+    return data;
   };
   const updFazenda = async (id,ch) => {
     setFazendas(x=>x.map(f=>f.id===id?{...f,...ch}:f));
