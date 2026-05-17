@@ -612,8 +612,15 @@ export default function App() {
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(() => {
-    // Se URL contém /app, vai direto para o app
-    return window.location.pathname.includes("/app") ? "app" : "landing";
+    // Se tem sessão salva ou URL tem /app, vai direto pro app
+    if (window.location.pathname.includes("/app")) return "app";
+    try {
+      // Verificar se tem sessão salva no localStorage (persistSession: true)
+      const keys = Object.keys(localStorage);
+      const hasSession = keys.some(k => k.includes("supabase") && k.includes("auth"));
+      if (hasSession) return "app";
+    } catch(e) {}
+    return "landing";
   });
   const [fazendas,   setFazendas]   = useState([]);
   const [isMembro,   setIsMembro]   = useState(false);  // true se for membro convidado
@@ -671,8 +678,8 @@ export default function App() {
       setUser(session?.user || null);
       if (session?.user) {
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
-        if (data) setPerfil(data);
-        else if (session.user.user_metadata?.nome) setPerfil(session.user.user_metadata);
+        if (data) setPerfil({...data, plano: data.plano||"individual"});
+        else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
         trackEvent("login", {method:"email"});
       }
       setLoading(false);
@@ -681,8 +688,8 @@ export default function App() {
       setUser(session?.user || null);
       if (session?.user) {
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
-        if (data) setPerfil(data);
-        else if (session.user.user_metadata?.nome) setPerfil(session.user.user_metadata);
+        if (data) setPerfil({...data, plano: data.plano||"individual"});
+        else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
       }
     });
     return () => subscription.unsubscribe();
@@ -1890,7 +1897,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     </div>}
 
     {/* Seção Minha Equipe — só para donos assinantes do plano equipe */}
-    {ehAssinante&&!isMembro&&perfil?.plano==="equipe"&&<div style={{background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
+    {ehAssinante&&!isMembro&&(perfil?.plano==="equipe"||perfil?.assinante)&&<div style={{background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
         <div style={{fontSize:14,fontWeight:800}}>👥 Minha Equipe</div>
         <button onClick={()=>setShowEquipe(s=>!s)} style={{background:"none",border:"none",fontSize:12,color:"var(--g)",fontWeight:700,cursor:"pointer"}}>{showEquipe?"Fechar":"Gerenciar"}</button>
