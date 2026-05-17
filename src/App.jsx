@@ -365,10 +365,8 @@ function diasRestantesTrial(createdAt) {
 function PaywallScreen({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
-  const [plano, setPlano] = useState("individual"); // "individual" ou "equipe"
 
   const PRECO_INDIVIDUAL = "R$ 43,90";
-  const PRECO_EQUIPE = "R$ 99,00";
 
   const handlePagamento = async () => {
     setLoading(true);
@@ -379,7 +377,7 @@ function PaywallScreen({ user, onLogout }) {
       const res = await fetch(EDGE_FUNCTION_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ email: user?.email, plano }),
+        body: JSON.stringify({ email: user?.email, plano: "individual" }),
       });
       const data = await res.json();
       if (data.init_point) {
@@ -408,23 +406,14 @@ function PaywallScreen({ user, onLogout }) {
           Escolha o plano ideal e continue usando com acesso completo. Cancele quando quiser.
         </div>
 
-        {/* Seletor de plano */}
-        <div style={{display:"flex",gap:8,marginBottom:20}}>
-          <div onClick={()=>setPlano("individual")} style={{flex:1,padding:"12px 8px",borderRadius:12,border:`2px solid ${plano==="individual"?"var(--g)":"var(--gr2)"}`,background:plano==="individual"?"var(--gp)":"#fff",cursor:"pointer",transition:"all .15s"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",marginBottom:4}}>INDIVIDUAL</div>
-            <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>R$ 43,90</div>
-            <div style={{fontSize:11,color:"var(--gr4)"}}>/mês · 1 usuário</div>
-          </div>
-          <div onClick={()=>setPlano("equipe")} style={{flex:1,padding:"12px 8px",borderRadius:12,border:`2px solid ${plano==="equipe"?"var(--g)":"var(--gr2)"}`,background:plano==="equipe"?"var(--gp)":"#fff",cursor:"pointer",position:"relative",transition:"all .15s"}}>
-            <div style={{position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",background:"var(--g)",color:"#fff",fontSize:10,fontWeight:800,padding:"2px 10px",borderRadius:99,whiteSpace:"nowrap"}}>MAIS POPULAR</div>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",marginBottom:4}}>EQUIPE</div>
-            <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>R$ 99,00</div>
-            <div style={{fontSize:11,color:"var(--gr4)"}}>/mês · 3 usuários</div>
-          </div>
+        <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:14,padding:"16px",marginBottom:20,textAlign:"center"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",marginBottom:4}}>PLANO MENSAL</div>
+          <div style={{fontSize:36,fontWeight:800,color:"var(--g)"}}>R$ 43,90</div>
+          <div style={{fontSize:12,color:"var(--gr4)"}}>/mês · Cancele quando quiser</div>
         </div>
 
         <div style={{textAlign:"left",marginBottom:16}}>
-          {["✅ Fazendas ilimitadas","✅ Protocolos ilimitados","✅ Relatórios via WhatsApp","✅ Funciona offline","✅ DG e parto calculados","✅ Suporte técnico",plano==="equipe"?"✅ 3 usuários simultâneos":"✅ Cancele quando quiser"].map(item=>(
+          {["✅ Fazendas ilimitadas","✅ Protocolos ilimitados","✅ Relatórios via WhatsApp","✅ Funciona offline","✅ DG e parto calculados","✅ Suporte técnico","✅ Cancele quando quiser"].map(item=>(
             <div key={item} style={{fontSize:13,color:"var(--gr5)",padding:"5px 0",borderBottom:"1px solid var(--gr1)"}}>{item}</div>
           ))}
         </div>
@@ -442,11 +431,11 @@ function PaywallScreen({ user, onLogout }) {
         >
           {loading ? "Aguarde..." : <>
             <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-            Assinar plano {plano==="equipe"?"Equipe":"Individual"}
+            Assinar agora
           </>}
         </button>
 
-        <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o plano ${plano==="equipe"?"Equipe (R$ 99,00)":"Individual (R$ 43,90)"} do Controle IATF.`)}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
+        <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF por R$ 43,90/mês.")}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
           💬 Pagar via PIX pelo WhatsApp
         </a>
 
@@ -1789,11 +1778,9 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[saveErr,setSaveErr]=useState("");
   const[pagLoading,setPagLoading]=useState(false);
   const[pagErro,setPagErro]=useState("");
-  const[pagPlano,setPagPlano]=useState("individual");
   const[membros,setMembros]=useState([]);
   const[emailConvite,setEmailConvite]=useState("");
   const[convidando,setConvidando]=useState(false);
-  const[showEquipe,setShowEquipe]=useState(false);
 
   // Carregar membros da equipe
   useEffect(()=>{
@@ -1846,7 +1833,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     try{
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
-      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:pagPlano})});
+      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:"individual"})});
       const data=await res.json();
       if(data.init_point){window.location.href=data.init_point;}
       else{
@@ -1880,57 +1867,17 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     {!ehAssinante&&<div style={{background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
       <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>{diasRestantes>0?"💳 Assinar agora e não perder o acesso":"💳 Assinar para voltar a ter acesso"}</div>
       <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>{diasRestantes>0?"Assine antes do trial vencer.":"Seu trial encerrou."} Cancele quando quiser · sem fidelidade.</div>
-      <div style={{display:"flex",gap:6,marginBottom:12}}>
-        {[["individual","Individual","R$ 43,90","1 usuário"],["equipe","Equipe","R$ 99,00","3 usuários"]].map(([k,lbl,preco,desc])=>(
-          <div key={k} onClick={()=>setPagPlano(k)} style={{flex:1,padding:"10px 6px",borderRadius:10,border:`1.5px solid ${pagPlano===k?"var(--g)":"var(--gr2)"}`,background:pagPlano===k?"var(--gp)":"var(--w)",cursor:"pointer",textAlign:"center"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)"}}>{lbl}</div>
-            <div style={{fontSize:16,fontWeight:800,color:"var(--g)"}}>{preco}</div>
-            <div style={{fontSize:10,color:"var(--gr4)"}}>{desc}/mês</div>
-          </div>
-        ))}
+      <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:12,textAlign:"center"}}>
+        <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>R$ 43,90<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
+        <div style={{fontSize:11,color:"var(--gr4)"}}>Cancele quando quiser</div>
       </div>
       {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
       <button onClick={handleAssinar} disabled={pagLoading} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:8}}>
-        {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Assinar plano {pagPlano==="equipe"?"Equipe":"Individual"}</>}
+        {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Assinar agora</>}
       </button>
-      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o plano ${pagPlano==="equipe"?"Equipe (R$ 99,00/mês - 3 usuários)":"Individual (R$ 43,90/mês)"} do Controle IATF.`)}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Pagar via PIX pelo WhatsApp</a>
+      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF por R$ 43,90/mês.")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Pagar via PIX pelo WhatsApp</a>
     </div>}
 
-    {/* Seção Minha Equipe — só para donos assinantes do plano equipe */}
-    {ehAssinante&&!isMembro&&(perfil?.plano==="equipe"||perfil?.assinante)&&<div style={{background:"var(--w)",border:"1px solid var(--gr2)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-        <div style={{fontSize:14,fontWeight:800}}>👥 Minha Equipe</div>
-        <button onClick={()=>setShowEquipe(s=>!s)} style={{background:"none",border:"none",fontSize:12,color:"var(--g)",fontWeight:700,cursor:"pointer"}}>{showEquipe?"Fechar":"Gerenciar"}</button>
-      </div>
-      {showEquipe&&<>
-        <div style={{fontSize:12,color:"var(--gr4)",marginBottom:10}}>Você pode convidar até 2 membros. Eles podem criar protocolos e animais, mas não podem excluir dados nem criar fazendas.</div>
-        {/* Convidar */}
-        {membros.length<2&&<div style={{marginBottom:12}}>
-          <label className="fl">Email do convidado</label>
-          <div style={{display:"flex",gap:8,marginTop:4}}>
-            <input className="fi" value={emailConvite} onChange={e=>setEmailConvite(e.target.value)} placeholder="email@exemplo.com" style={{flex:1}}/>
-            <button onClick={convidar} disabled={convidando} className="btn btn-p" style={{flexShrink:0,padding:"10px 16px"}}>{convidando?"...":"Convidar"}</button>
-          </div>
-        </div>}
-        {/* Lista de membros */}
-        {membros.length===0&&<div style={{fontSize:13,color:"var(--gr4)",textAlign:"center",padding:"12px 0"}}>Nenhum membro convidado ainda</div>}
-        {membros.map(m=><div key={m.id} style={{background:"var(--gr1)",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div>
-              <div style={{fontSize:13,fontWeight:700}}>{m.email}</div>
-              <div style={{fontSize:11,color:m.status==="ativo"?"var(--g)":"var(--y)",fontWeight:600}}>{m.status==="ativo"?"✅ Ativo":"⏳ Pendente"}</div>
-            </div>
-            <div style={{display:"flex",gap:6}}>
-              {m.status==="pendente"&&<>
-                <a href={getWAConvite(m.token,m.email)} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"6px 10px",background:"rgba(37,211,102,.1)",borderRadius:8}}>📲 WA</a>
-                <a href={`mailto:${m.email}?subject=Convite Controle IATF&body=Você foi convidado! Clique: ${getLinkConvite(m.token)}`} style={{fontSize:11,color:"var(--g)",fontWeight:700,textDecoration:"none",padding:"6px 10px",background:"var(--gp)",borderRadius:8}}>📧 Email</a>
-              </>}
-              <button onClick={()=>removerMembro(m.id)} style={{fontSize:11,color:"var(--r)",fontWeight:700,background:"var(--rl)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer"}}>Remover</button>
-            </div>
-          </div>
-        </div>)}
-      </>}
-    </div>}
 
     {/* Badge membro */}
     {isMembro&&<div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:13,color:"var(--g)",fontWeight:600}}>
