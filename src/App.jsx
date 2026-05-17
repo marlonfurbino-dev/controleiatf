@@ -836,7 +836,7 @@ export default function App() {
     t+=`
 _Gerado pelo Controle IATF — controleiatf.com.br_`;
     trackEvent("relatorio_whatsapp_enviado");
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
   };
 
   // ── Relatório Produtor ────────────────────────────────────────────────
@@ -891,7 +891,7 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
     t+=`
 _Controle IATF — controleiatf.com.br_`;
     trackEvent("relatorio_produtor_enviado");
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
   };
 
   // Notificações pendentes para hoje/amanhã
