@@ -717,22 +717,14 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout);
       if (session?.user) {
-        const sessaoAtiva = sessionStorage.getItem("sessao_ativa");
-        const params = new URLSearchParams(window.location.search);
-        const voltandoDoMP = params.get("pagamento") !== null;
-        if (voltandoDoMP) {
-          sessionStorage.setItem("sessao_ativa", "1");
-          window.history.replaceState({}, "", "/app");
-        }
-        if (sessaoAtiva === "1" || voltandoDoMP) {
-          setUser(session.user);
-          const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
-          if (data) setPerfil({...data, plano: data.plano||"individual"});
-          else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
-          trackEvent("login", {method:"email"});
-        } else {
-          setUser(null);
-        }
+        // Tem sessão válida — entra direto independente do sessionStorage
+        sessionStorage.setItem("sessao_ativa", "1");
+        setPage("app");
+        setUser(session.user);
+        const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
+        if (data) setPerfil({...data, plano: data.plano||"individual"});
+        else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
+        trackEvent("login", {method:"session"});
       } else {
         setUser(null);
       }
@@ -743,6 +735,7 @@ export default function App() {
       if (session?.user) {
         sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
+        setPage("app");
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
         if (data) setPerfil({...data, plano: data.plano||"individual"});
         else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
