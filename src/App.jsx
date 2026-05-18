@@ -600,14 +600,14 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
+  // sessionStorage dura apenas enquanto o app está aberto.
+  // Fechar o PWA limpa o sessionStorage → volta pra tela de login.
+  // Alternar apps mantém o sessionStorage → permanece logado.
   const [page, setPage] = useState(() => {
-    // Se tem sessão salva ou URL tem /app, vai direto pro app
     if (window.location.pathname.includes("/app")) return "app";
     try {
-      // Verificar se tem sessão salva no localStorage (persistSession: true)
-      const keys = Object.keys(localStorage);
-      const hasSession = keys.some(k => k.includes("supabase") && k.includes("auth"));
-      if (hasSession) return "app";
+      const ativo = sessionStorage.getItem("sessao_ativa");
+      if (ativo === "1") return "app";
     } catch(e) {}
     return "landing";
   });
@@ -664,21 +664,34 @@ export default function App() {
   // Check auth session
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user || null);
       if (session?.user) {
-        const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
-        if (data) setPerfil({...data, plano: data.plano||"individual"});
-        else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
-        trackEvent("login", {method:"email"});
+        // Só mantém logado se a sessão foi marcada como ativa nesta abertura
+        const sessaoAtiva = sessionStorage.getItem("sessao_ativa");
+        if (sessaoAtiva === "1") {
+          setUser(session.user);
+          const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
+          if (data) setPerfil({...data, plano: data.plano||"individual"});
+          else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
+          trackEvent("login", {method:"email"});
+        } else {
+          // App foi fechado e reaberto — limpa sessão do Supabase e pede login
+          setUser(null);
+        }
+      } else {
+        setUser(null);
       }
       setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user || null);
       if (session?.user) {
+        sessionStorage.setItem("sessao_ativa", "1");
+        setUser(session.user);
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
         if (data) setPerfil({...data, plano: data.plano||"individual"});
         else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
+      } else {
+        sessionStorage.removeItem("sessao_ativa");
+        setUser(null);
       }
     });
     return () => subscription.unsubscribe();
@@ -749,6 +762,7 @@ export default function App() {
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
   const logout = async () => { 
     await supabase.auth.signOut(); 
+    sessionStorage.removeItem("sessao_ativa");
     setUser(null); 
     setFazendas([]); 
     setProtocolos([]); 
@@ -756,7 +770,7 @@ export default function App() {
     setSemenBank([]); 
     setScreen(null);
     setModal(null);
-    setPage("landing");
+    setPage("app"); // mantém em "app" mas user=null mostra tela de login
   };
 
   const addFazenda = async (f) => {
@@ -1012,7 +1026,7 @@ _Controle IATF — controleiatf.com.br_`;
   if (loading) return <div className="app"><style>{CSS}</style><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:"var(--g)",fontWeight:700}}>Carregando...</div></div>;
 
   // Mostra landing page se não está na rota /app
-  if (page === "landing") return <LandingPage onEnterApp={() => setPage("app")} />;
+  if (page === "landing") return <LandingPage onEnterApp={() => { sessionStorage.setItem("sessao_ativa","1"); setPage("app"); }} />;
 
   if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
 
