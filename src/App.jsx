@@ -109,7 +109,7 @@ const CSS = `
 
   /* Header */
   .hdr { background:linear-gradient(135deg,#1b6b3a 0%,#145430 100%); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.18); }
-  .hdr-logo { width:36px; height:36px; object-fit:contain; border-radius:8px; flex-shrink:0; }
+  .hdr-logo { width:48px; height:48px; object-fit:cover; border-radius:10px; flex-shrink:0; }
   .hdr-title { flex:1; font-size:17px; font-weight:700; line-height:1.2; }
   .hdr-sub { font-size:12px; opacity:.72; font-weight:400; }
   .hdr-btn { width:38px; height:38px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:rgba(255,255,255,.18); color:#fff; flex-shrink:0; }
@@ -1049,7 +1049,7 @@ _Controle IATF — controleiatf.com.br_`;
 
   return <div className="app"><style>{CSS}</style>
     <div className="hdr">
-      <img src="/icon-512.png" alt="Logo" className="hdr-logo"/>
+      <img src="/logo.jpeg" alt="Logo" className="hdr-logo"/>
       <div style={{flex:1}}><div className="hdr-title">Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
       {ehAssinante
         ? <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
