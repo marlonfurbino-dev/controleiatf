@@ -108,7 +108,7 @@ const CSS = `
   .terms-content h3 { color:var(--gr5); font-size:14px; margin:16px 0 6px; }
 
   /* Header */
-  .hdr { background:linear-gradient(135deg,#1b6b3a 0%,#145430 100%); color:#fff; padding:0 16px 0 0; display:flex; align-items:stretch; gap:12px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.18); min-height:80px; }
+  .hdr { background:linear-gradient(135deg,#163020 0%,#0a1a0f 100%); color:#fff; padding:0 16px 0 0; display:flex; align-items:stretch; gap:12px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.18); min-height:80px; }
   .hdr-logo { height:80px; width:80px; object-fit:contain; flex-shrink:0; padding:4px 4px 4px 4px; }
   .hdr-title { flex:1; font-size:18px; font-weight:700; line-height:1.2; display:flex; flex-direction:column; justify-content:center; }
   .hdr-sub { font-size:12px; opacity:.72; font-weight:400; }
@@ -280,7 +280,7 @@ const pedirPermissaoNotificacao = async () => {
 const LANDING_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
   .lp * { box-sizing:border-box; margin:0; padding:0; }
-  .lp { min-height:100vh; background:linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%); font-family:'DM Sans',sans-serif; color:#fff; overflow-x:hidden; }
+  .lp { min-height:100vh; background:linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%); font-family:'DM Sans',sans-serif; color:#fff; overflow-x:hidden; }
   .lp-nav { position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:16px 24px; background:rgba(14,31,20,.85); backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.07); }
   .lp-logo { font-family:'DM Serif Display',serif; font-size:20px; color:#fff; }
   .lp-logo span { color:#6fcf8e; }
