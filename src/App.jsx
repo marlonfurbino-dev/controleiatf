@@ -2339,9 +2339,10 @@ _controleiatf.com.br_`;
     {/* Resumo */}
     {total > 0 && <div className="info-box" style={{ marginBottom: 16 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: "var(--g)", marginBottom: 8, textTransform: "uppercase", letterSpacing: .4 }}>Resumo do DG</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 10 }}>
         <div className="stat"><div className="stat-n">{total}</div><div className="stat-l">Total</div></div>
         <div className="stat"><div className="stat-n" style={{ color: "var(--g)" }}>{prenhas}</div><div className="stat-l">Prenhas</div></div>
+        <div className="stat"><div className="stat-n" style={{ color: "var(--r)" }}>{vazias}</div><div className="stat-l">Vazias</div></div>
         <div className="stat"><div className="stat-n" style={{ color: taxa >= 50 ? "var(--g)" : "var(--y)" }}>{taxa}%</div><div className="stat-l">Taxa</div></div>
       </div>
       <div className="prog"><div className="prog-fill" style={{ width: taxa + "%" }} /></div>
@@ -2355,27 +2356,46 @@ _controleiatf.com.br_`;
       <div className="empty-s">Adicione os animais para iniciar o DG</div>
     </div>}
 
-    {animais.map(a => <div key={a.id} style={{
-      display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-      border: "1.5px solid var(--gr2)", borderRadius: 12, marginBottom: 8, background: "var(--w)"
-    }}>
-      <div style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{a.nome}</div>
-      <button
-        onClick={() => onUpdateAnimal(a.id, { status: a.status === "P" ? null : "P" })}
-        style={{ padding: "6px 12px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13,
-          background: a.status === "P" ? "var(--gp)" : "var(--gr1)", color: a.status === "P" ? "var(--g)" : "var(--gr4)" }}>
-        ✅ Prenha
-      </button>
-      <button
-        onClick={() => onUpdateAnimal(a.id, { status: a.status === "V" ? null : "V" })}
-        style={{ padding: "6px 12px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13,
-          background: a.status === "V" ? "var(--rl)" : "var(--gr1)", color: a.status === "V" ? "var(--r)" : "var(--gr4)" }}>
-        ❌ Vazia
-      </button>
-      <button onClick={() => onDeleteAnimal(a.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--gr3)", padding: 4 }}>
-        <Icon name="trash" size={16} />
-      </button>
-    </div>)}
+    {/* Ordenar: marcados (P e V) primeiro, pendentes por último */}
+    {[...animais]
+      .sort((a, b) => {
+        const ordem = { P: 0, V: 1, null: 2, undefined: 2 };
+        return (ordem[a.status] ?? 2) - (ordem[b.status] ?? 2);
+      })
+      .map(a => <div key={a.id} style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
+        border: `1.5px solid ${a.status === "P" ? "var(--gm)" : a.status === "V" ? "#fca5a5" : "var(--gr2)"}`,
+        borderRadius: 12, marginBottom: 8,
+        background: a.status === "P" ? "var(--gp)" : a.status === "V" ? "var(--rl)" : "var(--w)"
+      }}>
+        <div style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{a.nome}</div>
+
+        {/* Se não marcado: mostra os dois botões */}
+        {!a.status && <>
+          <button onClick={() => onUpdateAnimal(a.id, { status: "P" })}
+            style={{ padding: "6px 12px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: "var(--gr1)", color: "var(--gr4)" }}>
+            ✅ Prenha
+          </button>
+          <button onClick={() => onUpdateAnimal(a.id, { status: "V" })}
+            style={{ padding: "6px 12px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: "var(--gr1)", color: "var(--gr4)" }}>
+            ❌ Vazia
+          </button>
+        </>}
+
+        {/* Se marcado: mostra só o status com opção de desmarcar */}
+        {a.status === "P" && <button onClick={() => onUpdateAnimal(a.id, { status: null })}
+          style={{ padding: "6px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: "var(--g)", color: "#fff" }}>
+          ✅ Prenha
+        </button>}
+        {a.status === "V" && <button onClick={() => onUpdateAnimal(a.id, { status: null })}
+          style={{ padding: "6px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: "var(--r)", color: "#fff" }}>
+          ❌ Vazia
+        </button>}
+
+        <button onClick={() => onDeleteAnimal(a.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--gr3)", padding: 4 }}>
+          <Icon name="trash" size={16} />
+        </button>
+      </div>)}
 
     {/* Adicionar animal */}
     {adicionando
