@@ -638,11 +638,10 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
-  // sessionStorage dura apenas enquanto o app está aberto.
-  // Fechar o PWA limpa o sessionStorage → volta pra tela de login.
-  // Alternar apps mantém o sessionStorage → permanece logado.
   const [page, setPage] = useState(() => {
+    // Se vem do MP ou tem /app na URL, vai direto pro app
     if (window.location.pathname.includes("/app")) return "app";
+    if (window.location.search.includes("pagamento=")) return "app";
     try {
       const ativo = sessionStorage.getItem("sessao_ativa");
       if (ativo === "1") return "app";
@@ -712,12 +711,16 @@ export default function App() {
 
   // Check auth session
   useEffect(() => {
+    // Limpar params do MP da URL se necessário
+    if (window.location.search.includes("pagamento=")) {
+      window.history.replaceState({}, "", "/app");
+    }
+
     const timeout = setTimeout(() => setLoading(false), 6000);
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout);
       if (session?.user) {
-        // Tem sessão válida — entra direto independente do sessionStorage
         sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
@@ -751,11 +754,11 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const checkSession = async () => {
-      const localToken = DB.get("session_token");
-      if (!localToken) return;
+      const localToken = DB.get("session_token_" + user.id);
+      if (!localToken) return; // sem token local, não verifica
       const { data } = await supabase.from("perfis").select("session_token").eq("id", user.id).single();
-      if (data && data.session_token !== localToken) {
-        // Sessão inválida — outro dispositivo fez login
+      if (data?.session_token && data.session_token !== localToken) {
+        // Só derruba se ambos existem e são diferentes
         await supabase.auth.signOut();
         setUser(null);
         alert("Sua sessão foi encerrada porque outro dispositivo fez login com sua conta.");
