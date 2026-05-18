@@ -50,7 +50,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
 
 // ── CSS ───────────────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --g:#1b6b3a; --gl:#2a8a4e; --gp:#eaf5ee; --gm:#c6e6d2;
@@ -108,10 +108,10 @@ const CSS = `
   .terms-content h3 { color:var(--gr5); font-size:14px; margin:16px 0 6px; }
 
   /* Header */
-  .hdr { background:linear-gradient(135deg,#163020 0%,#0a1a0f 100%); color:#fff; padding:0 16px 0 0; display:flex; align-items:stretch; gap:12px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.18); min-height:80px; }
-  .hdr-logo { height:80px; width:80px; object-fit:contain; flex-shrink:0; padding:4px 4px 4px 4px; }
-  .hdr-title { flex:1; font-size:18px; font-weight:700; line-height:1.2; display:flex; flex-direction:column; justify-content:center; }
-  .hdr-sub { font-size:12px; opacity:.72; font-weight:400; }
+  .hdr { background:linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%); color:#fff; padding:0 16px 0 0; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.22); min-height:72px; overflow:hidden; }
+  .hdr-logo { height:72px; width:72px; object-fit:contain; flex-shrink:0; padding:6px; }
+  .hdr-title { flex:1; font-family:'DM Serif Display',serif; font-size:22px; font-weight:400; font-style:italic; line-height:1.2; letter-spacing:-.3px; }
+  .hdr-sub { font-family:'Inter',sans-serif; font-size:12px; opacity:.65; font-weight:400; font-style:normal; }
   .hdr-btn { width:38px; height:38px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:rgba(255,255,255,.18); color:#fff; flex-shrink:0; }
   .hdr-btn.danger { background:rgba(220,50,50,.28); }
   .hdr-btn.light { background:var(--gr1); color:var(--gr5); }
@@ -1060,7 +1060,10 @@ _Controle IATF — controleiatf.com.br_`;
   return <div className="app"><style>{CSS}</style>
     <div className="hdr">
       <img src="/logo-transparent.png" alt="Logo" className="hdr-logo"/>
-      <div style={{flex:1}}><div className="hdr-title">Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+        <div className="hdr-title">Controle<em style={{color:"#6fcf8e"}}> IATF</em></div>
+        <div className="hdr-sub">{user.email}</div>
+      </div>
       {ehAssinante
         ? <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
         : diasRestantes <= 3 && diasRestantes > 0 && (
