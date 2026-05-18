@@ -306,7 +306,7 @@ function LandingPage({ onEnterApp }) {
     <div className="lp">
       <style>{LANDING_CSS}</style>
       <nav className="lp-nav">
-        <img src="/icon-512.png" alt="Controle IATF" style={{width:36,height:36,objectFit:"contain",borderRadius:8}}/>
+        <img src="/logo-transparent.png" alt="Controle IATF" style={{width:36,height:36,objectFit:"contain"}}/>
         <button className="lp-nav-btn" onClick={onEnterApp}>Entrar</button>
       </nav>
 
@@ -339,7 +339,7 @@ function LandingPage({ onEnterApp }) {
       </div>
 
       <footer className="lp-footer">
-        <img src="/icon-512.png" alt="Controle IATF" style={{width:48,height:48,objectFit:"contain",borderRadius:10,marginBottom:8}}/>
+        <img src="/logo-transparent.png" alt="Controle IATF" style={{width:52,height:52,objectFit:"contain",marginBottom:8}}/>
         <p>Desenvolvido para médicos veterinários · <a href="https://controleiatf.com.br">controleiatf.com.br</a></p>
         <p style={{marginTop:6}}>© 2026 Controle IATF · Todos os direitos reservados</p>
       </footer>
@@ -396,7 +396,7 @@ function PaywallScreen({ user, onLogout }) {
 
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/icon-512.png" alt="Controle IATF" style={{width:80,height:80,objectFit:"contain",borderRadius:18,marginBottom:12,filter:"drop-shadow(0 4px 16px rgba(0,0,0,.4))"}}/>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:90,height:90,objectFit:"contain",marginBottom:12}}/>
       <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginBottom:28}}>controleiatf.com.br</div>
 
       <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:380,textAlign:"center"}}>
@@ -520,7 +520,7 @@ function AuthScreen({ onAuth }) {
 
   return (
     <div className="auth-screen">
-      <img src="/icon-512.png" alt="Controle IATF" className="auth-logo-img"/>
+      <img src="/logo-transparent.png" alt="Controle IATF" className="auth-logo-img"/>
       <div className="auth-sub">controleiatf.com.br</div>
 
       <div className="auth-card">
@@ -747,7 +747,17 @@ export default function App() {
   }, [user]);
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
-  const logout = async () => { await supabase.auth.signOut(); setUser(null); setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); };
+  const logout = async () => { 
+    await supabase.auth.signOut(); 
+    setUser(null); 
+    setFazendas([]); 
+    setProtocolos([]); 
+    setAnimais([]); 
+    setSemenBank([]); 
+    setScreen(null);
+    setModal(null);
+    setPage("landing");
+  };
 
   const addFazenda = async (f) => {
     if(isMembro){ ping("Apenas o dono pode criar fazendas."); return null; }
@@ -1049,7 +1059,7 @@ _Controle IATF — controleiatf.com.br_`;
 
   return <div className="app"><style>{CSS}</style>
     <div className="hdr">
-      <img src="/logo.jpeg" alt="Logo" className="hdr-logo"/>
+      <img src="/logo-transparent.png" alt="Logo" className="hdr-logo"/>
       <div style={{flex:1}}><div className="hdr-title">Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
       {ehAssinante
         ? <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
