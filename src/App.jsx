@@ -1894,12 +1894,13 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     setEditing(false);
     ping("Perfil atualizado!");
   };
+  const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
   const handleAssinar=async()=>{
     setPagLoading(true);setPagErro("");
     try{
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
-      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:"individual"})});
+      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:planoPerfilSel})});
       const data=await res.json();
       if(data.init_point){window.location.href=data.init_point;}
       else{
@@ -1933,15 +1934,29 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     {!ehAssinante&&<div style={{background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
       <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>{diasRestantes>0?"💳 Garanta seu acesso antes do trial vencer":"💳 Assine e volte a ter controle total"}</div>
       <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>{diasRestantes>0?"Profissionalize sua rotina de IATF. Cancele quando quiser.":"Seu trial encerrou. Assine para continuar usando sem limites."}</div>
-      <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
-        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>
-        <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{PRECO_ANUAL_MES}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
-        <div style={{fontSize:11,color:"var(--gr4)"}}>cobrado {PRECO_ANUAL_ANO}/ano · economize {ECONOMIA_ANUAL}</div>
+
+      {/* Toggle mensal/anual */}
+      <div style={{display:"flex",background:"var(--gr1)",borderRadius:10,padding:3,marginBottom:12,gap:3}}>
+        <button onClick={()=>setPlanoPerfilSel("mensal")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="mensal"?"#fff":"transparent",color:planoPerfilSel==="mensal"?"var(--gr5)":"var(--gr4)",boxShadow:planoPerfilSel==="mensal"?"0 1px 4px rgba(0,0,0,.10)":"none"}}>
+          Mensal
+        </button>
+        <button onClick={()=>setPlanoPerfilSel("anual")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="anual"?"var(--g)":"transparent",color:planoPerfilSel==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
+          Anual
+          {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-14%</span>}
+        </button>
       </div>
-      <div style={{fontSize:11,color:"var(--gr4)",textAlign:"center",marginBottom:10}}>ou {PRECO_MENSAL}/mês no plano mensal</div>
+
+      <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
+        {planoPerfilSel==="anual"&&<div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>}
+        <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
+        <div style={{fontSize:11,color:"var(--gr4)"}}>
+          {planoPerfilSel==="anual"?`cobrado ${PRECO_ANUAL_ANO}/ano · economize ${ECONOMIA_ANUAL}`:"renovação mensal · cancele quando quiser"}
+        </div>
+      </div>
+
       {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
       <button onClick={handleAssinar} disabled={pagLoading} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:8}}>
-        {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Assinar agora</>}
+        {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>{planoPerfilSel==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}</>}
       </button>
       <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o Controle IATF. Pode me ajudar?`)}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Prefiro pagar via PIX · falar no WhatsApp</a>
     </div>}
