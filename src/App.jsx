@@ -744,25 +744,39 @@ export default function App() {
 
   // Check auth session
   useEffect(() => {
+    // Timeout de segurança — se demorar mais de 5s, libera o loading
+    const timeout = setTimeout(() => setLoading(false), 5000);
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeout);
       if (session?.user) {
-        // Só mantém logado se a sessão foi marcada como ativa nesta abertura
         const sessaoAtiva = sessionStorage.getItem("sessao_ativa");
-        if (sessaoAtiva === "1") {
+        // Retorno do MP também conta como sessão ativa
+        const params = new URLSearchParams(window.location.search);
+        const voltandoDoMP = params.get("pagamento") !== null;
+        if (voltandoDoMP) {
+          sessionStorage.setItem("sessao_ativa", "1");
+          // Limpar parâmetro da URL
+          window.history.replaceState({}, "", "/app");
+        }
+        if (sessaoAtiva === "1" || voltandoDoMP) {
           setUser(session.user);
           const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
           if (data) setPerfil({...data, plano: data.plano||"individual"});
           else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
           trackEvent("login", {method:"email"});
         } else {
-          // App foi fechado e reaberto — limpa sessão do Supabase e pede login
           setUser(null);
         }
       } else {
         setUser(null);
       }
       setLoading(false);
+    }).catch(() => {
+      clearTimeout(timeout);
+      setLoading(false);
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         sessionStorage.setItem("sessao_ativa", "1");
@@ -775,7 +789,7 @@ export default function App() {
         setUser(null);
       }
     });
-    return () => subscription.unsubscribe();
+    return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
 
   // Verificar sessão única a cada 2 minutos
