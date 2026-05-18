@@ -663,47 +663,15 @@ export default function App() {
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
 
-  // Fix: quando volta do MP, reseta pagLoading e garante sessão ativa
+  // Fix: quando volta do MP, reseta pagLoading
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        // Reseta qualquer loading travado ao voltar para o app
         setModal(prev => prev ? {...prev, _forceReset: Date.now()} : prev);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
-
-  // Fix: marcar sessão como inativa quando app é fechado/minimizado no iOS
-  useEffect(() => {
-    const handlePageHide = () => {
-      // pagehide é disparado quando o PWA é fechado no iOS
-      // Usamos um timestamp — se demorar mais de 30s para voltar, pede login
-      sessionStorage.setItem("sessao_pausada_em", Date.now().toString());
-    };
-    const handlePageShow = () => {
-      const pausadaEm = sessionStorage.getItem("sessao_pausada_em");
-      if (pausadaEm) {
-        const diff = Date.now() - parseInt(pausadaEm);
-        // Se ficou mais de 30 minutos fora, pede login novamente
-        if (diff > 30 * 60 * 1000) {
-          sessionStorage.removeItem("sessao_ativa");
-          sessionStorage.removeItem("sessao_pausada_em");
-          supabase.auth.signOut();
-          setUser(null);
-          setPage("app");
-        } else {
-          sessionStorage.removeItem("sessao_pausada_em");
-        }
-      }
-    };
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("pageshow", handlePageShow);
-    return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("pageshow", handlePageShow);
-    };
   }, []);
 
   // Verificar token de convite na URL
@@ -744,19 +712,16 @@ export default function App() {
 
   // Check auth session
   useEffect(() => {
-    // Timeout de segurança — se demorar mais de 5s, libera o loading
-    const timeout = setTimeout(() => setLoading(false), 5000);
+    const timeout = setTimeout(() => setLoading(false), 6000);
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout);
       if (session?.user) {
         const sessaoAtiva = sessionStorage.getItem("sessao_ativa");
-        // Retorno do MP também conta como sessão ativa
         const params = new URLSearchParams(window.location.search);
         const voltandoDoMP = params.get("pagamento") !== null;
         if (voltandoDoMP) {
           sessionStorage.setItem("sessao_ativa", "1");
-          // Limpar parâmetro da URL
           window.history.replaceState({}, "", "/app");
         }
         if (sessaoAtiva === "1" || voltandoDoMP) {
@@ -772,10 +737,7 @@ export default function App() {
         setUser(null);
       }
       setLoading(false);
-    }).catch(() => {
-      clearTimeout(timeout);
-      setLoading(false);
-    });
+    }).catch(() => { clearTimeout(timeout); setLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
@@ -1905,11 +1867,14 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[emailConvite,setEmailConvite]=useState("");
   const[convidando,setConvidando]=useState(false);
 
-  // Reset pagLoading quando volta do Mercado Pago — usando focus e pageshow que funcionam no Safari iOS
+  // Reset pagLoading quando volta do Mercado Pago
   useEffect(() => {
     const reset = () => setPagLoading(false);
     window.addEventListener("focus", reset);
     window.addEventListener("pageshow", reset);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") setPagLoading(false);
+    });
     return () => {
       window.removeEventListener("focus", reset);
       window.removeEventListener("pageshow", reset);
