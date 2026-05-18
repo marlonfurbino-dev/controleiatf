@@ -2092,6 +2092,7 @@ function DGTab({ user, ping }) {
       onUpdateAnimal={(aid, d) => updateAnimal(faz.id, aid, d)}
       onDeleteAnimal={(aid) => deleteAnimal(faz.id, aid)}
       onDelete={() => deleteFazenda(faz.id)}
+      onUpdateFazenda={(d) => updateFazenda(faz.id, d)}
       ping={ping}
     />;
   }
@@ -2138,7 +2139,7 @@ function DGTab({ user, ping }) {
 }
 
 function DGNovaFazenda({ onSave, onCancel }) {
-  const [f, setF] = useState({ nome: "", proprietario: "", cidade: "", telefone: "" });
+  const [f, setF] = useState({ nome: "", proprietario: "", cidade: "", telefone: "", dataInseminacao: "", dataDG: "" });
   const s = (k, v) => setF(x => ({ ...x, [k]: v }));
   const salvar = () => {
     if (!f.nome.trim() || !f.proprietario.trim()) return alert("Preencha nome da fazenda e proprietário");
@@ -2153,6 +2154,10 @@ function DGNovaFazenda({ onSave, onCancel }) {
     <div className="fg"><label className="fl">Proprietário *</label><input className="fi" value={f.proprietario} onChange={e => s("proprietario", e.target.value)} placeholder="Ex: João da Silva" /></div>
     <div className="fg"><label className="fl">Cidade</label><input className="fi" value={f.cidade} onChange={e => s("cidade", e.target.value)} placeholder="Ex: Ipatinga - MG" /></div>
     <div className="fg"><label className="fl">Telefone</label><input className="fi" value={f.telefone} onChange={e => s("telefone", e.target.value)} placeholder="Ex: (31) 99999-9999" type="tel" /></div>
+    <div className="frow">
+      <div className="fg"><label className="fl">Data da Inseminação</label><input className="fi" value={f.dataInseminacao} onChange={e => s("dataInseminacao", e.target.value)} type="date" /></div>
+      <div className="fg"><label className="fl">Data do DG</label><input className="fi" value={f.dataDG} onChange={e => s("dataDG", e.target.value)} type="date" /></div>
+    </div>
     <div className="row" style={{ gap: 8, marginTop: 8 }}>
       <button className="btn btn-gh" style={{ flex: 1 }} onClick={onCancel}>Cancelar</button>
       <button className="btn btn-p" style={{ flex: 2 }} onClick={salvar}><Icon name="check" size={16} /> Salvar</button>
@@ -2160,15 +2165,19 @@ function DGNovaFazenda({ onSave, onCancel }) {
   </div>;
 }
 
-function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnimal, onDelete, ping }) {
+function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnimal, onDelete, onUpdateFazenda, ping }) {
   const [novoAnimal, setNovoAnimal] = useState("");
   const [adicionando, setAdicionando] = useState(false);
+  const [dataIns, setDataIns] = useState(faz.dataInseminacao || "");
+  const [dataDG, setDataDG] = useState(faz.dataDG || "");
   const animais = faz.animais || [];
   const prenhas = animais.filter(a => a.status === "P").length;
   const vazias = animais.filter(a => a.status === "V").length;
   const semDiag = animais.filter(a => !a.status).length;
   const total = animais.length;
   const taxa = total > 0 ? Math.round(prenhas / total * 100) : 0;
+
+  const fmtData = (iso) => iso ? new Date(iso + "T12:00:00").toLocaleDateString("pt-BR") : "—";
 
   const salvarAnimal = () => {
     if (!novoAnimal.trim()) return;
@@ -2178,8 +2187,14 @@ function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnima
     ping("Animal adicionado");
   };
 
+  const salvarDatas = (campo, valor) => {
+    if (campo === "ins") { setDataIns(valor); onUpdateFazenda({ dataInseminacao: valor }); }
+    else { setDataDG(valor); onUpdateFazenda({ dataDG: valor }); }
+    ping("Data salva");
+  };
+
   const gerarRelatorio = () => {
-    const data = new Date().toLocaleDateString("pt-BR");
+    const agora = new Date().toLocaleDateString("pt-BR");
     const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const linhaAnimais = animais.map((a, i) =>
       `${String(i + 1).padStart(2, "0")}. ${a.nome} — ${a.status === "P" ? "✅ PRENHA" : a.status === "V" ? "❌ VAZIA" : "⏳ Pendente"}`
@@ -2192,7 +2207,9 @@ function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnima
 👤 Proprietário: ${faz.proprietario}
 📍 Cidade: ${faz.cidade || "—"}
 📞 Telefone: ${faz.telefone || "—"}
-🗓 Data: ${data} às ${hora}
+💉 Data da Inseminação: ${fmtData(dataIns)}
+🔬 Data do DG: ${fmtData(dataDG)}
+🗓 Relatório emitido: ${agora} às ${hora}
 ━━━━━━━━━━━━━━━━━━━━━
 📊 *RESUMO*
 🔢 Total avaliado: ${total} animais
@@ -2234,6 +2251,20 @@ _controleiatf.com.br_`;
       <button className="btn btn-d btn-sm" onClick={() => { if (window.confirm("Excluir esta fazenda DG e todos os animais?")) onDelete(); }}>
         <Icon name="trash" size={14} />
       </button>
+    </div>
+
+    {/* Datas */}
+    <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+      <div className="fg" style={{ flex:1, margin:0 }}>
+        <label className="fl">💉 Data Inseminação</label>
+        <input className="fi" type="date" value={dataIns}
+          onChange={e => salvarDatas("ins", e.target.value)} />
+      </div>
+      <div className="fg" style={{ flex:1, margin:0 }}>
+        <label className="fl">🔬 Data do DG</label>
+        <input className="fi" type="date" value={dataDG}
+          onChange={e => salvarDatas("dg", e.target.value)} />
+      </div>
     </div>
 
     {/* Resumo */}
