@@ -1891,11 +1891,15 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[emailConvite,setEmailConvite]=useState("");
   const[convidando,setConvidando]=useState(false);
 
-  // Reset pagLoading quando volta do Mercado Pago
+  // Reset pagLoading quando volta do Mercado Pago — usando focus e pageshow que funcionam no Safari iOS
   useEffect(() => {
-    const reset = () => { if (document.visibilityState === "visible") setPagLoading(false); };
-    document.addEventListener("visibilitychange", reset);
-    return () => document.removeEventListener("visibilitychange", reset);
+    const reset = () => setPagLoading(false);
+    window.addEventListener("focus", reset);
+    window.addEventListener("pageshow", reset);
+    return () => {
+      window.removeEventListener("focus", reset);
+      window.removeEventListener("pageshow", reset);
+    };
   }, []);
 
   // Carregar membros da equipe
