@@ -43,7 +43,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
     key:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
     semen:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="3" ry="4"/><path d="M12 9c0 6-6 9-6 9h12s-6-3-6-9z"/><line x1="12" y1="18" x2="12" y2="22"/></svg>,
     user:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    doc:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+    dg: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/><path d="M3.6 9h16.8M3.6 15h16.8"/></svg>,
   };
   return d[name] || null;
 };
@@ -1119,10 +1119,11 @@ _Controle IATF — controleiatf.com.br_`;
     {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor} onRelatorio={(pid)=>setModal({type:"relatorio",pid})}/>}
     {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
     {tab==="relatorios"&&<RelatoriosTab protocolos={protocolos} fazendas={fazendas} animais={animais} sendWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
+    {tab==="dg"&&<DGTab user={user} ping={ping}/>}
     {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante} isMembro={isMembro} ownerIdRef={ownerIdRef}/>}
 
     <nav className="nav">
-      {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["relatorios","doc","Relatórios"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
+      {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["relatorios","doc","Relatórios"],["dg","dg","DG"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
         <button key={key} className={`nav-btn${tab===key?" on":""}`} onClick={()=>setTab(key)}>
           <Icon name={icon} size={22}/>{lbl}
         </button>
@@ -1130,8 +1131,7 @@ _Controle IATF — controleiatf.com.br_`;
     </nav>
 
     {tab==="fazendas"&&<button className="fab" onClick={()=>setModal({type:"addFazenda",onSave:addFazenda})}><Icon name="plus" size={24}/></button>}
-    {tab==="semen"&&<button className="fab" onClick={()=>setModal({type:"addSemen",onSave:(s)=>setSemenBank(x=>[...x,{...s,id:uid(),at:Date.now()}])})}><Icon name="plus" size={24}/></button>}
-    {toast&&<div className="toast">{toast}</div>}
+    {tab==="semen"&&<button className="fab" onClick={()=>setModal({type:"addSemen",onSave:(s)=>setSemenBank(x=>[...x,{...s,id:uid(),at:Date.now()}])})}><Icon name="plus" size={24}/></button>}    {toast&&<div className="toast">{toast}</div>}
     {modal&&<Modal modal={modal} setModal={setModal}/>}
   </div>;
 }
@@ -2035,5 +2035,276 @@ function SemenForm({onSave,onCancel}){
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
       <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.touro||!f.raca)return alert("Preencha touro e raça");onSave(f);}}><Icon name="check" size={16}/> Salvar</button>
     </div>
+  </div>;
+}
+
+// ── DG Tab ────────────────────────────────────────────────────────────────
+function DGTab({ user, ping }) {
+  const storageKey = `dg_fazendas_${user?.id}`;
+  const [fazendas, setFazendas] = useState(() => DB.get(storageKey) || []);
+  const [tela, setTela] = useState(null); // null = lista | {type:"fazenda", id} | {type:"nova"}
+
+  const salvarFazendas = (nova) => { setFazendas(nova); DB.set(storageKey, nova); };
+
+  const addFazenda = (dados) => {
+    const nova = [...fazendas, { ...dados, id: uid(), animais: [], criadoEm: new Date().toISOString() }];
+    salvarFazendas(nova);
+    ping("Fazenda cadastrada!");
+    setTela({ type: "fazenda", id: nova[nova.length - 1].id });
+  };
+
+  const updateFazenda = (id, dados) => {
+    salvarFazendas(fazendas.map(f => f.id === id ? { ...f, ...dados } : f));
+  };
+
+  const deleteFazenda = (id) => {
+    salvarFazendas(fazendas.filter(f => f.id !== id));
+    setTela(null);
+    ping("Fazenda removida");
+  };
+
+  const addAnimal = (fazId, animal) => {
+    salvarFazendas(fazendas.map(f => f.id === fazId
+      ? { ...f, animais: [...(f.animais || []), { ...animal, id: uid() }] }
+      : f));
+  };
+
+  const updateAnimal = (fazId, animalId, dados) => {
+    salvarFazendas(fazendas.map(f => f.id === fazId
+      ? { ...f, animais: f.animais.map(a => a.id === animalId ? { ...a, ...dados } : a) }
+      : f));
+  };
+
+  const deleteAnimal = (fazId, animalId) => {
+    salvarFazendas(fazendas.map(f => f.id === fazId
+      ? { ...f, animais: f.animais.filter(a => a.id !== animalId) }
+      : f));
+    ping("Animal removido");
+  };
+
+  if (tela?.type === "fazenda") {
+    const faz = fazendas.find(f => f.id === tela.id);
+    if (!faz) { setTela(null); return null; }
+    return <DGFazendaTela
+      faz={faz}
+      onBack={() => setTela(null)}
+      onAddAnimal={(a) => addAnimal(faz.id, a)}
+      onUpdateAnimal={(aid, d) => updateAnimal(faz.id, aid, d)}
+      onDeleteAnimal={(aid) => deleteAnimal(faz.id, aid)}
+      onDelete={() => deleteFazenda(faz.id)}
+      ping={ping}
+    />;
+  }
+
+  if (tela?.type === "nova") {
+    return <DGNovaFazenda onSave={addFazenda} onCancel={() => setTela(null)} />;
+  }
+
+  // Lista de fazendas DG
+  return <div className="scr">
+    <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 2 }}>Diagnóstico de Gestação</div>
+    <div style={{ fontSize: 13, color: "var(--gr4)", marginBottom: 16 }}>Fazendas atendidas apenas para DG</div>
+
+    {fazendas.length === 0
+      ? <div className="empty">
+          <Icon name="dg" size={44} />
+          <div className="empty-t">Nenhum DG cadastrado</div>
+          <div className="empty-s">Toque no + para iniciar um novo diagnóstico</div>
+        </div>
+      : fazendas.map(f => {
+          const prenhas = (f.animais || []).filter(a => a.status === "P").length;
+          const total = (f.animais || []).length;
+          const taxa = total > 0 ? Math.round(prenhas / total * 100) : null;
+          return <div key={f.id} className="card" onClick={() => setTela({ type: "fazenda", id: f.id })}>
+            <div className="rowsb" style={{ marginBottom: 4 }}>
+              <div>
+                <div className="card-title">{f.nome}</div>
+                <div className="card-sub">👤 {f.proprietario}</div>
+                <div className="card-sub">📍 {f.cidade}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                <span className="badge b-g">{total} animais</span>
+                {taxa !== null && <span className="badge" style={{ background: taxa >= 50 ? "var(--gp)" : "var(--yl)", color: taxa >= 50 ? "var(--g)" : "var(--y)" }}>{taxa}% prenhez</span>}
+              </div>
+            </div>
+            {f.telefone && <div className="card-sub">📞 {f.telefone}</div>}
+            <div className="card-sub" style={{ marginTop: 4 }}>🗓 {new Date(f.criadoEm).toLocaleDateString("pt-BR")}</div>
+          </div>;
+        })
+    }
+    <div style={{ height: 80 }} />
+    <button className="fab" onClick={() => setTela({ type: "nova" })}><Icon name="plus" size={24} /></button>
+  </div>;
+}
+
+function DGNovaFazenda({ onSave, onCancel }) {
+  const [f, setF] = useState({ nome: "", proprietario: "", cidade: "", telefone: "" });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const salvar = () => {
+    if (!f.nome.trim() || !f.proprietario.trim()) return alert("Preencha nome da fazenda e proprietário");
+    onSave(f);
+  };
+  return <div className="scr">
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+      <button className="hdr-btn light" onClick={onCancel}><Icon name="back" size={20} /></button>
+      <div style={{ fontSize: 18, fontWeight: 800 }}>Nova Fazenda DG</div>
+    </div>
+    <div className="fg"><label className="fl">Nome da Fazenda *</label><input className="fi" value={f.nome} onChange={e => s("nome", e.target.value)} placeholder="Ex: Fazenda Santa Luzia" /></div>
+    <div className="fg"><label className="fl">Proprietário *</label><input className="fi" value={f.proprietario} onChange={e => s("proprietario", e.target.value)} placeholder="Ex: João da Silva" /></div>
+    <div className="fg"><label className="fl">Cidade</label><input className="fi" value={f.cidade} onChange={e => s("cidade", e.target.value)} placeholder="Ex: Ipatinga - MG" /></div>
+    <div className="fg"><label className="fl">Telefone</label><input className="fi" value={f.telefone} onChange={e => s("telefone", e.target.value)} placeholder="Ex: (31) 99999-9999" type="tel" /></div>
+    <div className="row" style={{ gap: 8, marginTop: 8 }}>
+      <button className="btn btn-gh" style={{ flex: 1 }} onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-p" style={{ flex: 2 }} onClick={salvar}><Icon name="check" size={16} /> Salvar</button>
+    </div>
+  </div>;
+}
+
+function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnimal, onDelete, ping }) {
+  const [novoAnimal, setNovoAnimal] = useState("");
+  const [adicionando, setAdicionando] = useState(false);
+  const animais = faz.animais || [];
+  const prenhas = animais.filter(a => a.status === "P").length;
+  const vazias = animais.filter(a => a.status === "V").length;
+  const semDiag = animais.filter(a => !a.status).length;
+  const total = animais.length;
+  const taxa = total > 0 ? Math.round(prenhas / total * 100) : 0;
+
+  const salvarAnimal = () => {
+    if (!novoAnimal.trim()) return;
+    onAddAnimal({ nome: novoAnimal.trim(), status: null });
+    setNovoAnimal("");
+    setAdicionando(false);
+    ping("Animal adicionado");
+  };
+
+  const gerarRelatorio = () => {
+    const data = new Date().toLocaleDateString("pt-BR");
+    const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const linhaAnimais = animais.map((a, i) =>
+      `${String(i + 1).padStart(2, "0")}. ${a.nome} — ${a.status === "P" ? "✅ PRENHA" : a.status === "V" ? "❌ VAZIA" : "⏳ Pendente"}`
+    ).join("\n");
+
+    return `🐄 *DIAGNÓSTICO DE GESTAÇÃO*
+━━━━━━━━━━━━━━━━━━━━━
+📋 *DADOS DA PROPRIEDADE*
+🏡 Fazenda: ${faz.nome}
+👤 Proprietário: ${faz.proprietario}
+📍 Cidade: ${faz.cidade || "—"}
+📞 Telefone: ${faz.telefone || "—"}
+🗓 Data: ${data} às ${hora}
+━━━━━━━━━━━━━━━━━━━━━
+📊 *RESUMO*
+🔢 Total avaliado: ${total} animais
+✅ Prenhas: ${prenhas}
+❌ Vazias: ${vazias}${semDiag > 0 ? `\n⏳ Pendentes: ${semDiag}` : ""}
+📈 Taxa de prenhez: ${taxa}%
+━━━━━━━━━━━━━━━━━━━━━
+🐄 *RESULTADO INDIVIDUAL*
+${linhaAnimais}
+━━━━━━━━━━━━━━━━━━━━━
+_Relatório gerado pelo Controle IATF_
+_controleiatf.com.br_`;
+  };
+
+  const enviarWA = () => {
+    const txt = gerarRelatorio();
+    window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
+  };
+
+  const baixarTxt = () => {
+    const txt = gerarRelatorio().replace(/\*/g, "").replace(/_/g, "");
+    const blob = new Blob([txt], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `DG_${faz.nome.replace(/\s+/g, "_")}_${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return <div className="scr">
+    {/* Header da tela */}
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+      <button className="hdr-btn light" onClick={onBack}><Icon name="back" size={20} /></button>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>{faz.nome}</div>
+        <div style={{ fontSize: 12, color: "var(--gr4)" }}>👤 {faz.proprietario} · 📍 {faz.cidade || "—"}</div>
+      </div>
+      <button className="btn btn-d btn-sm" onClick={() => { if (window.confirm("Excluir esta fazenda DG e todos os animais?")) onDelete(); }}>
+        <Icon name="trash" size={14} />
+      </button>
+    </div>
+
+    {/* Resumo */}
+    {total > 0 && <div className="info-box" style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--g)", marginBottom: 8, textTransform: "uppercase", letterSpacing: .4 }}>Resumo do DG</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
+        <div className="stat"><div className="stat-n">{total}</div><div className="stat-l">Total</div></div>
+        <div className="stat"><div className="stat-n" style={{ color: "var(--g)" }}>{prenhas}</div><div className="stat-l">Prenhas</div></div>
+        <div className="stat"><div className="stat-n" style={{ color: taxa >= 50 ? "var(--g)" : "var(--y)" }}>{taxa}%</div><div className="stat-l">Taxa</div></div>
+      </div>
+      <div className="prog"><div className="prog-fill" style={{ width: taxa + "%" }} /></div>
+    </div>}
+
+    {/* Animais */}
+    <div className="sec">Animais ({total})</div>
+
+    {animais.length === 0 && !adicionando && <div className="empty">
+      <div className="empty-t">Nenhum animal cadastrado</div>
+      <div className="empty-s">Adicione os animais para iniciar o DG</div>
+    </div>}
+
+    {animais.map(a => <div key={a.id} style={{
+      display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+      border: "1.5px solid var(--gr2)", borderRadius: 12, marginBottom: 8, background: "var(--w)"
+    }}>
+      <div style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{a.nome}</div>
+      <button
+        onClick={() => onUpdateAnimal(a.id, { status: a.status === "P" ? null : "P" })}
+        style={{ padding: "6px 12px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13,
+          background: a.status === "P" ? "var(--gp)" : "var(--gr1)", color: a.status === "P" ? "var(--g)" : "var(--gr4)" }}>
+        ✅ Prenha
+      </button>
+      <button
+        onClick={() => onUpdateAnimal(a.id, { status: a.status === "V" ? null : "V" })}
+        style={{ padding: "6px 12px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13,
+          background: a.status === "V" ? "var(--rl)" : "var(--gr1)", color: a.status === "V" ? "var(--r)" : "var(--gr4)" }}>
+        ❌ Vazia
+      </button>
+      <button onClick={() => onDeleteAnimal(a.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--gr3)", padding: 4 }}>
+        <Icon name="trash" size={16} />
+      </button>
+    </div>)}
+
+    {/* Adicionar animal */}
+    {adicionando
+      ? <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <input className="fi" style={{ flex: 1 }} autoFocus value={novoAnimal}
+            onChange={e => setNovoAnimal(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && salvarAnimal()}
+            placeholder="Nome ou nº do brinco..." />
+          <button className="btn btn-p" onClick={salvarAnimal}><Icon name="check" size={16} /></button>
+          <button className="btn btn-gh" onClick={() => { setAdicionando(false); setNovoAnimal(""); }}><Icon name="close" size={16} /></button>
+        </div>
+      : <button className="btn btn-gh btn-full" style={{ marginBottom: 16 }} onClick={() => setAdicionando(true)}>
+          <Icon name="plus" size={16} /> Adicionar animal
+        </button>
+    }
+
+    {/* Relatório */}
+    {total > 0 && <>
+      <div className="sec">Relatório</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className="btn btn-wa" style={{ flex: 1 }} onClick={enviarWA}>
+          <Icon name="wa" size={16} color="#fff" /> WhatsApp
+        </button>
+        <button className="btn btn-gh" style={{ flex: 1 }} onClick={baixarTxt}>
+          <Icon name="doc" size={16} /> Baixar .txt
+        </button>
+      </div>
+    </>}
+
+    <div style={{ height: 100 }} />
   </div>;
 }
