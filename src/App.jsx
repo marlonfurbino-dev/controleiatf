@@ -663,6 +663,49 @@ export default function App() {
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
 
+  // Fix: quando volta do MP, reseta pagLoading e garante sessão ativa
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        // Reseta qualquer loading travado ao voltar para o app
+        setModal(prev => prev ? {...prev, _forceReset: Date.now()} : prev);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  // Fix: marcar sessão como inativa quando app é fechado/minimizado no iOS
+  useEffect(() => {
+    const handlePageHide = () => {
+      // pagehide é disparado quando o PWA é fechado no iOS
+      // Usamos um timestamp — se demorar mais de 30s para voltar, pede login
+      sessionStorage.setItem("sessao_pausada_em", Date.now().toString());
+    };
+    const handlePageShow = () => {
+      const pausadaEm = sessionStorage.getItem("sessao_pausada_em");
+      if (pausadaEm) {
+        const diff = Date.now() - parseInt(pausadaEm);
+        // Se ficou mais de 30 minutos fora, pede login novamente
+        if (diff > 30 * 60 * 1000) {
+          sessionStorage.removeItem("sessao_ativa");
+          sessionStorage.removeItem("sessao_pausada_em");
+          supabase.auth.signOut();
+          setUser(null);
+          setPage("app");
+        } else {
+          sessionStorage.removeItem("sessao_pausada_em");
+        }
+      }
+    };
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
+
   // Verificar token de convite na URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1848,6 +1891,13 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[emailConvite,setEmailConvite]=useState("");
   const[convidando,setConvidando]=useState(false);
 
+  // Reset pagLoading quando volta do Mercado Pago
+  useEffect(() => {
+    const reset = () => { if (document.visibilityState === "visible") setPagLoading(false); };
+    document.addEventListener("visibilitychange", reset);
+    return () => document.removeEventListener("visibilitychange", reset);
+  }, []);
+
   // Carregar membros da equipe
   useEffect(()=>{
     if(!ehAssinante||isMembro) return;
@@ -2045,7 +2095,7 @@ function Modal({modal,setModal}){
         <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20}}>{modal.msg}</div>
         <div className="row" style={{gap:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
-          <button className="btn btn-d" style={{flex:1}} onClick={()=>{modal.onOk();close();}}>Confirmar</button>
+          <button className="btn btn-d" style={{flex:1}} onClick={async()=>{close(); await modal.onOk();}}>Confirmar</button>
         </div>
       </>}
       {modal.type==="addSemen"&&<>
