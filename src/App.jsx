@@ -350,7 +350,10 @@ function LandingPage({ onEnterApp }) {
 
 // ── Trial helpers ─────────────────────────────────────────────────────────
 const TRIAL_DIAS = 7;
-const PRECO = "R$ 43,90";
+const PRECO_MENSAL = "R$ 69,90";
+const PRECO_ANUAL_MES = "R$ 59,90";
+const PRECO_ANUAL_ANO = "R$ 718,80";
+const ECONOMIA_ANUAL = "R$ 119,88";
 const MP_PUBLIC_KEY = "APP_USR-74191f84-bf5c-44f9-8b96-c1bf23575f6c";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 
@@ -367,8 +370,7 @@ function diasRestantesTrial(createdAt) {
 function PaywallScreen({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
-
-  const PRECO_INDIVIDUAL = "R$ 43,90";
+  const [plano, setPlano] = useState("anual"); // "mensal" | "anual"
 
   const handlePagamento = async () => {
     setLoading(true);
@@ -379,7 +381,7 @@ function PaywallScreen({ user, onLogout }) {
       const res = await fetch(EDGE_FUNCTION_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ email: user?.email, plano: "individual" }),
+        body: JSON.stringify({ email: user?.email, plano }),
       });
       const data = await res.json();
       if (data.init_point) {
@@ -394,32 +396,67 @@ function PaywallScreen({ user, onLogout }) {
     setLoading(false);
   };
 
+  const msgWA = plano === "anual"
+    ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_MES}/mês (${PRECO_ANUAL_ANO}/ano).`
+    : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
+
   return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:90,height:90,objectFit:"contain",marginBottom:12}}/>
-      <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginBottom:28}}>controleiatf.com.br</div>
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:90,height:90,objectFit:"contain",marginBottom:8}}/>
+      <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginBottom:24}}>controleiatf.com.br</div>
 
-      <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:380,textAlign:"center"}}>
-        <div style={{fontSize:40,marginBottom:12}}>⏰</div>
-        <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:"var(--gr5)"}}>Seu período de teste encerrou</div>
-        <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20,lineHeight:1.6}}>
-          Escolha o plano ideal e continue usando com acesso completo. Cancele quando quiser.
+      <div style={{background:"#fff",borderRadius:24,padding:28,width:"100%",maxWidth:380}}>
+
+        {/* Título */}
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{fontSize:22,fontWeight:800,color:"var(--gr5)",marginBottom:6}}>Continue tendo controle total</div>
+          <div style={{fontSize:13,color:"var(--gr4)",lineHeight:1.6}}>
+            Seu período de teste encerrou. Assine e continue gerando relatórios profissionais, controlando protocolos e impressionando seus clientes.
+          </div>
         </div>
 
-        <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:14,padding:"16px",marginBottom:20,textAlign:"center"}}>
-          <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",marginBottom:4}}>PLANO MENSAL</div>
-          <div style={{fontSize:36,fontWeight:800,color:"var(--g)"}}>R$ 43,90</div>
-          <div style={{fontSize:12,color:"var(--gr4)"}}>/mês · Cancele quando quiser</div>
+        {/* Toggle mensal/anual */}
+        <div style={{display:"flex",background:"var(--gr1)",borderRadius:12,padding:4,marginBottom:16,gap:4}}>
+          <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)",boxShadow:plano==="mensal"?"0 1px 4px rgba(0,0,0,.12)":"none"}}>
+            Mensal
+          </button>
+          <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"var(--g)":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",boxShadow:plano==="anual"?"0 2px 8px rgba(27,107,58,.3)":"none",position:"relative"}}>
+            Anual
+            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-14%</span>}
+          </button>
         </div>
 
-        <div style={{textAlign:"left",marginBottom:16}}>
-          {["✅ Fazendas ilimitadas","✅ Protocolos ilimitados","✅ Relatórios via WhatsApp","✅ Funciona offline","✅ DG e parto calculados","✅ Suporte técnico","✅ Cancele quando quiser"].map(item=>(
+        {/* Card de preço */}
+        <div style={{background:plano==="anual"?"var(--gp)":"var(--gr1)",border:`2px solid ${plano==="anual"?"var(--gm)":"var(--gr2)"}`,borderRadius:16,padding:"20px 16px",marginBottom:16,textAlign:"center"}}>
+          {plano==="anual"&&<div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:4}}>⭐ Mais popular</div>}
+          <div style={{fontSize:38,fontWeight:800,color:"var(--g)",lineHeight:1}}>
+            {plano==="anual" ? PRECO_ANUAL_MES : PRECO_MENSAL}
+          </div>
+          <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>
+            {plano==="anual" ? `por mês · cobrado ${PRECO_ANUAL_ANO}/ano` : "por mês · renovação mensal"}
+          </div>
+          {plano==="anual"&&<div style={{marginTop:8,background:"var(--g)",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>
+            Você economiza {ECONOMIA_ANUAL} por ano
+          </div>}
+        </div>
+
+        {/* Benefícios */}
+        <div style={{marginBottom:16}}>
+          {[
+            "✅ Protocolos e fazendas ilimitados",
+            "✅ Relatório profissional via WhatsApp",
+            "✅ Diagnóstico de gestação (DG)",
+            "✅ Controle de banco de sêmen",
+            "✅ DG e parto calculados automaticamente",
+            "✅ Funciona offline no celular",
+            "✅ Cancele quando quiser"
+          ].map(item=>(
             <div key={item} style={{fontSize:13,color:"var(--gr5)",padding:"5px 0",borderBottom:"1px solid var(--gr1)"}}>{item}</div>
           ))}
         </div>
 
-        <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16,textAlign:"left"}}>
-          🔓 <strong>Cancele quando quiser</strong> — sem multa, sem fidelidade. Basta não renovar.
+        <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
+          💡 <strong>Menos de {plano==="anual"?"R$ 2,00":"R$ 2,33"} por dia</strong> — menos que um café, para profissionalizar cada protocolo que você realiza.
         </div>
 
         {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
@@ -427,23 +464,24 @@ function PaywallScreen({ user, onLogout }) {
         <button
           onClick={handlePagamento}
           disabled={loading}
-          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:loading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:loading?"not-allowed":"pointer",width:"100%",marginBottom:8}}
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:loading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:loading?"not-allowed":"pointer",width:"100%",marginBottom:10}}
         >
           {loading ? "Aguarde..." : <>
             <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-            Assinar agora
+            {plano==="anual" ? `Assinar por ${PRECO_ANUAL_ANO}/ano` : `Assinar por ${PRECO_MENSAL}/mês`}
           </>}
         </button>
 
-        <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF por R$ 43,90/mês.")}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
-          💬 Pagar via PIX pelo WhatsApp
+        <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(msgWA)}`} target="_blank" rel="noreferrer"
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
+          💬 Prefiro pagar via PIX · falar no WhatsApp
         </a>
 
-        <div style={{fontSize:11,color:"var(--gr4)",marginBottom:16}}>
+        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>
           🔒 Pagamento seguro · PIX, cartão de crédito ou débito
         </div>
 
-        <button onClick={onLogout} style={{background:"none",border:"none",color:"var(--gr4)",fontSize:13,cursor:"pointer",fontFamily:"var(--f)"}}>
+        <button onClick={onLogout} style={{background:"none",border:"none",color:"var(--gr4)",fontSize:13,cursor:"pointer",fontFamily:"var(--f)",width:"100%",textAlign:"center"}}>
           Sair da conta
         </button>
       </div>
@@ -535,7 +573,7 @@ function AuthScreen({ onAuth }) {
 
         {tab === "cadastro" && (
           <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:14,fontSize:13,color:"var(--g)",fontWeight:600,textAlign:"center"}}>
-            🎉 7 dias grátis · sem cartão de crédito
+            🎉 7 dias grátis · sem cartão de crédito · depois a partir de {PRECO_ANUAL_MES}/mês
           </div>
         )}
 
@@ -564,7 +602,7 @@ function AuthScreen({ onAuth }) {
           <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"var(--gr4)"}}>
             <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>{setTab("recuperar");setErro("");setOk("");}}>Esqueceu a senha?</span>
             {" · "}
-            Não tem conta? <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setTab("cadastro")}>Criar grátis por 7 dias</span>
+            Não tem conta? <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>setTab("cadastro")}>Testar grátis por 7 dias</span>
           </div>
         )}
         {tab === "recuperar" && (
@@ -1893,17 +1931,19 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
 
     {/* Bloco de assinatura — oculto se já assinante */}
     {!ehAssinante&&<div style={{background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:"var(--r12)",padding:16,marginBottom:12}}>
-      <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>{diasRestantes>0?"💳 Assinar agora e não perder o acesso":"💳 Assinar para voltar a ter acesso"}</div>
-      <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>{diasRestantes>0?"Assine antes do trial vencer.":"Seu trial encerrou."} Cancele quando quiser · sem fidelidade.</div>
-      <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:12,textAlign:"center"}}>
-        <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>R$ 43,90<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
-        <div style={{fontSize:11,color:"var(--gr4)"}}>Cancele quando quiser</div>
+      <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>{diasRestantes>0?"💳 Garanta seu acesso antes do trial vencer":"💳 Assine e volte a ter controle total"}</div>
+      <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>{diasRestantes>0?"Profissionalize sua rotina de IATF. Cancele quando quiser.":"Seu trial encerrou. Assine para continuar usando sem limites."}</div>
+      <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
+        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>
+        <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{PRECO_ANUAL_MES}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
+        <div style={{fontSize:11,color:"var(--gr4)"}}>cobrado {PRECO_ANUAL_ANO}/ano · economize {ECONOMIA_ANUAL}</div>
       </div>
+      <div style={{fontSize:11,color:"var(--gr4)",textAlign:"center",marginBottom:10}}>ou {PRECO_MENSAL}/mês no plano mensal</div>
       {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
       <button onClick={handleAssinar} disabled={pagLoading} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:8}}>
         {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>Assinar agora</>}
       </button>
-      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF por R$ 43,90/mês.")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Pagar via PIX pelo WhatsApp</a>
+      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o Controle IATF. Pode me ajudar?`)}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Prefiro pagar via PIX · falar no WhatsApp</a>
     </div>}
 
 
