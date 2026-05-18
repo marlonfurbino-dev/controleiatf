@@ -57,25 +57,26 @@ const CSS = `
     --r:#c0392b; --rl:#fdecea;
     --y:#92650a; --yl:#fdf3dc;
     --gr0:#f7f9f8; --gr1:#eef2f0; --gr2:#d8e3dd; --gr3:#9ab5a6; --gr4:#5c7a6a; --gr5:#1e3329;
-    --w:#fff; --sh:0 2px 8px rgba(0,0,0,.08); --shm:0 4px 20px rgba(0,0,0,.12);
-    --r8:8px; --r12:12px; --r16:16px; --f:'Inter',sans-serif;
+    --w:#fff; --sh:0 2px 12px rgba(0,0,0,.10); --shm:0 6px 24px rgba(0,0,0,.14);
+    --r8:10px; --r12:14px; --r16:18px; --f:'Inter',sans-serif;
   }
   body { font-family:var(--f); background:var(--gr0); color:var(--gr5); -webkit-font-smoothing:antialiased; }
   .app { max-width:430px; margin:0 auto; min-height:100vh; background:var(--w); display:flex; flex-direction:column; }
 
   /* Auth screens */
-  .auth-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%); }
+  .auth-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%); }
+  .auth-logo-img { width:110px; height:110px; object-fit:contain; margin-bottom:16px; filter:drop-shadow(0 4px 16px rgba(0,0,0,.4)); }
   .auth-logo { font-family:var(--f); font-size:32px; font-weight:800; color:#fff; margin-bottom:6px; }
   .auth-logo span { color:#6fcf8e; }
   .auth-sub { font-size:14px; color:rgba(255,255,255,.5); margin-bottom:36px; }
-  .auth-card { background:var(--w); border-radius:20px; padding:28px 24px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .auth-card { background:var(--w); border-radius:24px; padding:28px 24px; width:100%; max-width:380px; box-shadow:0 24px 64px rgba(0,0,0,.35); }
   .auth-title { font-size:20px; font-weight:800; margin-bottom:4px; }
   .auth-desc { font-size:13px; color:var(--gr4); margin-bottom:20px; }
   .auth-tabs { display:flex; border-bottom:2px solid var(--gr2); margin-bottom:20px; }
-  .auth-tab { flex:1; padding:10px; text-align:center; font-size:14px; font-weight:600; color:var(--gr3); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; }
+  .auth-tab { flex:1; padding:10px; text-align:center; font-size:15px; font-weight:600; color:var(--gr3); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; }
   .auth-tab.on { color:var(--g); border-bottom-color:var(--g); }
-  .auth-err { background:var(--rl); color:var(--r); border-radius:var(--r8); padding:10px 12px; font-size:13px; margin-bottom:14px; }
-  .auth-ok { background:var(--gp); color:var(--g); border-radius:var(--r8); padding:10px 12px; font-size:13px; margin-bottom:14px; }
+  .auth-err { background:var(--rl); color:var(--r); border-radius:var(--r8); padding:10px 12px; font-size:14px; margin-bottom:14px; }
+  .auth-ok { background:var(--gp); color:var(--g); border-radius:var(--r8); padding:10px 12px; font-size:14px; margin-bottom:14px; }
   .invite-box { background:var(--gr0); border:2px dashed var(--gr2); border-radius:var(--r12); padding:16px; margin-bottom:16px; text-align:center; }
   .invite-title { font-size:13px; font-weight:700; color:var(--gr4); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
   .invite-codes { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
@@ -83,11 +84,11 @@ const CSS = `
   
   /* Semen bank */
   .semen-card { background:var(--w); border:1.5px solid var(--gr2); border-radius:var(--r12); padding:14px; margin-bottom:10px; }
-  .semen-raca { font-size:10px; font-weight:800; color:var(--g); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+  .semen-raca { font-size:11px; font-weight:800; color:var(--g); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .semen-item { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--gr1); }
   .semen-item:last-child { border-bottom:none; padding-bottom:0; }
-  .semen-nome { font-size:14px; font-weight:600; }
-  .semen-qty { font-size:20px; font-weight:800; color:var(--g); min-width:40px; text-align:center; }
+  .semen-nome { font-size:15px; font-weight:600; }
+  .semen-qty { font-size:22px; font-weight:800; color:var(--g); min-width:40px; text-align:center; }
   .semen-qty.low { color:var(--r); }
   .semen-qty-btn { width:32px; height:32px; border-radius:50%; border:1.5px solid var(--gr2); background:var(--gr0); font-size:18px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   
@@ -107,16 +108,17 @@ const CSS = `
   .terms-content h3 { color:var(--gr5); font-size:14px; margin:16px 0 6px; }
 
   /* Header */
-  .hdr { background:var(--g); color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:50; box-shadow:var(--shm); }
-  .hdr-title { flex:1; font-size:16px; font-weight:700; line-height:1.2; }
-  .hdr-sub { font-size:11px; opacity:.72; font-weight:400; }
-  .hdr-btn { width:36px; height:36px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:rgba(255,255,255,.18); color:#fff; flex-shrink:0; }
+  .hdr { background:linear-gradient(135deg,#1b6b3a 0%,#145430 100%); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.18); }
+  .hdr-logo { width:36px; height:36px; object-fit:contain; border-radius:8px; flex-shrink:0; }
+  .hdr-title { flex:1; font-size:17px; font-weight:700; line-height:1.2; }
+  .hdr-sub { font-size:12px; opacity:.72; font-weight:400; }
+  .hdr-btn { width:38px; height:38px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:rgba(255,255,255,.18); color:#fff; flex-shrink:0; }
   .hdr-btn.danger { background:rgba(220,50,50,.28); }
   .hdr-btn.light { background:var(--gr1); color:var(--gr5); }
 
   /* Nav */
-  .nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; background:var(--w); border-top:1.5px solid var(--gr2); display:flex; z-index:50; }
-  .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 0 8px; border:none; background:none; color:var(--gr3); font-family:var(--f); font-size:10px; font-weight:700; gap:3px; cursor:pointer; }
+  .nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; background:var(--w); border-top:1.5px solid var(--gr2); display:flex; z-index:50; box-shadow:0 -2px 12px rgba(0,0,0,.07); }
+  .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 0 8px; border:none; background:none; color:var(--gr3); font-family:var(--f); font-size:11px; font-weight:700; gap:3px; cursor:pointer; }
   .nav-btn.on { color:var(--g); }
 
   /* Screen */
@@ -125,35 +127,35 @@ const CSS = `
   .scr { animation:fadeUp .18s ease; }
 
   /* Cards */
-  .card { background:var(--w); border:1.5px solid var(--gr2); border-radius:var(--r12); padding:14px; margin-bottom:10px; cursor:pointer; transition:border-color .15s; }
-  .card:active { border-color:var(--g); }
-  .card-title { font-size:15px; font-weight:700; margin-bottom:2px; }
-  .card-sub { font-size:12px; color:var(--gr4); line-height:1.6; }
+  .card { background:var(--w); border:1.5px solid var(--gr2); border-radius:var(--r12); padding:16px; margin-bottom:10px; cursor:pointer; transition:border-color .15s,box-shadow .15s; }
+  .card:active { border-color:var(--g); box-shadow:0 2px 12px rgba(27,107,58,.12); }
+  .card-title { font-size:16px; font-weight:700; margin-bottom:2px; }
+  .card-sub { font-size:13px; color:var(--gr4); line-height:1.6; }
   .row { display:flex; align-items:center; gap:8px; }
   .rowsb { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 
   /* Badges */
-  .badge { display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; white-space:nowrap; }
+  .badge { display:inline-flex; align-items:center; font-size:12px; font-weight:700; padding:3px 9px; border-radius:99px; white-space:nowrap; }
   .b-g { background:var(--gp); color:var(--g); }
   .b-r { background:var(--rl); color:var(--r); }
   .b-gr { background:var(--gr1); color:var(--gr4); }
 
   /* Buttons */
-  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:var(--r8); font-family:var(--f); font-size:13px; font-weight:700; cursor:pointer; padding:10px 16px; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:var(--r8); font-family:var(--f); font-size:14px; font-weight:700; cursor:pointer; padding:11px 18px; }
   .btn:active { opacity:.82; }
-  .btn-p { background:var(--g); color:#fff; }
+  .btn-p { background:linear-gradient(135deg,#1b6b3a,#145430); color:#fff; box-shadow:0 2px 8px rgba(27,107,58,.25); }
   .btn-gh { background:var(--gr1); color:var(--gr5); }
   .btn-d { background:var(--rl); color:var(--r); }
   .btn-wa { background:#25D366; color:#fff; }
   .btn-full { width:100%; }
-  .btn-sm { padding:7px 12px; font-size:12px; }
+  .btn-sm { padding:8px 13px; font-size:13px; }
 
   .fab { position:fixed; bottom:76px; right:16px; width:52px; height:52px; border-radius:50%; background:var(--g); color:#fff; border:none; box-shadow:var(--shm); cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:60; }
 
   /* Form */
-  .fg { margin-bottom:12px; }
-  .fl { display:block; font-size:11px; font-weight:700; color:var(--gr4); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
-  .fi { width:100%; border:1.5px solid var(--gr2); border-radius:var(--r8); padding:10px 12px; font-family:var(--f); font-size:14px; color:var(--gr5); background:var(--w); outline:none; box-sizing:border-box; min-width:0; }
+  .fg { margin-bottom:14px; }
+  .fl { display:block; font-size:12px; font-weight:700; color:var(--gr4); text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
+  .fi { width:100%; border:1.5px solid var(--gr2); border-radius:var(--r8); padding:11px 13px; font-family:var(--f); font-size:15px; color:var(--gr5); background:var(--w); outline:none; box-sizing:border-box; min-width:0; }
   .fi:focus { border-color:var(--g); box-shadow:0 0 0 3px var(--gp); }
   .fi-ta { min-height:80px; resize:vertical; }
   .fi-sel { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ab5a6' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; }
@@ -180,10 +182,10 @@ const CSS = `
   /* Animal card */
   .ac { border:1.5px solid var(--gr2); border-radius:var(--r12); margin-bottom:8px; overflow:hidden; background:var(--w); }
   .ac-head { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; }
-  .ac-av { width:40px; height:40px; border-radius:50%; background:var(--gp); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:var(--g); flex-shrink:0; }
+  .ac-av { width:42px; height:42px; border-radius:50%; background:var(--gp); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; color:var(--g); flex-shrink:0; }
   .ac-info { flex:1; min-width:0; }
-  .ac-name { font-size:14px; font-weight:700; }
-  .ac-meta { font-size:11px; color:var(--gr4); margin-top:2px; line-height:1.5; }
+  .ac-name { font-size:15px; font-weight:700; }
+  .ac-meta { font-size:12px; color:var(--gr4); margin-top:2px; line-height:1.5; }
   .ac-body { border-top:1px solid var(--gr1); padding:14px; background:var(--gr0); }
 
   /* Manejo */
@@ -193,16 +195,16 @@ const CSS = `
 
   /* Diag */
   .diag-row { display:flex; gap:8px; }
-  .diag-btn { flex:1; padding:9px 6px; border-radius:var(--r8); border:1.5px solid var(--gr2); font-family:var(--f); font-size:12px; font-weight:700; cursor:pointer; background:var(--w); color:var(--gr4); }
+  .diag-btn { flex:1; padding:10px 6px; border-radius:var(--r8); border:1.5px solid var(--gr2); font-family:var(--f); font-size:13px; font-weight:700; cursor:pointer; background:var(--w); color:var(--gr4); }
   .diag-btn.p { border-color:var(--g); background:var(--gp); color:var(--g); }
   .diag-btn.v { border-color:var(--r); background:var(--rl); color:var(--r); }
   .diag-btn.pend { border-color:var(--gr3); background:var(--gr1); color:var(--gr5); }
 
   /* Stats */
   .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
-  .stat { background:var(--gr0); border:1px solid var(--gr2); border-radius:var(--r8); padding:10px 6px; text-align:center; }
-  .stat-n { font-size:22px; font-weight:800; color:var(--g); line-height:1; }
-  .stat-l { font-size:10px; color:var(--gr4); margin-top:2px; font-weight:600; }
+  .stat { background:var(--gr0); border:1px solid var(--gr2); border-radius:var(--r8); padding:12px 6px; text-align:center; }
+  .stat-n { font-size:24px; font-weight:800; color:var(--g); line-height:1; }
+  .stat-l { font-size:11px; color:var(--gr4); margin-top:3px; font-weight:600; }
 
   .prog { background:var(--gr2); border-radius:99px; height:5px; overflow:hidden; margin-top:6px; }
   .prog-fill { height:100%; border-radius:99px; background:var(--g); transition:width .4s; }
@@ -212,15 +214,15 @@ const CSS = `
 
   .empty { text-align:center; padding:40px 20px; color:var(--gr3); }
   .empty svg { opacity:.35; margin-bottom:10px; }
-  .empty-t { font-size:14px; font-weight:700; color:var(--gr4); margin-bottom:4px; }
-  .empty-s { font-size:12px; }
+  .empty-t { font-size:15px; font-weight:700; color:var(--gr4); margin-bottom:4px; }
+  .empty-s { font-size:13px; }
 
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; display:flex; align-items:flex-end; justify-content:center; }
-  .modal { background:var(--w); border-radius:20px 20px 0 0; width:100%; max-width:430px; max-height:92vh; overflow-y:auto; padding:20px 16px; }
+  .modal { background:var(--w); border-radius:24px 24px 0 0; width:100%; max-width:430px; max-height:92vh; overflow-y:auto; padding:20px 16px; }
   .modal-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-  .modal-title { font-size:16px; font-weight:800; }
+  .modal-title { font-size:17px; font-weight:800; }
 
-  .toast { position:fixed; top:70px; left:50%; transform:translateX(-50%); background:var(--gr5); color:#fff; padding:9px 20px; border-radius:99px; font-size:13px; font-weight:600; z-index:300; white-space:nowrap; box-shadow:var(--shm); }
+  .toast { position:fixed; top:70px; left:50%; transform:translateX(-50%); background:var(--gr5); color:#fff; padding:10px 22px; border-radius:99px; font-size:14px; font-weight:600; z-index:300; white-space:nowrap; box-shadow:var(--shm); }
 
   /* Notification banner */
   .notif-banner { background:var(--yl); border:1px solid #e8c96a; border-radius:var(--r8); padding:10px 14px; margin-bottom:10px; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:var(--y); }
@@ -256,7 +258,7 @@ const agendaNotificacoes = (protocolos) => {
         setTimeout(() => {
           new Notification("🐄 Controle IATF", {
             body: `Amanhã é o ${label} do protocolo! Verifique o cronograma.`,
-            icon: "/favicon.svg"
+            icon: "/icon-512.png"
           });
         }, Math.max(diff, 0));
       }
@@ -304,7 +306,7 @@ function LandingPage({ onEnterApp }) {
     <div className="lp">
       <style>{LANDING_CSS}</style>
       <nav className="lp-nav">
-        <div className="lp-logo">Controle<span>IATF</span></div>
+        <img src="/icon-512.png" alt="Controle IATF" style={{width:36,height:36,objectFit:"contain",borderRadius:8}}/>
         <button className="lp-nav-btn" onClick={onEnterApp}>Entrar</button>
       </nav>
 
@@ -337,7 +339,7 @@ function LandingPage({ onEnterApp }) {
       </div>
 
       <footer className="lp-footer">
-        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:18,color:"#fff",marginBottom:8}}>Controle<span style={{color:"#6fcf8e"}}>IATF</span></div>
+        <img src="/icon-512.png" alt="Controle IATF" style={{width:48,height:48,objectFit:"contain",borderRadius:10,marginBottom:8}}/>
         <p>Desenvolvido para médicos veterinários · <a href="https://controleiatf.com.br">controleiatf.com.br</a></p>
         <p style={{marginTop:6}}>© 2026 Controle IATF · Todos os direitos reservados</p>
       </footer>
@@ -394,9 +396,7 @@ function PaywallScreen({ user, onLogout }) {
 
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0e1f14 0%,#1b3a22 100%)",overflowY:"auto"}}>
-      <div style={{fontFamily:"var(--f)",fontSize:28,fontWeight:800,color:"#fff",marginBottom:6}}>
-        Controle<span style={{color:"#6fcf8e"}}>IATF</span>
-      </div>
+      <img src="/icon-512.png" alt="Controle IATF" style={{width:80,height:80,objectFit:"contain",borderRadius:18,marginBottom:12,filter:"drop-shadow(0 4px 16px rgba(0,0,0,.4))"}}/>
       <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginBottom:28}}>controleiatf.com.br</div>
 
       <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:380,textAlign:"center"}}>
@@ -520,7 +520,7 @@ function AuthScreen({ onAuth }) {
 
   return (
     <div className="auth-screen">
-      <div className="auth-logo">Controle<span>IATF</span></div>
+      <img src="/icon-512.png" alt="Controle IATF" className="auth-logo-img"/>
       <div className="auth-sub">controleiatf.com.br</div>
 
       <div className="auth-card">
@@ -1049,7 +1049,8 @@ _Controle IATF — controleiatf.com.br_`;
 
   return <div className="app"><style>{CSS}</style>
     <div className="hdr">
-      <div style={{flex:1}}><div className="hdr-title">🐄 Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
+      <img src="/icon-512.png" alt="Logo" className="hdr-logo"/>
+      <div style={{flex:1}}><div className="hdr-title">Controle IATF</div><div className="hdr-sub">{user.email}</div></div>
       {ehAssinante
         ? <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
         : diasRestantes <= 3 && diasRestantes > 0 && (
