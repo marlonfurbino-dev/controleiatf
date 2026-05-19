@@ -367,14 +367,14 @@ function diasRestantesTrial(createdAt) {
 }
 
 // ── Tela de pagamento com Mercado Pago ────────────────────────────────────
-function PaywallScreen({ user, onLogout }) {
-  const [loading, setLoading] = useState(false);
+function PaywallScreen({ user, onLogout, pagLoading, setPagLoading }) {
   const [erro, setErro] = useState("");
-  const [plano, setPlano] = useState("anual"); // "mensal" | "anual"
+  const [plano, setPlano] = useState("anual");
+  const [mpUrlPronto, setMpUrlPronto] = useState(null);
 
   const handlePagamento = async () => {
-    setLoading(true);
-    setErro("");
+    if(setPagLoading) setPagLoading(true);
+    setErro(""); setMpUrlPronto(null);
     try {
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
@@ -385,20 +385,15 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        const a = document.createElement("a");
-        a.href = data.init_point;
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => document.body.removeChild(a), 1000);
+        setMpUrlPronto({ url: data.init_point, ts: Date.now() });
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg}`);
-        setLoading(false);
+        if(setPagLoading) setPagLoading(false);
       }
     } catch(e) {
       setErro("Erro de conexão: " + e.message);
-      setLoading(false);
+      if(setPagLoading) setPagLoading(false);
     }
   };
 
@@ -467,16 +462,19 @@ function PaywallScreen({ user, onLogout }) {
 
         {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
 
-        <button
-          onClick={handlePagamento}
-          disabled={loading}
-          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:loading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:loading?"not-allowed":"pointer",width:"100%",marginBottom:10}}
-        >
-          {loading ? "Aguarde..." : <>
-            <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-            {plano==="anual" ? `Assinar por ${PRECO_ANUAL_ANO}/ano` : `Assinar por ${PRECO_MENSAL}/mês`}
-          </>}
-        </button>
+        {mpUrlPronto
+          ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:10}}>
+              <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
+              Toque aqui para pagar
+            </a>
+          : <button onClick={handlePagamento} disabled={pagLoading}
+              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:10}}>
+              {pagLoading ? "Aguarde..." : <>
+                <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
+                {plano==="anual" ? `Assinar por ${PRECO_ANUAL_ANO}/ano` : `Assinar por ${PRECO_MENSAL}/mês`}
+              </>}
+            </button>
+        }
 
         <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(msgWA)}`} target="_blank" rel="noreferrer"
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
@@ -1925,14 +1923,16 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const [mpUrlPronto, setMpUrlPronto] = useState(null);
 
   const handleAssinar = async () => {
-    setPagLoading(true); setPagErro(""); setMpUrlPronto(null);
+    setPagLoading(true); setPagErro(""); 
+    setMpUrlPronto(null); // limpa para mostrar botão aguarde
     try {
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
       const res = await fetch(EDGE_FUNCTION_URL, {method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`}, body:JSON.stringify({email:user?.email, plano:planoPerfilSel})});
       const data = await res.json();
       if (data.init_point) {
-        setMpUrlPronto(data.init_point);
+        // Usa objeto com timestamp — garante re-render mesmo se URL for igual
+        setMpUrlPronto({ url: data.init_point, ts: Date.now() });
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setPagErro(`Erro: ${errMsg}`);
@@ -1991,7 +1991,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
 
       {/* Quando URL está pronta, mostra botão de link direto */}
       {mpUrlPronto
-        ? <a href={mpUrlPronto} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:8}}>
+        ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:8}}>
             <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
             Toque aqui para pagar
           </a>
