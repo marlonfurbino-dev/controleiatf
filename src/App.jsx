@@ -385,7 +385,7 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        window.location.href = data.init_point;
+        window.location.replace(data.init_point);
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg}`);
@@ -727,6 +727,20 @@ export default function App() {
       setTimeout(() => window.location.reload(), 1500);
     };
     processarConvite();
+  }, [user]);
+
+  // Recarregar dados quando app volta ao foco (ex: retorno do MP)
+  useEffect(() => {
+    if (!user) return;
+    const reload = () => setDataKey(k => k + 1);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") reload();
+    });
+    window.addEventListener("pageshow", reload);
+    return () => {
+      document.removeEventListener("visibilitychange", reload);
+      window.removeEventListener("pageshow", reload);
+    };
   }, [user]);
 
   // Check auth session
@@ -1933,11 +1947,10 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     }
   };
 
-  // Quando mpUrl estiver pronto, clica no link nativo
+  // Quando mpUrl estiver pronto, redireciona com replace
   useEffect(() => {
-    if (mpUrl && linkRef.current) {
-      linkRef.current.click();
-    }
+    if (!mpUrl) return;
+    window.location.replace(mpUrl);
   }, [mpUrl]);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
