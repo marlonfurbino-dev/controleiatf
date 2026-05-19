@@ -429,23 +429,25 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
         callbacks: {
           onReady: () => setProcessando(false),
           onError: (err) => setErro("Erro no formulário: " + (err?.message || "tente novamente")),
-          onSubmit: async ({ selectedPaymentMethod, formData }) => {
+          onSubmit: async (submitData) => {
             setProcessando(true);
             setErro("");
             try {
+              const formData = submitData?.formData || submitData || {};
               const {data:{session}} = await supabase.auth.getSession();
-              const token = session?.access_token || "";
+              const authToken = session?.access_token || "";
               const res = await fetch(EDGE_PAGAMENTO_URL, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
                 body: JSON.stringify({
                   token: formData.token,
                   plano,
                   email: user?.email,
                   userId: user?.id,
-                  installments: formData.installments,
+                  installments: formData.installments || 1,
                   payment_method_id: formData.payment_method_id,
                   issuer_id: formData.issuer_id,
+                  payer: formData.payer,
                 }),
               });
               const result = await res.json();
@@ -453,10 +455,10 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
                 if (setPerfil) setPerfil(x => ({...x, assinante: true, plano}));
                 setStep("pago");
               } else {
-                setErro("Pagamento não aprovado. Tente outro cartão ou PIX.");
+                setErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão"));
               }
             } catch(e) {
-              setErro("Erro de conexão: " + e.message);
+              setErro("Erro: " + e.message);
             }
             setProcessando(false);
           },
@@ -2047,24 +2049,34 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         callbacks: {
           onReady: () => setProcessandoPerfil(false),
           onError: (err) => setPagErro("Erro: " + (err?.message || "tente novamente")),
-          onSubmit: async ({ formData }) => {
+          onSubmit: async (submitData) => {
             setProcessandoPerfil(true); setPagErro("");
             try {
+              const formData = submitData?.formData || submitData || {};
               const {data:{session}} = await supabase.auth.getSession();
-              const token = session?.access_token||"";
+              const authToken = session?.access_token||"";
               const res = await fetch(EDGE_PAGAMENTO_URL, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                body: JSON.stringify({ token: formData.token, plano: planoPerfilSel, email: user?.email, userId: user?.id, installments: formData.installments, payment_method_id: formData.payment_method_id, issuer_id: formData.issuer_id }),
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+                body: JSON.stringify({ 
+                  token: formData.token, 
+                  plano: planoPerfilSel, 
+                  email: user?.email, 
+                  userId: user?.id, 
+                  installments: formData.installments || 1, 
+                  payment_method_id: formData.payment_method_id,
+                  issuer_id: formData.issuer_id,
+                  payer: formData.payer,
+                }),
               });
               const result = await res.json();
               if (result.status === "approved") { 
                 setStepPerfil("pago");
-                // Atualiza estado local sem reload — mantém dados no Android
                 setPerfil(x => ({...x, assinante: true, plano: planoPerfilSel}));
+              } else { 
+                setPagErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão")); 
               }
-              else { setPagErro("Pagamento não aprovado. Tente outro cartão ou use PIX."); }
-            } catch(e) { setPagErro("Erro de conexão: " + e.message); }
+            } catch(e) { setPagErro("Erro: " + e.message); }
             setProcessandoPerfil(false);
           },
         },
