@@ -375,6 +375,8 @@ function PaywallScreen({ user, onLogout }) {
   const handlePagamento = async () => {
     setLoading(true);
     setErro("");
+    // Abre janela ANTES do await — Safari bloqueia window.open dentro de async
+    const win = window.open("about:blank", "_blank");
     try {
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
@@ -385,13 +387,15 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        window.open(data.init_point, "_blank");
-        setLoading(false);
+        if(win) win.location.href = data.init_point;
+        else window.location.href = data.init_point;
       } else {
+        if(win) win.close();
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
       }
     } catch(e) {
+      if(win) win.close();
       setErro("Erro de conexão: " + e.message);
     }
     setLoading(false);
@@ -1913,18 +1917,26 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
   const handleAssinar=async()=>{
-    setPagLoading(true);setPagErro("");
+    setPagLoading(true); setPagErro("");
+    // Abre janela ANTES do await — Safari bloqueia window.open dentro de async
+    const win = window.open("about:blank", "_blank");
     try{
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
       const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:planoPerfilSel})});
       const data=await res.json();
-      if(data.init_point){ window.open(data.init_point, "_blank"); setPagLoading(false); }
-      else{
+      if(data.init_point){
+        if(win) win.location.href = data.init_point;
+        else window.location.href = data.init_point;
+      } else {
+        if(win) win.close();
         const errMsg=data.message||data.error||"Erro ao iniciar pagamento.";
         setPagErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
       }
-    }catch(e){setPagErro("Erro de conexão: "+e.message);}
+    }catch(e){
+      if(win) win.close();
+      setPagErro("Erro de conexão: "+e.message);
+    }
     setPagLoading(false);
   };
   return <div className="scr">
