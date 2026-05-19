@@ -1857,6 +1857,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[emailConvite,setEmailConvite]=useState("");
   const[convidando,setConvidando]=useState(false);
 
+  // Reseta pagLoading sempre que o PerfilTab é montado (navegação entre abas)
+  useEffect(() => {
+    setPagLoading(false);
+  }, []);
+
   // Carregar membros da equipe
   useEffect(()=>{
     if(!ehAssinante||isMembro) return;
