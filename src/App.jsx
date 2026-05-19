@@ -2115,10 +2115,10 @@ function Modal({modal,setModal}){
         <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20}}>{modal.msg}</div>
         <div className="row" style={{gap:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
-          <button className="btn btn-d" style={{flex:1}} onClick={()=>{
+          <button className="btn btn-d" style={{flex:1}} onClick={async()=>{
             const fn = modal.onOk;
+            await fn();
             close();
-            setTimeout(() => fn(), 100);
           }}>Confirmar</button>
         </div>
       </>}
