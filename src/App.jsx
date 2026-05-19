@@ -637,12 +637,12 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pagLoading, setPagLoading] = useState(false); // global — não reseta ao navegar entre abas
   const [dataKey, setDataKey] = useState(0);
   const [page, setPage] = useState(() => {
     if (window.location.pathname.includes("/app")) return "app";
     if (window.location.search.includes("pagamento=")) return "app";
     try {
-      // Usar localStorage para iOS — sessionStorage é limpo pelo Safari ao voltar do MP
       const ativo = localStorage.getItem("sessao_ativa") || sessionStorage.getItem("sessao_ativa");
       if (ativo === "1") return "app";
     } catch(e) {}
@@ -661,6 +661,21 @@ export default function App() {
 
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
+
+  // Reset global do pagLoading quando volta de qualquer tela externa
+  useEffect(() => {
+    const reset = () => {
+      if (document.visibilityState === "visible") setPagLoading(false);
+    };
+    document.addEventListener("visibilitychange", reset);
+    window.addEventListener("focus", reset);
+    window.addEventListener("pageshow", reset);
+    return () => {
+      document.removeEventListener("visibilitychange", reset);
+      window.removeEventListener("focus", reset);
+      window.removeEventListener("pageshow", reset);
+    };
+  }, []);
 
   // Fix: quando volta do MP, reseta pagLoading
   useEffect(() => {
@@ -1068,7 +1083,7 @@ _Controle IATF — controleiatf.com.br_`;
   const createdAtRef = perfil?.created_at || user.created_at;
   const diasRestantes = diasRestantesTrial(createdAtRef);
   const ehAssinante = perfil?.assinante === true;
-  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} onLogout={logout} />;
+  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading}/>;
 
   if(screen?.type==="fazenda"){
     const f=fazendas.find(x=>x.id===screen.id);
@@ -1168,7 +1183,7 @@ _Controle IATF — controleiatf.com.br_`;
     {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
     {tab==="relatorios"&&<RelatoriosTab protocolos={protocolos} fazendas={fazendas} animais={animais} sendWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
     {tab==="dg"&&<DGTab user={user} ping={ping}/>}
-    {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante} isMembro={isMembro} ownerIdRef={ownerIdRef}/>}
+    {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante} isMembro={isMembro} ownerIdRef={ownerIdRef} pagLoading={pagLoading} setPagLoading={setPagLoading}/>}
 
     <nav className="nav">
       {[["home","home","Início"],["fazendas","farm","Fazendas"],["semen","semen","Sêmen"],["relatorios","doc","Relatórios"],["dg","dg","DG"],["perfil","user","Perfil"]].map(([key,icon,lbl])=>(
@@ -1834,35 +1849,14 @@ function SemenTab({semenBank,setSemenBank,ping}){
   </div>;
 }
 
-function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehAssinante,isMembro,ownerIdRef}){
+function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehAssinante,isMembro,ownerIdRef,pagLoading,setPagLoading}){
   const[editing,setEditing]=useState(false);
   const[f,setF]=useState({nome:perfil?.nome||"",sobrenome:perfil?.sobrenome||"",cidade:perfil?.cidade||"",whatsapp:perfil?.whatsapp||""});
   const[saveErr,setSaveErr]=useState("");
-  const[pagLoading,setPagLoading]=useState(false);
   const[pagErro,setPagErro]=useState("");
   const[membros,setMembros]=useState([]);
   const[emailConvite,setEmailConvite]=useState("");
   const[convidando,setConvidando]=useState(false);
-
-  // Reset pagLoading — timer de 10s como fallback garantido para iOS
-  useEffect(() => {
-    if (!pagLoading) return;
-    const timer = setTimeout(() => setPagLoading(false), 10000);
-    return () => clearTimeout(timer);
-  }, [pagLoading]);
-
-  // Reset pagLoading quando volta do MP por qualquer evento
-  useEffect(() => {
-    const reset = () => setPagLoading(false);
-    window.addEventListener("focus", reset);
-    window.addEventListener("pageshow", reset);
-    document.addEventListener("visibilitychange", reset);
-    return () => {
-      window.removeEventListener("focus", reset);
-      window.removeEventListener("pageshow", reset);
-      document.removeEventListener("visibilitychange", reset);
-    };
-  }, []);
 
   // Carregar membros da equipe
   useEffect(()=>{
