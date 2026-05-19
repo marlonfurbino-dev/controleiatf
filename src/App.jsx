@@ -375,9 +375,9 @@ function LandingPage({ onEnterApp }) {
 // ── Trial helpers ─────────────────────────────────────────────────────────
 const TRIAL_DIAS = 7;
 const PRECO_MENSAL = "R$ 69,90";
-const PRECO_ANUAL_MES = "R$ 59,90";
-const PRECO_ANUAL_ANO = "R$ 718,80";
-const ECONOMIA_ANUAL = "R$ 119,88";
+const PRECO_ANUAL_MES = "R$ 699,90";
+const PRECO_ANUAL_ANO = "R$ 699,90";
+const ECONOMIA_ANUAL = "R$ 138,90";
 const MP_PUBLIC_KEY = "APP_USR-a18e7639-8d8e-4631-af31-d214b0c38cc8";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 const EDGE_PAGAMENTO_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
@@ -399,7 +399,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
   const [processando, setProcessando] = useState(false);
 
   const msgWA = plano === "anual"
-    ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_MES}/mês (${PRECO_ANUAL_ANO}/ano).`
+    ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_ANO}.`
     : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
 
   // Inicializa o Brick de pagamento
@@ -415,7 +415,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
       }
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
-      const valor = plano === "anual" ? 718.80 : 69.90;
+      const valor = plano === "anual" ? 699.90 : 69.90;
 
       brickController = await bricksBuilder.create("cardPayment", "cardPayment-container", {
         initialization: {
@@ -561,13 +561,13 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
           <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
           <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"#1b6b3a":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
             Anual
-            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-14%</span>}
+            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-17%</span>}
           </button>
         </div>
         <div style={{background:plano==="anual"?"var(--gp)":"var(--gr1)",border:`2px solid ${plano==="anual"?"var(--gm)":"var(--gr2)"}`,borderRadius:16,padding:"20px 16px",marginBottom:16,textAlign:"center"}}>
           {plano==="anual"&&<div style={{fontSize:11,fontWeight:800,color:"#1b6b3a",textTransform:"uppercase",letterSpacing:.5,marginBottom:4}}>⭐ Mais popular</div>}
           <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{plano==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}</div>
-          <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>{plano==="anual"?`por mês · cobrado ${PRECO_ANUAL_ANO}/ano`:"por mês · renovação mensal"}</div>
+          <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>{plano==="anual"?"cobrado à vista · parcele em até 12x com juros":"por mês · renovação mensal"}</div>
           {plano==="anual"&&<div style={{marginTop:8,background:"#1b6b3a",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>Você economiza {ECONOMIA_ANUAL} por ano</div>}
         </div>
         <div style={{marginBottom:16}}>
@@ -576,7 +576,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
           ))}
         </div>
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
-          💡 <strong>Menos de {plano==="anual"?"R$ 2,00":"R$ 2,33"} por dia</strong> — menos que um café.
+          💡 <strong>Menos de {plano==="anual"?"R$ 1,92":"R$ 2,33"} por dia</strong> — menos que um café.
         </div>
         <button onClick={()=>setStep("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
           <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
@@ -2068,7 +2068,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   // Inicializa Brick quando step muda para pagamento
   useEffect(() => {
     if (stepPerfil !== "pagamento") return;
-    const valor = planoPerfilSel === "anual" ? 718.80 : 69.90;
+    const valor = planoPerfilSel === "anual" ? 699.90 : 69.90;
     const initBrick = () => {
       if (!window.MercadoPago) { setTimeout(initBrick, 500); return; }
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
@@ -2168,13 +2168,13 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
             <button onClick={()=>setPlanoPerfilSel("mensal")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="mensal"?"#fff":"transparent",color:planoPerfilSel==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
             <button onClick={()=>setPlanoPerfilSel("anual")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="anual"?"var(--g)":"transparent",color:planoPerfilSel==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
               Anual
-              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-14%</span>}
+              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-17%</span>}
             </button>
           </div>
           <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
             {planoPerfilSel==="anual"&&<div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>}
             <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
-            <div style={{fontSize:11,color:"var(--gr4)"}}>{planoPerfilSel==="anual"?`cobrado ${PRECO_ANUAL_ANO}/ano · economize ${ECONOMIA_ANUAL}`:"renovação mensal · cancele quando quiser"}</div>
+            <div style={{fontSize:11,color:"var(--gr4)"}}>{planoPerfilSel==="anual"?`cobrado à vista · parcele em até 12x com juros · economize ${ECONOMIA_ANUAL}`:"renovação mensal · cancele quando quiser"}</div>
           </div>
           {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
           <button onClick={()=>setStepPerfil("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:8}}>
