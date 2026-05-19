@@ -961,17 +961,17 @@ export default function App() {
   }, [user, dataKey]);
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
-  const logout = async () => { 
-    await supabase.auth.signOut(); 
-    localStorage.removeItem("sessao_ativa"); sessionStorage.removeItem("sessao_ativa");
-    setUser(null); 
-    setFazendas([]); 
-    setProtocolos([]); 
-    setAnimais([]); 
-    setSemenBank([]); 
-    setScreen(null);
+  const logout = async () => {
+    try { await supabase.auth.signOut(); } catch(_) {}
+    try { localStorage.clear(); sessionStorage.clear(); } catch(_) {}
     setModal(null);
-    setPage("app"); // mantém em "app" mas user=null mostra tela de login
+    setUser(null);
+    setFazendas([]);
+    setProtocolos([]);
+    setAnimais([]);
+    setSemenBank([]);
+    setScreen(null);
+    setPage("app");
   };
 
   const addFazenda = async (f) => {
@@ -2271,9 +2271,7 @@ function Modal({modal,setModal}){
         <div className="row" style={{gap:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
           <button className="btn btn-d" style={{flex:1}} onClick={()=>{
-            const fn = modal.onOk;
-            setModal(null);
-            fn();
+            modal.onOk?.();
           }}>Confirmar</button>
         </div>
       </>}
