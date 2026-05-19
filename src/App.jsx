@@ -372,13 +372,6 @@ function PaywallScreen({ user, onLogout }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual"); // "mensal" | "anual"
 
-  const [mpUrl, setMpUrl] = useState(null);
-
-  useEffect(() => {
-    if (!mpUrl) return;
-    window.location.href = mpUrl;
-  }, [mpUrl]);
-
   const handlePagamento = async () => {
     setLoading(true);
     setErro("");
@@ -392,10 +385,10 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        setMpUrl(data.init_point);
+        window.location.href = data.init_point;
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
-        setErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+        setErro(`Erro: ${errMsg}`);
         setLoading(false);
       }
     } catch(e) {
@@ -678,9 +671,7 @@ export default function App() {
 
   // Reset global do pagLoading quando volta de qualquer tela externa
   useEffect(() => {
-    const reset = () => {
-      if (document.visibilityState === "visible") setPagLoading(false);
-    };
+    const reset = () => setPagLoading(false);
     document.addEventListener("visibilitychange", reset);
     window.addEventListener("focus", reset);
     window.addEventListener("pageshow", reset);
@@ -1919,13 +1910,6 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     ping("Perfil atualizado!");
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
-  const [mpUrl, setMpUrl] = useState(null);
-
-  // Quando mpUrl estiver pronto, redireciona
-  useEffect(() => {
-    if (!mpUrl) return;
-    window.location.href = mpUrl;
-  }, [mpUrl]);
 
   const handleAssinar = async () => {
     setPagLoading(true); setPagErro("");
@@ -1935,10 +1919,10 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       const res = await fetch(EDGE_FUNCTION_URL, {method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`}, body:JSON.stringify({email:user?.email, plano:planoPerfilSel})});
       const data = await res.json();
       if (data.init_point) {
-        setMpUrl(data.init_point);
+        window.location.href = data.init_point;
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
-        setPagErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+        setPagErro(`Erro: ${errMsg}`);
         setPagLoading(false);
       }
     } catch(e) {
