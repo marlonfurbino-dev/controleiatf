@@ -836,11 +836,10 @@ export default function App() {
         supabase.from("animais").select("*").eq("user_id", targetId).order("at", {ascending:false}),
         supabase.from("semen_bank").select("*").eq("user_id", targetId).order("at", {ascending:false}),
       ]);
-      // Só atualiza se retornou dados — evita sobrescrever com vazio
-      if (fz.data?.length > 0) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
-      if (pr.data?.length > 0) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
-      if (an.data?.length > 0) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
-      if (sm.data?.length > 0) setSemenBank(sm.data.map(s=>({...s})));
+      if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
+      if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
+      if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
+      if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
     };
     load();
   }, [user, dataKey]);
