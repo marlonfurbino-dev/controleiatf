@@ -722,15 +722,17 @@ export default function App() {
 
   // Check auth session
   useEffect(() => {
-    const voltandoDoMP = window.location.search.includes("pagamento=") ||
-                         document.referrer.includes("mercadopago.com");
     if (window.location.search.includes("pagamento=")) {
       window.history.replaceState({}, "", "/app");
     }
 
-    const timeout = setTimeout(() => setLoading(false), 6000);
+    const timeout = setTimeout(() => setLoading(false), 8000);
 
-    const carregarDados = async (uid) => {
+    const carregarDados = async (uid, accessToken, refreshToken) => {
+      // Garante que o JWT está ativo no cliente Supabase antes das queries
+      if (accessToken && refreshToken) {
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      }
       const [perfilRes, fz, pr, an, sm] = await Promise.all([
         supabase.from("perfis").select("*").eq("id", uid).single(),
         supabase.from("fazendas").select("*").eq("user_id", uid).order("at",{ascending:false}),
@@ -752,13 +754,10 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
-        await carregarDados(session.user.id);
+        await carregarDados(session.user.id, session.access_token, session.refresh_token);
         setLoading(false);
       } else {
-        // No Samsung/Android, getSession pode retornar null antes da sessão ser restaurada
-        // O onAuthStateChange vai disparar com a sessão correta logo em seguida
-        // Aguarda mais 3s antes de mostrar tela de login
-        setTimeout(() => setLoading(false), 3000);
+        setTimeout(() => setLoading(false), 4000);
       }
     }).catch(() => { clearTimeout(timeout); setLoading(false); });
 
@@ -768,11 +767,13 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
         setPage("app");
-        await carregarDados(session.user.id);
+        await carregarDados(session.user.id, session.access_token, session.refresh_token);
+        setLoading(false);
       } else {
         localStorage.removeItem("sessao_ativa");
         sessionStorage.removeItem("sessao_ativa");
         setUser(null);
+        setLoading(false);
       }
     });
     return () => { clearTimeout(timeout); subscription.unsubscribe(); };
