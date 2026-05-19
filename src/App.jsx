@@ -397,7 +397,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
   const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pago"
-  const [processando, setProcessando] = useState(false);
+  const [processando, setProcessando] = useState(true); // true até onReady disparar
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_ANO}.`
@@ -413,6 +413,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
     // Limpa qualquer instância anterior do Brick
     const container = document.getElementById("cardPayment-container");
     if (container) container.innerHTML = "";
+    setProcessando(true); // mostra "Processando..." enquanto Brick carrega
 
     const initBrick = async () => {
       if (destroyed) return;
@@ -434,7 +435,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
           visual: { style: { theme: "default" } },
         },
         callbacks: {
-          onReady: () => setProcessando(false),
+          onReady: () => { setProcessando(false); },
           onError: (err) => {
             console.error("[Brick onError]", err);
             setErro("Erro no formulário: " + (err?.message || "tente novamente"));
@@ -509,8 +510,12 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
       initBrick();
     }
 
+    // Timeout de segurança: se onReady não disparar em 5s, some o loader
+    const safetyTimer = setTimeout(() => setProcessando(false), 5000);
+
     return () => {
       destroyed = true;
+      clearTimeout(safetyTimer);
       try { brickController?.unmount?.(); } catch(_) {}
       const el = document.getElementById("cardPayment-container");
       if (el) el.innerHTML = "";
@@ -2077,7 +2082,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
   const [stepPerfil, setStepPerfil] = useState("planos"); // "planos" | "pagamento" | "pago"
-  const [processandoPerfil, setProcessandoPerfil] = useState(false);
+  const [processandoPerfil, setProcessandoPerfil] = useState(true); // true até onReady disparar
 
   // Inicializa Brick quando step muda para pagamento
   useEffect(() => {
