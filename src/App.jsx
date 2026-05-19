@@ -724,12 +724,28 @@ export default function App() {
 
   // Check auth session
   useEffect(() => {
-    // Detectar retorno do MP e limpar URL
+    const voltandoDoMP = window.location.search.includes("pagamento=") ||
+                         document.referrer.includes("mercadopago.com");
     if (window.location.search.includes("pagamento=")) {
       window.history.replaceState({}, "", "/app");
     }
 
     const timeout = setTimeout(() => setLoading(false), 6000);
+
+    const carregarDados = async (uid) => {
+      const [perfilRes, fz, pr, an, sm] = await Promise.all([
+        supabase.from("perfis").select("*").eq("id", uid).single(),
+        supabase.from("fazendas").select("*").eq("user_id", uid).order("at",{ascending:false}),
+        supabase.from("protocolos").select("*").eq("user_id", uid).order("at",{ascending:false}),
+        supabase.from("animais").select("*").eq("user_id", uid).order("at",{ascending:false}),
+        supabase.from("semen_bank").select("*").eq("user_id", uid).order("at",{ascending:false}),
+      ]);
+      if (perfilRes.data) setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
+      if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
+      if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
+      if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
+      if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
+    };
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout);
@@ -738,9 +754,8 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
-        const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
-        if (data) setPerfil({...data, plano: data.plano||"individual"});
-        else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
+        // Carrega perfil e dados diretamente — não depende de useEffect separado
+        await carregarDados(session.user.id);
       } else {
         setUser(null);
       }
@@ -753,9 +768,7 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
         setPage("app");
-        const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
-        if (data) setPerfil({...data, plano: data.plano||"individual"});
-        else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
+        await carregarDados(session.user.id);
       } else {
         localStorage.removeItem("sessao_ativa");
         sessionStorage.removeItem("sessao_ativa");
