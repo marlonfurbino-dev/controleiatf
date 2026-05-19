@@ -752,12 +752,14 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
-        // Carrega perfil e dados diretamente — não depende de useEffect separado
         await carregarDados(session.user.id);
+        setLoading(false);
       } else {
-        setUser(null);
+        // No Samsung/Android, getSession pode retornar null antes da sessão ser restaurada
+        // O onAuthStateChange vai disparar com a sessão correta logo em seguida
+        // Aguarda mais 3s antes de mostrar tela de login
+        setTimeout(() => setLoading(false), 3000);
       }
-      setLoading(false);
     }).catch(() => { clearTimeout(timeout); setLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
