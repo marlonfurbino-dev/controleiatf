@@ -509,8 +509,6 @@ function AuthScreen({ onAuth }) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
       setLoading(false);
       if (error) { setErro("Email ou senha incorretos."); return; }
-      const sessionToken = Math.random().toString(36).slice(2);
-      DB.set("session_token_" + data.user.id, sessionToken);
       onAuth(data.user);
     } catch(e) {
       setLoading(false);
@@ -749,25 +747,6 @@ export default function App() {
     });
     return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
-
-  // Verificar sessão única a cada 2 minutos
-  useEffect(() => {
-    if (!user) return;
-    const checkSession = async () => {
-      const localToken = DB.get("session_token_" + user.id);
-      if (!localToken) return; // sem token local, não verifica
-      const { data } = await supabase.from("perfis").select("session_token").eq("id", user.id).single();
-      if (data?.session_token && data.session_token !== localToken) {
-        // Só derruba se ambos existem e são diferentes
-        await supabase.auth.signOut();
-        setUser(null);
-        alert("Sua sessão foi encerrada porque outro dispositivo fez login com sua conta.");
-      }
-    };
-    checkSession();
-    const interval = setInterval(checkSession, 120000);
-    return () => clearInterval(interval);
-  }, [user]);
 
   // Pedir permissão de notificação e agendar
   useEffect(() => {
