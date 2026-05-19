@@ -636,8 +636,8 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dataKey, setDataKey] = useState(0);
   const [page, setPage] = useState(() => {
-    // Se vem do MP ou tem /app na URL, vai direto pro app
     if (window.location.pathname.includes("/app")) return "app";
     if (window.location.search.includes("pagamento=")) return "app";
     try {
@@ -755,8 +755,6 @@ export default function App() {
     pedirPermissaoNotificacao();
     agendaNotificacoes(protocolos);
   }, [user, protocolos]);
-
-  const [dataKey, setDataKey] = useState(0); // incrementar força reload dos dados
 
   // ── Carregar dados do Supabase quando usuário logar ──────────────────
   useEffect(() => {
@@ -2055,7 +2053,7 @@ function Modal({modal,setModal}){
         <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20}}>{modal.msg}</div>
         <div className="row" style={{gap:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
-          <button className="btn btn-d" style={{flex:1}} onClick={async()=>{close(); await modal.onOk();}}>Confirmar</button>
+          <button className="btn btn-d" style={{flex:1}} onClick={async()=>{ await modal.onOk(); close(); }}>Confirmar</button>
         </div>
       </>}
       {modal.type==="addSemen"&&<>
