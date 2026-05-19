@@ -372,29 +372,48 @@ function PaywallScreen({ user, onLogout }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual"); // "mensal" | "anual"
 
+  // Reseta o estado de loading ao trocar de plano, para evitar travamento
+  // caso o usuário volte do Mercado Pago e queira escolher outro plano.
+  const handleTrocarPlano = (novoPlano) => {
+    setPlano(novoPlano);
+    setLoading(false);
+    setErro("");
+  };
+
   const handlePagamento = async () => {
+    if (loading) return; // guard duplo-clique
     setLoading(true);
     setErro("");
     try {
-      const {data:{session}} = await supabase.auth.getSession();
-      const token = session?.access_token||"";
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || "";
       const res = await fetch(EDGE_FUNCTION_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ email: user?.email, plano }),
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData.message || errData.error || `Erro HTTP ${res.status}`;
+        setErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       if (data.init_point) {
-        window.open(data.init_point, "_blank");
-        setLoading(false);
+        // ✅ Redirect na mesma aba — elimina popup indesejado e travamento ao voltar
+        window.location.href = data.init_point;
+        // Não chama setLoading(false) aqui: o redirect vai sair da página.
+        // O reset é feito pelo listener de visibilitychange no App principal.
       } else {
-        const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
+        const errMsg = data.message || data.error || "Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+        setLoading(false);
       }
-    } catch(e) {
+    } catch (e) {
       setErro("Erro de conexão: " + e.message);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const msgWA = plano === "anual"
@@ -418,10 +437,10 @@ function PaywallScreen({ user, onLogout }) {
 
         {/* Toggle mensal/anual */}
         <div style={{display:"flex",background:"var(--gr1)",borderRadius:12,padding:4,marginBottom:16,gap:4}}>
-          <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)",boxShadow:plano==="mensal"?"0 1px 4px rgba(0,0,0,.12)":"none"}}>
+          <button onClick={()=>handleTrocarPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)",boxShadow:plano==="mensal"?"0 1px 4px rgba(0,0,0,.12)":"none"}}>
             Mensal
           </button>
-          <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"var(--g)":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",boxShadow:plano==="anual"?"0 2px 8px rgba(27,107,58,.3)":"none",position:"relative"}}>
+          <button onClick={()=>handleTrocarPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"var(--g)":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",boxShadow:plano==="anual"?"0 2px 8px rgba(27,107,58,.3)":"none",position:"relative"}}>
             Anual
             {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-14%</span>}
           </button>
@@ -662,30 +681,22 @@ export default function App() {
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
 
-  // Reset global do pagLoading quando volta de qualquer tela externa
+  // Quando o usuário volta ao app após redirect do Mercado Pago (ou qualquer aba externa),
+  // reseta o estado de loading global para evitar travamento nos botões de pagamento.
   useEffect(() => {
-    const reset = () => {
-      if (document.visibilityState === "visible") setPagLoading(false);
-    };
-    document.addEventListener("visibilitychange", reset);
-    window.addEventListener("focus", reset);
-    window.addEventListener("pageshow", reset);
-    return () => {
-      document.removeEventListener("visibilitychange", reset);
-      window.removeEventListener("focus", reset);
-      window.removeEventListener("pageshow", reset);
-    };
-  }, []);
-
-  // Fix: quando volta do MP, reseta pagLoading
-  useEffect(() => {
-    const handleVisibility = () => {
+    const handleReturnToApp = () => {
       if (document.visibilityState === "visible") {
-        setModal(prev => prev ? {...prev, _forceReset: Date.now()} : prev);
+        setPagLoading(false);
       }
     };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    document.addEventListener("visibilitychange", handleReturnToApp);
+    window.addEventListener("focus", handleReturnToApp);
+    window.addEventListener("pageshow", handleReturnToApp);
+    return () => {
+      document.removeEventListener("visibilitychange", handleReturnToApp);
+      window.removeEventListener("focus", handleReturnToApp);
+      window.removeEventListener("pageshow", handleReturnToApp);
+    };
   }, []);
 
   // Verificar token de convite na URL
@@ -1906,19 +1917,27 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
   const handleAssinar=async()=>{
+    if(pagLoading) return;
     setPagLoading(true);setPagErro("");
     try{
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
       const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:planoPerfilSel})});
+      if(!res.ok){
+        const errData=await res.json().catch(()=>({}));
+        setPagErro(`Erro: ${errData.message||errData.error||`HTTP ${res.status}`} Tente novamente ou fale pelo WhatsApp.`);
+        setPagLoading(false);
+        return;
+      }
       const data=await res.json();
-      if(data.init_point){ window.open(data.init_point, "_blank"); setPagLoading(false); }
-      else{
+      if(data.init_point){
+        window.location.href = data.init_point;
+      } else{
         const errMsg=data.message||data.error||"Erro ao iniciar pagamento.";
         setPagErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+        setPagLoading(false);
       }
-    }catch(e){setPagErro("Erro de conexão: "+e.message);}
-    setPagLoading(false);
+    }catch(e){setPagErro("Erro de conexão: "+e.message);setPagLoading(false);}
   };
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
