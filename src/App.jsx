@@ -437,7 +437,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
             setProcessando(true);
             setErro("");
             const formData = submitData?.formData || submitData || {};
-            console.log("[Brick] formData:", JSON.stringify(formData));
+
             try {
               const { data: { session } } = await supabase.auth.getSession();
               const authToken = session?.access_token || "";
@@ -452,7 +452,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
                 issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
                 payer: formData.payer,
               };
-              console.log("[Brick] payload:", JSON.stringify(payload));
+
 
               const res = await fetch(EDGE_PAGAMENTO_URL, {
                 method: "POST",
@@ -464,7 +464,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
               });
 
               const result = await res.json();
-              console.log("[Brick] resposta:", res.status, JSON.stringify(result));
+
 
               if (!res.ok) {
                 setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.error || `HTTP ${res.status}`));
