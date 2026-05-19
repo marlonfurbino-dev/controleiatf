@@ -385,7 +385,7 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        window.location.replace(data.init_point);
+        window.location.href = data.init_point;
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg}`);
@@ -1925,10 +1925,10 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
   const [mpUrl, setMpUrl] = useState("");
-  const linkRef = useRef(null);
 
   const handleAssinar = async () => {
-    setPagLoading(true); setPagErro(""); setMpUrl("");
+    setPagLoading(true); setPagErro("");
+    setMpUrl(""); // limpa URL anterior para garantir que useEffect dispara
     try {
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
@@ -1947,10 +1947,10 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     }
   };
 
-  // Quando mpUrl estiver pronto, redireciona com replace
+  // Redireciona quando mpUrl estiver pronto
   useEffect(() => {
     if (!mpUrl) return;
-    window.location.replace(mpUrl);
+    window.location.href = mpUrl;
   }, [mpUrl]);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
