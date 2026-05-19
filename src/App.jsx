@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ── Supabase ──────────────────────────────────────────────────────────────
@@ -385,7 +385,12 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        window.location.href = data.init_point;
+        const a = document.createElement("a");
+        a.href = data.init_point;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 1000);
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg}`);
@@ -682,25 +687,22 @@ export default function App() {
     };
   }, []);
 
-  // Fix: quando volta do MP, reseta pagLoading
+  // Recarregar dados quando app volta ao foco (ex: retorno do MP)
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        setModal(prev => prev ? {...prev, _forceReset: Date.now()} : prev);
-      }
+    if (!user) return;
+    const reload = () => {
+      if (document.visibilityState === "visible") setDataKey(k => k + 1);
     };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
+    document.addEventListener("visibilitychange", reload);
+    return () => document.removeEventListener("visibilitychange", reload);
+  }, [user]);
 
   // Verificar token de convite na URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
     if (!token) return;
-    // Armazenar token para processar após login
     sessionStorage.setItem("convite_token", token);
-    // Limpar URL
     window.history.replaceState({}, "", "/");
   }, []);
 
@@ -711,44 +713,20 @@ export default function App() {
     if (!token) return;
     sessionStorage.removeItem("convite_token");
     const processarConvite = async () => {
-      const {data, error} = await supabase
-        .from("membros_equipe")
-        .select("*")
-        .eq("token", token)
-        .eq("status", "pendente")
-        .single();
+      const {data, error} = await supabase.from("membros_equipe").select("*").eq("token", token).eq("status", "pendente").single();
       if (error || !data) { ping("Convite inválido ou já utilizado."); return; }
-      // Ativar membro
-      await supabase.from("membros_equipe")
-        .update({membro_id: user.id, status: "ativo"})
-        .eq("id", data.id);
+      await supabase.from("membros_equipe").update({membro_id: user.id, status: "ativo"}).eq("id", data.id);
       ping("✅ Você entrou na equipe com sucesso!");
-      // Recarregar app para carregar dados do dono
       setTimeout(() => window.location.reload(), 1500);
     };
     processarConvite();
   }, [user]);
 
-  // Recarregar dados quando app volta ao foco (ex: retorno do MP)
-  useEffect(() => {
-    if (!user) return;
-    const reload = () => setDataKey(k => k + 1);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") reload();
-    });
-    window.addEventListener("pageshow", reload);
-    return () => {
-      document.removeEventListener("visibilitychange", reload);
-      window.removeEventListener("pageshow", reload);
-    };
-  }, [user]);
-
   // Check auth session
   useEffect(() => {
-    // Limpar params do MP da URL e forçar reload dos dados
+    // Detectar retorno do MP e limpar URL
     if (window.location.search.includes("pagamento=")) {
       window.history.replaceState({}, "", "/app");
-      setDataKey(k => k + 1);
     }
 
     const timeout = setTimeout(() => setLoading(false), 6000);
@@ -756,13 +734,13 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout);
       if (session?.user) {
-        localStorage.setItem("sessao_ativa", "1"); sessionStorage.setItem("sessao_ativa", "1");
+        localStorage.setItem("sessao_ativa", "1");
+        sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
         if (data) setPerfil({...data, plano: data.plano||"individual"});
         else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
-        trackEvent("login", {method:"session"});
       } else {
         setUser(null);
       }
@@ -771,14 +749,16 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        localStorage.setItem("sessao_ativa", "1"); sessionStorage.setItem("sessao_ativa", "1");
+        localStorage.setItem("sessao_ativa", "1");
+        sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
         setPage("app");
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
         if (data) setPerfil({...data, plano: data.plano||"individual"});
         else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
       } else {
-        localStorage.removeItem("sessao_ativa"); sessionStorage.removeItem("sessao_ativa");
+        localStorage.removeItem("sessao_ativa");
+        sessionStorage.removeItem("sessao_ativa");
         setUser(null);
       }
     });
@@ -1924,18 +1904,22 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     ping("Perfil atualizado!");
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
-  const [mpUrl, setMpUrl] = useState("");
 
   const handleAssinar = async () => {
     setPagLoading(true); setPagErro("");
-    setMpUrl(""); // limpa URL anterior para garantir que useEffect dispara
     try {
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
       const res = await fetch(EDGE_FUNCTION_URL, {method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`}, body:JSON.stringify({email:user?.email, plano:planoPerfilSel})});
       const data = await res.json();
       if (data.init_point) {
-        setMpUrl(data.init_point);
+        // Cria link nativo e clica — funciona em todas as tentativas em qualquer browser
+        const a = document.createElement("a");
+        a.href = data.init_point;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 1000);
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setPagErro(`Erro: ${errMsg}`);
@@ -1946,12 +1930,6 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       setPagLoading(false);
     }
   };
-
-  // Redireciona quando mpUrl estiver pronto
-  useEffect(() => {
-    if (!mpUrl) return;
-    window.location.href = mpUrl;
-  }, [mpUrl]);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
     <div className="profile-section">
