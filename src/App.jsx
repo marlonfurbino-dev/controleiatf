@@ -392,7 +392,7 @@ function diasRestantesTrial(createdAt) {
 }
 
 // ── Tela de pagamento com Mercado Pago Bricks ────────────────────────────
-function PaywallScreen({ user, onLogout, pagLoading, setPagLoading }) {
+function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
   const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pago"
@@ -450,6 +450,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading }) {
               });
               const result = await res.json();
               if (result.status === "approved") {
+                if (setPerfil) setPerfil(x => ({...x, assinante: true, plano}));
                 setStep("pago");
               } else {
                 setErro("Pagamento não aprovado. Tente outro cartão ou PIX.");
@@ -484,7 +485,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading }) {
       <div style={{fontSize:64,marginBottom:16}}>🎉</div>
       <div style={{fontSize:22,fontWeight:800,color:"#fff",marginBottom:8,textAlign:"center"}}>Pagamento confirmado!</div>
       <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:24,textAlign:"center"}}>Seu acesso será liberado em instantes.</div>
-      <button onClick={()=>window.location.reload()} style={{background:"#1b6b3a",color:"#fff",border:"none",borderRadius:12,padding:"14px 28px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+      <button onClick={()=>setStep("planos")} style={{background:"#1b6b3a",color:"#fff",border:"none",borderRadius:12,padding:"14px 28px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
         Acessar o app
       </button>
     </div>
@@ -783,7 +784,7 @@ export default function App() {
       if (error || !data) { ping("Convite inválido ou já utilizado."); return; }
       await supabase.from("membros_equipe").update({membro_id: user.id, status: "ativo"}).eq("id", data.id);
       ping("✅ Você entrou na equipe com sucesso!");
-      setTimeout(() => window.location.reload(), 1500);
+      setTimeout(() => setDataKey(k => k + 1), 1500);
     };
     processarConvite();
   }, [user]);
@@ -1203,7 +1204,7 @@ _Controle IATF — controleiatf.com.br_`;
   const createdAtRef = perfil?.created_at || user.created_at;
   const diasRestantes = diasRestantesTrial(createdAtRef);
   const ehAssinante = perfil?.assinante === true;
-  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading}/>;
+  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading} setPerfil={setPerfil}/>;
 
   if(screen?.type==="fazenda"){
     const f=fazendas.find(x=>x.id===screen.id);
@@ -2057,7 +2058,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 body: JSON.stringify({ token: formData.token, plano: planoPerfilSel, email: user?.email, userId: user?.id, installments: formData.installments, payment_method_id: formData.payment_method_id, issuer_id: formData.issuer_id }),
               });
               const result = await res.json();
-              if (result.status === "approved") { setStepPerfil("pago"); }
+              if (result.status === "approved") { 
+                setStepPerfil("pago");
+                // Atualiza estado local sem reload — mantém dados no Android
+                setPerfil(x => ({...x, assinante: true, plano: planoPerfilSel}));
+              }
               else { setPagErro("Pagamento não aprovado. Tente outro cartão ou use PIX."); }
             } catch(e) { setPagErro("Erro de conexão: " + e.message); }
             setProcessandoPerfil(false);
@@ -2102,7 +2107,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         <div style={{textAlign:"center",padding:"16px 0"}}>
           <div style={{fontSize:32,marginBottom:8}}>🎉</div>
           <div style={{fontSize:16,fontWeight:800,color:"var(--g)",marginBottom:4}}>Pagamento confirmado!</div>
-          <button onClick={()=>window.location.reload()} style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",marginTop:8}}>Acessar o app</button>
+          <button onClick={()=>setStepPerfil("planos")} style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",marginTop:8}}>Continuar</button>
         </div>
       ) : stepPerfil === "pagamento" ? (
         <div>
