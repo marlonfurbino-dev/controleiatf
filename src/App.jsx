@@ -2030,29 +2030,49 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     ping("Perfil atualizado!");
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
-  const [mpUrlPronto, setMpUrlPronto] = useState(null);
+  const [stepPerfil, setStepPerfil] = useState("planos"); // "planos" | "pagamento" | "pago"
+  const [processandoPerfil, setProcessandoPerfil] = useState(false);
 
-  const handleAssinar = async () => {
-    setPagLoading(true); setPagErro(""); 
-    setMpUrlPronto(null); // limpa para mostrar botão aguarde
-    try {
-      const {data:{session}} = await supabase.auth.getSession();
-      const token = session?.access_token||"";
-      const res = await fetch(EDGE_FUNCTION_URL, {method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`}, body:JSON.stringify({email:user?.email, plano:planoPerfilSel})});
-      const data = await res.json();
-      if (data.init_point) {
-        // Usa objeto com timestamp — garante re-render mesmo se URL for igual
-        setMpUrlPronto({ url: data.init_point, ts: Date.now() });
-      } else {
-        const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
-        setPagErro(`Erro: ${errMsg}`);
-        setPagLoading(false);
-      }
-    } catch(e) {
-      setPagErro("Erro de conexão: "+e.message);
-      setPagLoading(false);
-    }
-  };
+  // Inicializa Brick quando step muda para pagamento
+  useEffect(() => {
+    if (stepPerfil !== "pagamento") return;
+    const valor = planoPerfilSel === "anual" ? 718.80 : 69.90;
+    const initBrick = () => {
+      if (!window.MercadoPago) { setTimeout(initBrick, 500); return; }
+      const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
+      mp.bricks().create("cardPayment", "cardPayment-perfil", {
+        initialization: { amount: valor, payer: { email: user?.email } },
+        customization: { paymentMethods: { minInstallments: 1, maxInstallments: planoPerfilSel === "anual" ? 12 : 1 } },
+        callbacks: {
+          onReady: () => setProcessandoPerfil(false),
+          onError: (err) => setPagErro("Erro: " + (err?.message || "tente novamente")),
+          onSubmit: async ({ formData }) => {
+            setProcessandoPerfil(true); setPagErro("");
+            try {
+              const {data:{session}} = await supabase.auth.getSession();
+              const token = session?.access_token||"";
+              const res = await fetch(EDGE_PAGAMENTO_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify({ token: formData.token, plano: planoPerfilSel, email: user?.email, userId: user?.id, installments: formData.installments, payment_method_id: formData.payment_method_id, issuer_id: formData.issuer_id }),
+              });
+              const result = await res.json();
+              if (result.status === "approved") { setStepPerfil("pago"); }
+              else { setPagErro("Pagamento não aprovado. Tente outro cartão ou use PIX."); }
+            } catch(e) { setPagErro("Erro de conexão: " + e.message); }
+            setProcessandoPerfil(false);
+          },
+        },
+      });
+    };
+    if (!window.MercadoPago) {
+      const script = document.createElement("script");
+      script.src = "https://sdk.mercadopago.com/js/v2";
+      script.onload = initBrick;
+      document.head.appendChild(script);
+    } else { initBrick(); }
+    return () => { const el = document.getElementById("cardPayment-perfil"); if (el) el.innerHTML = ""; };
+  }, [stepPerfil, planoPerfilSel]);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
     <div className="profile-section">
@@ -2078,38 +2098,46 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       <div style={{fontSize:13,fontWeight:800,color:"var(--g)",marginBottom:4}}>{diasRestantes>0?"💳 Garanta seu acesso antes do trial vencer":"💳 Assine e volte a ter controle total"}</div>
       <div style={{fontSize:12,color:"var(--gr4)",marginBottom:12,lineHeight:1.5}}>{diasRestantes>0?"Profissionalize sua rotina de IATF. Cancele quando quiser.":"Seu trial encerrou. Assine para continuar usando sem limites."}</div>
 
-      {/* Toggle mensal/anual */}
-      <div style={{display:"flex",background:"var(--gr1)",borderRadius:10,padding:3,marginBottom:12,gap:3}}>
-        <button onClick={()=>setPlanoPerfilSel("mensal")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="mensal"?"#fff":"transparent",color:planoPerfilSel==="mensal"?"var(--gr5)":"var(--gr4)",boxShadow:planoPerfilSel==="mensal"?"0 1px 4px rgba(0,0,0,.10)":"none"}}>
-          Mensal
-        </button>
-        <button onClick={()=>setPlanoPerfilSel("anual")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="anual"?"var(--g)":"transparent",color:planoPerfilSel==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
-          Anual
-          {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-14%</span>}
-        </button>
-      </div>
-
-      <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
-        {planoPerfilSel==="anual"&&<div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>}
-        <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
-        <div style={{fontSize:11,color:"var(--gr4)"}}>
-          {planoPerfilSel==="anual"?`cobrado ${PRECO_ANUAL_ANO}/ano · economize ${ECONOMIA_ANUAL}`:"renovação mensal · cancele quando quiser"}
+      {stepPerfil === "pago" ? (
+        <div style={{textAlign:"center",padding:"16px 0"}}>
+          <div style={{fontSize:32,marginBottom:8}}>🎉</div>
+          <div style={{fontSize:16,fontWeight:800,color:"var(--g)",marginBottom:4}}>Pagamento confirmado!</div>
+          <button onClick={()=>window.location.reload()} style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",marginTop:8}}>Acessar o app</button>
         </div>
-      </div>
-
-      {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
-
-      {/* Quando URL está pronta, mostra botão de link direto */}
-      {mpUrlPronto
-        ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:8}}>
+      ) : stepPerfil === "pagamento" ? (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+            <button onClick={()=>setStepPerfil("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontFamily:"var(--f)",fontSize:12,fontWeight:600}}>← Voltar</button>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--g)"}}>{planoPerfilSel==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
+          </div>
+          {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
+          {processandoPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Processando...</div>}
+          <div id="cardPayment-perfil"/>
+          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>🔒 Pagamento seguro via Mercado Pago</div>
+          <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF. Pode me ajudar?")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)",marginTop:8}}>💬 Prefiro pagar via PIX · WhatsApp</a>
+        </div>
+      ) : (
+        <>
+          <div style={{display:"flex",background:"var(--gr1)",borderRadius:10,padding:3,marginBottom:12,gap:3}}>
+            <button onClick={()=>setPlanoPerfilSel("mensal")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="mensal"?"#fff":"transparent",color:planoPerfilSel==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
+            <button onClick={()=>setPlanoPerfilSel("anual")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="anual"?"var(--g)":"transparent",color:planoPerfilSel==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
+              Anual
+              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-14%</span>}
+            </button>
+          </div>
+          <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
+            {planoPerfilSel==="anual"&&<div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>}
+            <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
+            <div style={{fontSize:11,color:"var(--gr4)"}}>{planoPerfilSel==="anual"?`cobrado ${PRECO_ANUAL_ANO}/ano · economize ${ECONOMIA_ANUAL}`:"renovação mensal · cancele quando quiser"}</div>
+          </div>
+          {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
+          <button onClick={()=>setStepPerfil("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:8}}>
             <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-            Toque aqui para pagar
-          </a>
-        : <button onClick={handleAssinar} disabled={pagLoading} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:8}}>
-            {pagLoading?"Aguarde...":<><svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>{planoPerfilSel==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}</>}
+            {planoPerfilSel==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
           </button>
-      }
-      <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(`Olá! Quero assinar o Controle IATF. Pode me ajudar?`)}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Prefiro pagar via PIX · falar no WhatsApp</a>
+          <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF. Pode me ajudar?")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Prefiro pagar via PIX · falar no WhatsApp</a>
+        </>
+      )}
     </div>}
 
 
