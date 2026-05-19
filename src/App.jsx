@@ -378,8 +378,9 @@ const PRECO_MENSAL = "R$ 69,90";
 const PRECO_ANUAL_MES = "R$ 59,90";
 const PRECO_ANUAL_ANO = "R$ 718,80";
 const ECONOMIA_ANUAL = "R$ 119,88";
-const MP_PUBLIC_KEY = "APP_USR-74191f84-bf5c-44f9-8b96-c1bf23575f6c";
+const MP_PUBLIC_KEY = "APP_USR-a18e7639-8d8e-4631-af31-d214b0c38cc8";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
+const EDGE_PAGAMENTO_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
 
 function diasRestantesTrial(createdAt) {
   if (!createdAt) return TRIAL_DIAS; // sem data = considera trial completo
@@ -390,128 +391,171 @@ function diasRestantesTrial(createdAt) {
   return Math.max(0, TRIAL_DIAS - diff);
 }
 
-// ── Tela de pagamento com Mercado Pago ────────────────────────────────────
+// ── Tela de pagamento com Mercado Pago Bricks ────────────────────────────
 function PaywallScreen({ user, onLogout, pagLoading, setPagLoading }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
-  const [mpUrlPronto, setMpUrlPronto] = useState(null);
-
-  const handlePagamento = async () => {
-    if(setPagLoading) setPagLoading(true);
-    setErro(""); setMpUrlPronto(null);
-    try {
-      const {data:{session}} = await supabase.auth.getSession();
-      const token = session?.access_token||"";
-      const res = await fetch(EDGE_FUNCTION_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ email: user?.email, plano }),
-      });
-      const data = await res.json();
-      if (data.init_point) {
-        setMpUrlPronto({ url: data.init_point, ts: Date.now() });
-      } else {
-        const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
-        setErro(`Erro: ${errMsg}`);
-        if(setPagLoading) setPagLoading(false);
-      }
-    } catch(e) {
-      setErro("Erro de conexão: " + e.message);
-      if(setPagLoading) setPagLoading(false);
-    }
-  };
+  const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pago"
+  const [processando, setProcessando] = useState(false);
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_MES}/mês (${PRECO_ANUAL_ANO}/ano).`
     : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
 
+  // Inicializa o Brick de pagamento
+  useEffect(() => {
+    if (step !== "pagamento") return;
+
+    // Carrega SDK do MP se não carregado
+    const initBrick = () => {
+      if (!window.MercadoPago) {
+        setTimeout(initBrick, 500);
+        return;
+      }
+      const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
+      const bricksBuilder = mp.bricks();
+
+      const valor = plano === "anual" ? 718.80 : 69.90;
+
+      bricksBuilder.create("cardPayment", "cardPayment-container", {
+        initialization: {
+          amount: valor,
+          payer: { email: user?.email },
+        },
+        customization: {
+          paymentMethods: { minInstallments: 1, maxInstallments: plano === "anual" ? 12 : 1 },
+          visual: { style: { theme: "default" } },
+        },
+        callbacks: {
+          onReady: () => setProcessando(false),
+          onError: (err) => setErro("Erro no formulário: " + (err?.message || "tente novamente")),
+          onSubmit: async ({ selectedPaymentMethod, formData }) => {
+            setProcessando(true);
+            setErro("");
+            try {
+              const {data:{session}} = await supabase.auth.getSession();
+              const token = session?.access_token || "";
+              const res = await fetch(EDGE_PAGAMENTO_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify({
+                  token: formData.token,
+                  plano,
+                  email: user?.email,
+                  userId: user?.id,
+                  installments: formData.installments,
+                  payment_method_id: formData.payment_method_id,
+                  issuer_id: formData.issuer_id,
+                }),
+              });
+              const result = await res.json();
+              if (result.status === "approved") {
+                setStep("pago");
+              } else {
+                setErro("Pagamento não aprovado. Tente outro cartão ou PIX.");
+              }
+            } catch(e) {
+              setErro("Erro de conexão: " + e.message);
+            }
+            setProcessando(false);
+          },
+        },
+      });
+    };
+
+    if (!window.MercadoPago) {
+      const script = document.createElement("script");
+      script.src = "https://sdk.mercadopago.com/js/v2";
+      script.onload = initBrick;
+      document.head.appendChild(script);
+    } else {
+      initBrick();
+    }
+
+    return () => {
+      const el = document.getElementById("cardPayment-container");
+      if (el) el.innerHTML = "";
+    };
+  }, [step, plano]);
+
+  // Tela de sucesso
+  if (step === "pago") return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
+      <div style={{fontSize:64,marginBottom:16}}>🎉</div>
+      <div style={{fontSize:22,fontWeight:800,color:"#fff",marginBottom:8,textAlign:"center"}}>Pagamento confirmado!</div>
+      <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:24,textAlign:"center"}}>Seu acesso será liberado em instantes.</div>
+      <button onClick={()=>window.location.reload()} style={{background:"#1b6b3a",color:"#fff",border:"none",borderRadius:12,padding:"14px 28px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+        Acessar o app
+      </button>
+    </div>
+  );
+
+  // Tela de pagamento com Brick
+  if (step === "pagamento") return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:70,height:70,objectFit:"contain",marginBottom:8}}/>
+      <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <button onClick={()=>setStep("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
+          <div style={{flex:1,textAlign:"center"}}>
+            <div style={{fontSize:16,fontWeight:800}}>
+              {plano==="anual" ? `Anual · ${PRECO_ANUAL_ANO}` : `Mensal · ${PRECO_MENSAL}/mês`}
+            </div>
+          </div>
+        </div>
+        {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
+        {processando && <div style={{textAlign:"center",padding:"20px",color:"var(--g)",fontWeight:600}}>Processando...</div>}
+        <div id="cardPayment-container"/>
+        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>🔒 Pagamento seguro via Mercado Pago</div>
+        <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(msgWA)}`} target="_blank" rel="noreferrer"
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginTop:12,padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
+          💬 Prefiro pagar via PIX · WhatsApp
+        </a>
+      </div>
+    </div>
+  );
+
+  // Tela de seleção de plano
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
       <img src="/logo-transparent.png" alt="Controle IATF" style={{width:90,height:90,objectFit:"contain",marginBottom:8}}/>
       <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginBottom:24}}>controleiatf.com.br</div>
-
       <div style={{background:"#fff",borderRadius:24,padding:28,width:"100%",maxWidth:380}}>
-
-        {/* Título */}
         <div style={{textAlign:"center",marginBottom:20}}>
           <div style={{fontSize:22,fontWeight:800,color:"var(--gr5)",marginBottom:6}}>Continue tendo controle total</div>
-          <div style={{fontSize:13,color:"var(--gr4)",lineHeight:1.6}}>
-            Seu período de teste encerrou. Assine e continue gerando relatórios profissionais, controlando protocolos e impressionando seus clientes.
-          </div>
+          <div style={{fontSize:13,color:"var(--gr4)",lineHeight:1.6}}>Assine e continue gerando relatórios profissionais, controlando protocolos e impressionando seus clientes.</div>
         </div>
-
-        {/* Toggle mensal/anual */}
         <div style={{display:"flex",background:"var(--gr1)",borderRadius:12,padding:4,marginBottom:16,gap:4}}>
-          <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)",boxShadow:plano==="mensal"?"0 1px 4px rgba(0,0,0,.12)":"none"}}>
-            Mensal
-          </button>
-          <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"var(--g)":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",boxShadow:plano==="anual"?"0 2px 8px rgba(27,107,58,.3)":"none",position:"relative"}}>
+          <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
+          <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"#1b6b3a":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
             Anual
             {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-14%</span>}
           </button>
         </div>
-
-        {/* Card de preço */}
         <div style={{background:plano==="anual"?"var(--gp)":"var(--gr1)",border:`2px solid ${plano==="anual"?"var(--gm)":"var(--gr2)"}`,borderRadius:16,padding:"20px 16px",marginBottom:16,textAlign:"center"}}>
-          {plano==="anual"&&<div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:4}}>⭐ Mais popular</div>}
-          <div style={{fontSize:38,fontWeight:800,color:"var(--g)",lineHeight:1}}>
-            {plano==="anual" ? PRECO_ANUAL_MES : PRECO_MENSAL}
-          </div>
-          <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>
-            {plano==="anual" ? `por mês · cobrado ${PRECO_ANUAL_ANO}/ano` : "por mês · renovação mensal"}
-          </div>
-          {plano==="anual"&&<div style={{marginTop:8,background:"var(--g)",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>
-            Você economiza {ECONOMIA_ANUAL} por ano
-          </div>}
+          {plano==="anual"&&<div style={{fontSize:11,fontWeight:800,color:"#1b6b3a",textTransform:"uppercase",letterSpacing:.5,marginBottom:4}}>⭐ Mais popular</div>}
+          <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{plano==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}</div>
+          <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>{plano==="anual"?`por mês · cobrado ${PRECO_ANUAL_ANO}/ano`:"por mês · renovação mensal"}</div>
+          {plano==="anual"&&<div style={{marginTop:8,background:"#1b6b3a",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>Você economiza {ECONOMIA_ANUAL} por ano</div>}
         </div>
-
-        {/* Benefícios */}
         <div style={{marginBottom:16}}>
-          {[
-            "✅ Protocolos e fazendas ilimitados",
-            "✅ Relatório profissional via WhatsApp",
-            "✅ Diagnóstico de gestação (DG)",
-            "✅ Controle de banco de sêmen",
-            "✅ DG e parto calculados automaticamente",
-            "✅ Funciona offline no celular",
-            "✅ Cancele quando quiser"
-          ].map(item=>(
+          {["✅ Protocolos e fazendas ilimitados","✅ Relatório profissional via WhatsApp","✅ Diagnóstico de gestação (DG)","✅ Controle de banco de sêmen","✅ Funciona offline no celular","✅ Cancele quando quiser"].map(item=>(
             <div key={item} style={{fontSize:13,color:"var(--gr5)",padding:"5px 0",borderBottom:"1px solid var(--gr1)"}}>{item}</div>
           ))}
         </div>
-
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
-          💡 <strong>Menos de {plano==="anual"?"R$ 2,00":"R$ 2,33"} por dia</strong> — menos que um café, para profissionalizar cada protocolo que você realiza.
+          💡 <strong>Menos de {plano==="anual"?"R$ 2,00":"R$ 2,33"} por dia</strong> — menos que um café.
         </div>
-
-        {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
-
-        {mpUrlPronto
-          ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:10}}>
-              <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-              Toque aqui para pagar
-            </a>
-          : <button onClick={handlePagamento} disabled={pagLoading}
-              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:pagLoading?"var(--gr2)":"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:pagLoading?"not-allowed":"pointer",width:"100%",marginBottom:10}}>
-              {pagLoading ? "Aguarde..." : <>
-                <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-                {plano==="anual" ? `Assinar por ${PRECO_ANUAL_ANO}/ano` : `Assinar por ${PRECO_MENSAL}/mês`}
-              </>}
-            </button>
-        }
-
+        <button onClick={()=>setStep("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
+          <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
+          {plano==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
+        </button>
         <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(msgWA)}`} target="_blank" rel="noreferrer"
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
           💬 Prefiro pagar via PIX · falar no WhatsApp
         </a>
-
-        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>
-          🔒 Pagamento seguro · PIX, cartão de crédito ou débito
-        </div>
-
-        <button onClick={onLogout} style={{background:"none",border:"none",color:"var(--gr4)",fontSize:13,cursor:"pointer",fontFamily:"var(--f)",width:"100%",textAlign:"center"}}>
-          Sair da conta
-        </button>
+        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>🔒 Pagamento seguro · PIX, cartão de crédito ou débito</div>
+        <button onClick={onLogout} style={{background:"none",border:"none",color:"var(--gr4)",fontSize:13,cursor:"pointer",fontFamily:"var(--f)",width:"100%",textAlign:"center"}}>Sair da conta</button>
       </div>
     </div>
   );
