@@ -487,7 +487,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading }) {
         {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
 
         {mpUrlPronto
-          ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:10}}>
+          ? <a href={mpUrlPronto.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:10}}>
               <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
               Toque aqui para pagar
             </a>
@@ -2044,7 +2044,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
 
       {/* Quando URL está pronta, mostra botão de link direto */}
       {mpUrlPronto
-        ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:8}}>
+        ? <a href={mpUrlPronto.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:8}}>
             <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
             Toque aqui para pagar
           </a>
@@ -2139,10 +2139,10 @@ function Modal({modal,setModal}){
         <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20}}>{modal.msg}</div>
         <div className="row" style={{gap:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
-          <button className="btn btn-d" style={{flex:1}} onClick={async()=>{
+          <button className="btn btn-d" style={{flex:1}} onClick={()=>{
             const fn = modal.onOk;
-            await fn();
-            close();
+            setModal(null);
+            fn();
           }}>Confirmar</button>
         </div>
       </>}
