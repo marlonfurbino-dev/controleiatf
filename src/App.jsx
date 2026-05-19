@@ -709,9 +709,10 @@ export default function App() {
 
   // Check auth session
   useEffect(() => {
-    // Limpar params do MP da URL se necessário
+    // Limpar params do MP da URL e forçar reload dos dados
     if (window.location.search.includes("pagamento=")) {
       window.history.replaceState({}, "", "/app");
+      setDataKey(k => k + 1);
     }
 
     const timeout = setTimeout(() => setLoading(false), 6000);
@@ -755,11 +756,12 @@ export default function App() {
     agendaNotificacoes(protocolos);
   }, [user, protocolos]);
 
+  const [dataKey, setDataKey] = useState(0); // incrementar força reload dos dados
+
   // ── Carregar dados do Supabase quando usuário logar ──────────────────
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      // Verificar se é membro de alguma equipe
       const {data:membroData} = await supabase
         .from("membros_equipe")
         .select("owner_id")
@@ -789,7 +791,7 @@ export default function App() {
       if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
     };
     load();
-  }, [user]);
+  }, [user, dataKey]);
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
   const logout = async () => { 
