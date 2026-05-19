@@ -5,11 +5,35 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://cwzcfovndjofpqgbjatw.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3emNmb3ZuZGpvZnBxZ2JqYXR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2OTgxMzcsImV4cCI6MjA5NDI3NDEzN30.O0YV2a0gvfAgX3TGENU3ytWKnOWHzXPgT-hSSYsnkHw";
 const WHATSAPP_CONTATO = "5531996999797";
+
+// Storage customizado — usa sessionStorage como primário (não limpo pelo Chrome Android)
+// e localStorage como backup para persistência entre sessões
+const customStorage = {
+  getItem: (key) => {
+    try {
+      return sessionStorage.getItem(key) || localStorage.getItem(key);
+    } catch { return null; }
+  },
+  setItem: (key, value) => {
+    try {
+      sessionStorage.setItem(key, value);
+      localStorage.setItem(key, value);
+    } catch {}
+  },
+  removeItem: (key) => {
+    try {
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
+    } catch {}
+  },
+};
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
-    persistSession: true,    // mantém sessão ao trocar de aba
-    autoRefreshToken: true,  // renova token automaticamente
+    persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: false,
+    storage: customStorage,
   }
 });
 
