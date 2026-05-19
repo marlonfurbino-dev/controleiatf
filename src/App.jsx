@@ -372,11 +372,16 @@ function PaywallScreen({ user, onLogout }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual"); // "mensal" | "anual"
 
+  const [mpUrl, setMpUrl] = useState(null);
+
+  useEffect(() => {
+    if (!mpUrl) return;
+    window.location.href = mpUrl;
+  }, [mpUrl]);
+
   const handlePagamento = async () => {
     setLoading(true);
     setErro("");
-    // Abre janela ANTES do await — Safari bloqueia window.open dentro de async
-    const win = window.open("about:blank", "_blank");
     try {
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
@@ -387,18 +392,16 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        if(win) win.location.href = data.init_point;
-        else window.location.href = data.init_point;
+        setMpUrl(data.init_point);
       } else {
-        if(win) win.close();
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+        setLoading(false);
       }
     } catch(e) {
-      if(win) win.close();
       setErro("Erro de conexão: " + e.message);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const msgWA = plano === "anual"
@@ -1916,28 +1919,32 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     ping("Perfil atualizado!");
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
-  const handleAssinar=async()=>{
+  const [mpUrl, setMpUrl] = useState(null);
+
+  // Quando mpUrl estiver pronto, redireciona
+  useEffect(() => {
+    if (!mpUrl) return;
+    window.location.href = mpUrl;
+  }, [mpUrl]);
+
+  const handleAssinar = async () => {
     setPagLoading(true); setPagErro("");
-    // Abre janela ANTES do await — Safari bloqueia window.open dentro de async
-    const win = window.open("about:blank", "_blank");
-    try{
+    try {
       const {data:{session}} = await supabase.auth.getSession();
       const token = session?.access_token||"";
-      const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:planoPerfilSel})});
-      const data=await res.json();
-      if(data.init_point){
-        if(win) win.location.href = data.init_point;
-        else window.location.href = data.init_point;
+      const res = await fetch(EDGE_FUNCTION_URL, {method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`}, body:JSON.stringify({email:user?.email, plano:planoPerfilSel})});
+      const data = await res.json();
+      if (data.init_point) {
+        setMpUrl(data.init_point);
       } else {
-        if(win) win.close();
-        const errMsg=data.message||data.error||"Erro ao iniciar pagamento.";
+        const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setPagErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
+        setPagLoading(false);
       }
-    }catch(e){
-      if(win) win.close();
+    } catch(e) {
       setPagErro("Erro de conexão: "+e.message);
+      setPagLoading(false);
     }
-    setPagLoading(false);
   };
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
