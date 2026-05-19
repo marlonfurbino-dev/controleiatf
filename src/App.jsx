@@ -778,6 +778,28 @@ export default function App() {
     return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
 
+  // Fallback: se user existe mas dados não carregaram, recarrega após 2s
+  useEffect(() => {
+    if (!user) return;
+    const timer = setTimeout(async () => {
+      if (fazendas.length === 0) {
+        const [perfilRes, fz, pr, an, sm] = await Promise.all([
+          supabase.from("perfis").select("*").eq("id", user.id).single(),
+          supabase.from("fazendas").select("*").eq("user_id", user.id).order("at",{ascending:false}),
+          supabase.from("protocolos").select("*").eq("user_id", user.id).order("at",{ascending:false}),
+          supabase.from("animais").select("*").eq("user_id", user.id).order("at",{ascending:false}),
+          supabase.from("semen_bank").select("*").eq("user_id", user.id).order("at",{ascending:false}),
+        ]);
+        if (perfilRes.data) setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
+        if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
+        if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
+        if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
+        if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [user]);
+
   // Pedir permissão de notificação e agendar
   useEffect(() => {
     if (!user) return;
