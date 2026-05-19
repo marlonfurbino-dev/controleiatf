@@ -811,7 +811,7 @@ export default function App() {
   // ── Carregar dados do Supabase quando usuário logar ──────────────────
   useEffect(() => {
     if (!user) return;
-    const load = async () => {
+    const load = async (tentativa = 1) => {
       // Verificar membro de equipe
       const {data:membroData} = await supabase
         .from("membros_equipe")
@@ -836,6 +836,16 @@ export default function App() {
         supabase.from("animais").select("*").eq("user_id", targetId).order("at", {ascending:false}),
         supabase.from("semen_bank").select("*").eq("user_id", targetId).order("at", {ascending:false}),
       ]);
+
+      // Se erro de JWT/auth e ainda tem tentativas, retry após 1s
+      const temErroAuth = fz.error?.code === "PGRST301" || 
+                          fz.error?.message?.includes("JWT") ||
+                          (fz.data === null && fz.error);
+      if (temErroAuth && tentativa < 4) {
+        setTimeout(() => load(tentativa + 1), 1000 * tentativa);
+        return;
+      }
+
       if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
       if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
       if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
@@ -2112,7 +2122,11 @@ function Modal({modal,setModal}){
         <div style={{fontSize:14,color:"var(--gr4)",marginBottom:20}}>{modal.msg}</div>
         <div className="row" style={{gap:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
-          <button className="btn btn-d" style={{flex:1}} onClick={async()=>{ await modal.onOk(); close(); }}>Confirmar</button>
+          <button className="btn btn-d" style={{flex:1}} onClick={()=>{
+            const fn = modal.onOk;
+            close();
+            setTimeout(() => fn(), 100);
+          }}>Confirmar</button>
         </div>
       </>}
       {modal.type==="addSemen"&&<>
