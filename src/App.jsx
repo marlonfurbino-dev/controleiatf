@@ -641,7 +641,8 @@ export default function App() {
     if (window.location.pathname.includes("/app")) return "app";
     if (window.location.search.includes("pagamento=")) return "app";
     try {
-      const ativo = sessionStorage.getItem("sessao_ativa");
+      // Usar localStorage para iOS — sessionStorage é limpo pelo Safari ao voltar do MP
+      const ativo = localStorage.getItem("sessao_ativa") || sessionStorage.getItem("sessao_ativa");
       if (ativo === "1") return "app";
     } catch(e) {}
     return "landing";
@@ -720,7 +721,7 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout);
       if (session?.user) {
-        sessionStorage.setItem("sessao_ativa", "1");
+        localStorage.setItem("sessao_ativa", "1"); sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
@@ -735,14 +736,14 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        sessionStorage.setItem("sessao_ativa", "1");
+        localStorage.setItem("sessao_ativa", "1"); sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
         setPage("app");
         const { data } = await supabase.from("perfis").select("*").eq("id", session.user.id).single();
         if (data) setPerfil({...data, plano: data.plano||"individual"});
         else if (session.user.user_metadata?.nome) setPerfil({...session.user.user_metadata, plano:"individual"});
       } else {
-        sessionStorage.removeItem("sessao_ativa");
+        localStorage.removeItem("sessao_ativa"); sessionStorage.removeItem("sessao_ativa");
         setUser(null);
       }
     });
@@ -794,7 +795,7 @@ export default function App() {
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
   const logout = async () => { 
     await supabase.auth.signOut(); 
-    sessionStorage.removeItem("sessao_ativa");
+    localStorage.removeItem("sessao_ativa"); sessionStorage.removeItem("sessao_ativa");
     setUser(null); 
     setFazendas([]); 
     setProtocolos([]); 
@@ -1058,7 +1059,7 @@ _Controle IATF — controleiatf.com.br_`;
   if (loading) return <div className="app"><style>{CSS}</style><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:"var(--g)",fontWeight:700}}>Carregando...</div></div>;
 
   // Mostra landing page se não está na rota /app
-  if (page === "landing") return <LandingPage onEnterApp={() => { sessionStorage.setItem("sessao_ativa","1"); setPage("app"); }} />;
+  if (page === "landing") return <LandingPage onEnterApp={() => { localStorage.setItem("sessao_ativa","1"); sessionStorage.setItem("sessao_ativa","1"); setPage("app"); }} />;
 
   if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
 
@@ -1842,17 +1843,23 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[emailConvite,setEmailConvite]=useState("");
   const[convidando,setConvidando]=useState(false);
 
-  // Reset pagLoading quando volta do Mercado Pago
+  // Reset pagLoading — timer de 10s como fallback garantido para iOS
+  useEffect(() => {
+    if (!pagLoading) return;
+    const timer = setTimeout(() => setPagLoading(false), 10000);
+    return () => clearTimeout(timer);
+  }, [pagLoading]);
+
+  // Reset pagLoading quando volta do MP por qualquer evento
   useEffect(() => {
     const reset = () => setPagLoading(false);
     window.addEventListener("focus", reset);
     window.addEventListener("pageshow", reset);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") setPagLoading(false);
-    });
+    document.addEventListener("visibilitychange", reset);
     return () => {
       window.removeEventListener("focus", reset);
       window.removeEventListener("pageshow", reset);
+      document.removeEventListener("visibilitychange", reset);
     };
   }, []);
 
