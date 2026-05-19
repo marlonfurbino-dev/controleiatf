@@ -726,13 +726,9 @@ export default function App() {
       window.history.replaceState({}, "", "/app");
     }
 
-    const timeout = setTimeout(() => setLoading(false), 8000);
+    const timeout = setTimeout(() => setLoading(false), 5000);
 
-    const carregarDados = async (uid, accessToken, refreshToken) => {
-      // Garante que o JWT está ativo no cliente Supabase antes das queries
-      if (accessToken && refreshToken) {
-        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-      }
+    const carregarDados = async (uid) => {
       const [perfilRes, fz, pr, an, sm] = await Promise.all([
         supabase.from("perfis").select("*").eq("id", uid).single(),
         supabase.from("fazendas").select("*").eq("user_id", uid).order("at",{ascending:false}),
@@ -754,11 +750,9 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
-        await carregarDados(session.user.id, session.access_token, session.refresh_token);
-        setLoading(false);
-      } else {
-        setTimeout(() => setLoading(false), 4000);
+        await carregarDados(session.user.id);
       }
+      setLoading(false);
     }).catch(() => { clearTimeout(timeout); setLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -767,14 +761,13 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
         setPage("app");
-        await carregarDados(session.user.id, session.access_token, session.refresh_token);
-        setLoading(false);
+        await carregarDados(session.user.id);
       } else {
         localStorage.removeItem("sessao_ativa");
         sessionStorage.removeItem("sessao_ativa");
         setUser(null);
-        setLoading(false);
       }
+      setLoading(false);
     });
     return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
