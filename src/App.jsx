@@ -406,18 +406,18 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
   useEffect(() => {
     if (step !== "pagamento") return;
 
-    // Carrega SDK do MP se não carregado
-    const initBrick = () => {
+    let brickController = null;
+
+    const initBrick = async () => {
       if (!window.MercadoPago) {
         setTimeout(initBrick, 500);
         return;
       }
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
-
       const valor = plano === "anual" ? 718.80 : 69.90;
 
-      bricksBuilder.create("cardPayment", "cardPayment-container", {
+      brickController = await bricksBuilder.create("cardPayment", "cardPayment-container", {
         initialization: {
           amount: valor,
           payer: { email: user?.email },
@@ -428,39 +428,64 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
         },
         callbacks: {
           onReady: () => setProcessando(false),
-          onError: (err) => setErro("Erro no formulário: " + (err?.message || "tente novamente")),
+          onError: (err) => {
+            console.error("[Brick onError]", err);
+            setErro("Erro no formulário: " + (err?.message || "tente novamente"));
+          },
+          // ⚠️ CRÍTICO: onSubmit DEVE retornar Promise — sem isso Android trava e iOS dá 400
           onSubmit: async (submitData) => {
             setProcessando(true);
             setErro("");
+            const formData = submitData?.formData || submitData || {};
+            console.log("[Brick] formData:", JSON.stringify(formData));
             try {
-              const formData = submitData?.formData || submitData || {};
-              const {data:{session}} = await supabase.auth.getSession();
+              const { data: { session } } = await supabase.auth.getSession();
               const authToken = session?.access_token || "";
+
+              const payload = {
+                token: formData.token,
+                plano,
+                email: user?.email,
+                userId: user?.id,
+                installments: Number(formData.installments) || 1,
+                payment_method_id: formData.payment_method_id,
+                issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
+                payer: formData.payer,
+              };
+              console.log("[Brick] payload:", JSON.stringify(payload));
+
               const res = await fetch(EDGE_PAGAMENTO_URL, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
-                body: JSON.stringify({
-                  token: formData.token,
-                  plano,
-                  email: user?.email,
-                  userId: user?.id,
-                  installments: formData.installments || 1,
-                  payment_method_id: formData.payment_method_id,
-                  issuer_id: formData.issuer_id,
-                  payer: formData.payer,
-                }),
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${authToken}`,
+                },
+                body: JSON.stringify(payload),
               });
+
               const result = await res.json();
+              console.log("[Brick] resposta:", res.status, JSON.stringify(result));
+
+              if (!res.ok) {
+                setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.error || `HTTP ${res.status}`));
+                return Promise.reject(new Error(result.error || `HTTP ${res.status}`));
+              }
+
               if (result.status === "approved") {
-                if (setPerfil) setPerfil(x => ({...x, assinante: true, plano}));
+                if (setPerfil) setPerfil(x => ({ ...x, assinante: true, plano }));
                 setStep("pago");
+                return Promise.resolve();
               } else {
                 setErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão"));
+                return Promise.reject(new Error(result.detail || result.status || "not approved"));
               }
-            } catch(e) {
+            } catch (e) {
+              console.error("[Brick] catch:", e);
               setErro("Erro: " + e.message);
+              return Promise.reject(e);
+            } finally {
+              setProcessando(false);
             }
-            setProcessando(false);
           },
         },
       });
@@ -476,8 +501,12 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
     }
 
     return () => {
-      const el = document.getElementById("cardPayment-container");
-      if (el) el.innerHTML = "";
+      if (brickController) {
+        brickController.unmount?.();
+      } else {
+        const el = document.getElementById("cardPayment-container");
+        if (el) el.innerHTML = "";
+      }
     };
   }, [step, plano]);
 
