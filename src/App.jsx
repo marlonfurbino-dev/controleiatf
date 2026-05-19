@@ -408,8 +408,14 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
     if (step !== "pagamento") return;
 
     let brickController = null;
+    let destroyed = false;
+
+    // Limpa qualquer instância anterior do Brick
+    const container = document.getElementById("cardPayment-container");
+    if (container) container.innerHTML = "";
 
     const initBrick = async () => {
+      if (destroyed) return;
       if (!window.MercadoPago) {
         setTimeout(initBrick, 500);
         return;
@@ -504,12 +510,10 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
     }
 
     return () => {
-      if (brickController) {
-        brickController.unmount?.();
-      } else {
-        const el = document.getElementById("cardPayment-container");
-        if (el) el.innerHTML = "";
-      }
+      destroyed = true;
+      try { brickController?.unmount?.(); } catch(_) {}
+      const el = document.getElementById("cardPayment-container");
+      if (el) el.innerHTML = "";
     };
   }, [step, plano]);
 
@@ -2008,6 +2012,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[editing,setEditing]=useState(false);
   const[f,setF]=useState({nome:perfil?.nome||"",sobrenome:perfil?.sobrenome||"",cidade:perfil?.cidade||"",whatsapp:perfil?.whatsapp||""});
   const[saveErr,setSaveErr]=useState("");
+
+  // Sincroniza f quando perfil carrega ou muda
+  useEffect(()=>{
+    if(perfil) setF({nome:perfil.nome||"",sobrenome:perfil.sobrenome||"",cidade:perfil.cidade||"",whatsapp:perfil.whatsapp||""});
+  },[perfil]);
   const[pagErro,setPagErro]=useState("");
   const[membros,setMembros]=useState([]);
   const[emailConvite,setEmailConvite]=useState("");
@@ -2055,11 +2064,13 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const getWAConvite=(token,email)=>`https://api.whatsapp.com/send?text=${encodeURIComponent(`Olá! Você foi convidado para a equipe do Controle IATF.%0AClique no link para aceitar:%0A${getLinkConvite(token)}`)}`;
   const save=async()=>{
     setSaveErr("");
-    const {error} = await supabase.from("perfis").upsert({id:user.id,...f},{onConflict:"id"});
-    if(error){
-      const {error:err2} = await supabase.from("perfis").update({...f}).eq("id",user.id);
-      if(err2){setSaveErr("Erro ao salvar: "+err2.message);return;}
-    }
+    const {error} = await supabase.from("perfis").update({
+      nome: f.nome,
+      sobrenome: f.sobrenome,
+      cidade: f.cidade,
+      whatsapp: f.whatsapp,
+    }).eq("id", user.id);
+    if(error){ setSaveErr("Erro ao salvar: "+error.message); return; }
     setPerfil(x=>({...x,...f}));
     setEditing(false);
     ping("Perfil atualizado!");
