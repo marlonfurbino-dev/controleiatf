@@ -385,7 +385,8 @@ function PaywallScreen({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.init_point) {
-        window.location.href = data.init_point;
+        window.open(data.init_point, "_blank");
+        setLoading(false);
       } else {
         const errMsg = data.message||data.error||"Erro ao iniciar pagamento.";
         setErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
@@ -1917,7 +1918,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       const token = session?.access_token||"";
       const res=await fetch(EDGE_FUNCTION_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({email:user?.email,plano:planoPerfilSel})});
       const data=await res.json();
-      if(data.init_point){window.location.href=data.init_point;}
+      if(data.init_point){ window.open(data.init_point, "_blank"); setPagLoading(false); }
       else{
         const errMsg=data.message||data.error||"Erro ao iniciar pagamento.";
         setPagErro(`Erro: ${errMsg} Tente novamente ou fale pelo WhatsApp.`);
