@@ -487,7 +487,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading }) {
         {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
 
         {mpUrlPronto
-          ? <a href={mpUrlPronto.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:10}}>
+          ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:10}}>
               <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
               Toque aqui para pagar
             </a>
@@ -767,7 +767,7 @@ export default function App() {
       if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
     };
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       clearTimeout(timeout);
       if (session?.user) {
         localStorage.setItem("sessao_ativa", "1");
@@ -775,6 +775,19 @@ export default function App() {
         setPage("app");
         setUser(session.user);
         await carregarDados(session.user.id);
+      } else {
+        // Se há erro de auth (storage corrompido pelo Android após MP),
+        // limpa tudo e pede login novamente
+        if (error || localStorage.getItem("sessao_ativa") === "1") {
+          // Limpa storage corrompido
+          const keys = Object.keys(localStorage).filter(k => k.includes("supabase"));
+          keys.forEach(k => localStorage.removeItem(k));
+          const skeys = Object.keys(sessionStorage).filter(k => k.includes("supabase"));
+          skeys.forEach(k => sessionStorage.removeItem(k));
+          localStorage.removeItem("sessao_ativa");
+          sessionStorage.removeItem("sessao_ativa");
+        }
+        setUser(null);
       }
       setLoading(false);
     }).catch(() => { clearTimeout(timeout); setLoading(false); });
@@ -2044,7 +2057,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
 
       {/* Quando URL está pronta, mostra botão de link direto */}
       {mpUrlPronto
-        ? <a href={mpUrlPronto.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:8}}>
+        ? <a href={mpUrlPronto.url} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,textDecoration:"none",width:"100%",marginBottom:8}}>
             <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
             Toque aqui para pagar
           </a>
