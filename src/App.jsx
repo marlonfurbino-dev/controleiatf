@@ -612,7 +612,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
         {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
         {pixData ? (
           <div style={{textAlign:"center",padding:"20px 10px"}}>
-            <div style={{fontSize:15,fontWeight:700,color:"var(--g)",marginBottom:8}}>📱 Escaneie o QR Code para pagar</div>
+            <div style={{fontSize:15,fontWeight:700,color:"var(--g)",marginBottom:8}}>Escaneie o QR Code para pagar</div>
             {pixData.qr_code_base64 && (
               <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code PIX"
                 style={{width:220,height:220,borderRadius:12,border:"2px solid var(--gm)",marginBottom:12}}/>
@@ -623,30 +623,31 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
             </div>
             <button onClick={()=>{navigator.clipboard?.writeText(pixData.qr_code); alert("Código copiado!");}}
               style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:8,padding:"8px 20px",fontWeight:700,cursor:"pointer",marginBottom:12}}>
-              📋 Copiar código PIX
+              Copiar codigo PIX
             </button>
             <div style={{fontSize:12,color:"var(--gr4)"}}>
               {pixPolling ? "⏳ Aguardando confirmação do pagamento..." : ""}
             </div>
             <button onClick={()=>{setPixData(null);setPixPolling(false);setBrickKey(k=>k+1);}}
               style={{background:"none",border:"none",color:"var(--g)",fontWeight:600,cursor:"pointer",fontSize:13,marginTop:8}}>
-              ← Pagar com cartão
+              Pagar com cartao
             </button>
           </div>
         ) : (
         <div style={{position:"relative"}}>
           <div id="cardPayment-container"/>
           {processando && <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.85)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:12,zIndex:10}}>
-            <div style={{textAlign:"center",color:"var(--g)",fontWeight:700,fontSize:15}}>⏳ Processando pagamento...</div>
+            <div style={{textAlign:"center",color:"var(--g)",fontWeight:700,fontSize:15}}>Processando pagamento...</div>
           </div>}
         </div>
-        </div>
         )}
-        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>🔒 Pagamento seguro via Mercado Pago</div>
-        <button onClick={handlePix} disabled={processando}
-          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:12,cursor:"pointer"}}>
-          📱 Pagar com PIX
-        </button>
+        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>Pagamento seguro via Mercado Pago</div>
+        {!pixData && (
+          <button onClick={handlePix} disabled={processando}
+            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:12,cursor:"pointer"}}>
+            Pagar com PIX
+          </button>
+        )}
       </div>
     </div>
   );
@@ -2280,7 +2281,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
           {processandoPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Processando...</div>}
           <div id="cardPayment-perfil"/>
-          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>🔒 Pagamento seguro via Mercado Pago</div>
+          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>Pagamento seguro via Mercado Pago</div>
           <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF. Pode me ajudar?")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)",marginTop:8}}>💬 Prefiro pagar via PIX · WhatsApp</a>
         </div>
       ) : (
