@@ -447,6 +447,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
         if (data.status === "approved") {
           clearInterval(interval);
           setPixPolling(false);
+          // Persiste assinante=true no Supabase para sobreviver ao logout/login
+          await supabase.from("perfis").update({ assinante: true, plano }).eq("id", user?.id);
           if (setPerfil) setPerfil(x => ({ ...x, assinante: true, plano }));
           setStep("pago");
         }
@@ -557,6 +559,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
 
               const okStatus = ["approved","authorized","in_process","pending"];
               if (okStatus.includes(result.status)) {
+                // Persiste assinante=true no Supabase para sobreviver ao logout/login
+                await supabase.from("perfis").update({ assinante: true, plano }).eq("id", user?.id);
                 if (setPerfil) setPerfil(x => ({ ...x, assinante: true, plano }));
                 setStep("pago");
                 return Promise.resolve();
