@@ -395,7 +395,7 @@ function diasRestantesTrial(createdAt) {
 }
 
 // ── Tela de pagamento com Mercado Pago Bricks ────────────────────────────
-function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil }) {
+function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setPerfil }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
   const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pix" | "pago"
@@ -518,8 +518,8 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
                 issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
                 payer: {
                   email: user?.email || formData.payer?.email,
-                  first_name: user?.user_metadata?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
-                  last_name: user?.user_metadata?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
+                  first_name: user?.user_metadata?.nome || perfil?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
+                  last_name: user?.user_metadata?.sobrenome || perfil?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
                   identification: formData.payer?.identification || {},
                 },
               };
@@ -1238,6 +1238,26 @@ export default function App() {
     ping("Removido.");
   };
 
+  const addSemenDB = async (s) => {
+    const n = {...s, id: uid(), at: Date.now()};
+    setSemenBank(x => [...x, n]);
+    const {error} = await supabase.from("semen_bank").insert({
+      id: n.id, user_id: user.id,
+      touro: s.touro || "", raca: s.raca || "",
+      partida: s.partida || "", quantidade: s.quantidade || 0,
+      at: n.at,
+    });
+    if (error) console.error("addSemen erro:", error);
+    ping("Sêmen cadastrado!");
+  };
+  const updSemenDB = async (id, ch) => {
+    await supabase.from("semen_bank").update(ch).eq("id", id);
+  };
+  const delSemenDB = async (id) => {
+    setSemenBank(x => x.filter(s => s.id !== id));
+    await supabase.from("semen_bank").delete().eq("id", id);
+  };
+
   // ── Relatório Veterinário ─────────────────────────────────────────────
   const sendWA = (pid) => {
     const p  = protocolos.find(x=>x.id===pid);
@@ -1397,7 +1417,7 @@ _Controle IATF — controleiatf.com.br_`;
   const createdAtRef = perfil?.created_at || user.created_at;
   const diasRestantes = diasRestantesTrial(createdAtRef);
   const ehAssinante = perfil?.assinante === true;
-  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading} setPerfil={setPerfil}/>;
+  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} perfil={perfil} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading} setPerfil={setPerfil}/>;
 
   if(screen?.type==="fazenda"){
     const f=fazendas.find(x=>x.id===screen.id);
@@ -1494,7 +1514,7 @@ _Controle IATF — controleiatf.com.br_`;
 
     {tab==="fazendas"&&<FazendasTab fazendas={fazendas} protocolos={protocolos} animais={animais} onOpen={(id)=>setScreen({type:"fazenda",id})} onAdd={addFazenda}/>}
     {tab==="biblioteca"&&<BibliotecaTab protocolos={protocolos} fazendas={fazendas} animais={animais} onOpen={(pid)=>setScreen({type:"protocolo",id:pid})} onWA={sendWA} sendWAProdutor={sendWAProdutor} onRelatorio={(pid)=>setModal({type:"relatorio",pid})}/>}
-    {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} ping={ping}/>}
+    {tab==="semen"&&<SemenTab semenBank={semenBank} setSemenBank={setSemenBank} onUpdQty={updSemenDB} onDel={delSemenDB} ping={ping}/>}
     {tab==="relatorios"&&<RelatoriosTab protocolos={protocolos} fazendas={fazendas} animais={animais} sendWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
     {tab==="dg"&&<DGTab user={user} ping={ping}/>}
     {tab==="perfil"&&<PerfilTab user={user} perfil={perfil} setPerfil={setPerfil} ping={ping} logout={logout} setModal={setModal} diasRestantes={diasRestantes} ehAssinante={ehAssinante} isMembro={isMembro} ownerIdRef={ownerIdRef} pagLoading={pagLoading} setPagLoading={setPagLoading}/>}
@@ -1508,7 +1528,7 @@ _Controle IATF — controleiatf.com.br_`;
     </nav>
 
     {tab==="fazendas"&&<button className="fab" onClick={()=>setModal({type:"addFazenda",onSave:addFazenda})}><Icon name="plus" size={24}/></button>}
-    {tab==="semen"&&<button className="fab" onClick={()=>setModal({type:"addSemen",onSave:(s)=>setSemenBank(x=>[...x,{...s,id:uid(),at:Date.now()}])})}><Icon name="plus" size={24}/></button>}    {toast&&<div className="toast">{toast}</div>}
+    {tab==="semen"&&<button className="fab" onClick={()=>setModal({type:"addSemen",onSave:addSemenDB})}><Icon name="plus" size={24}/></button>}    {toast&&<div className="toast">{toast}</div>}
     {modal&&<Modal modal={modal} setModal={setModal}/>}
   </div>;
 }
@@ -2127,14 +2147,20 @@ function BibliotecaTab({protocolos=[],fazendas=[],animais=[],onOpen,onWA,sendWAP
   </div>;
 }
 
-function SemenTab({semenBank,setSemenBank,ping}){
+function SemenTab({semenBank,setSemenBank,onUpdQty,onDel,ping}){
   const racas=[...new Set(semenBank.map(s=>s.raca||"Sem raça"))].sort();
   const[q,setQ]=useState("");
   const filtered=semenBank.filter(s=>(s.touro+s.raca).toLowerCase().includes(q.toLowerCase()));
   const updQty=(id,delta)=>{
-    setSemenBank(x=>x.map(s=>s.id===id?{...s,quantidade:Math.max(0,(s.quantidade||0)+delta)}:s));
+    const item=semenBank.find(s=>s.id===id);
+    const novaQty=Math.max(0,(item?.quantidade||0)+delta);
+    setSemenBank(x=>x.map(s=>s.id===id?{...s,quantidade:novaQty}:s));
+    if(onUpdQty) onUpdQty(id,{quantidade:novaQty});
   };
-  const del=(id)=>setSemenBank(x=>x.filter(s=>s.id!==id));
+  const del=(id)=>{
+    if(onDel) onDel(id);
+    else setSemenBank(x=>x.filter(s=>s.id!==id));
+  };
   const grouped=racas.reduce((acc,r)=>{acc[r]=filtered.filter(s=>(s.raca||"Sem raça")===r);return acc;},{});
   const total=semenBank.reduce((a,s)=>(a+(s.quantidade||0)),0);
   return <div className="scr">
