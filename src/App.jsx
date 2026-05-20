@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ── Supabase ──────────────────────────────────────────────────────────────
@@ -474,11 +474,14 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     if (container) container.innerHTML = "";
 
     const initBrick = async () => {
+      // Aguarda 300ms para garantir que instância anterior foi completamente destruída
+      await new Promise(r => setTimeout(r, 300));
       if (destroyed) return;
       if (!window.MercadoPago) {
         setTimeout(initBrick, 500);
         return;
       }
+      // Cria nova instância do MercadoPago a cada vez para evitar estado corrompido
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
       const valor = plano === "anual" ? 699.90 : 73.90;
@@ -659,7 +662,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
             </div>
           </div>
         </div>
-        {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
+        {erro && <><div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:8}}>⚠️ {erro}</div><button onClick={()=>{setErro("");setBrickKey(k=>k+1);}} style={{background:"var(--yl)",border:"1px solid #e8c96a",color:"var(--y)",borderRadius:8,padding:"8px 12px",fontSize:13,fontWeight:700,cursor:"pointer",width:"100%",marginBottom:8}}>Tentar novamente</button></>}
         {pixData ? (
           <div style={{textAlign:"center",padding:"20px 10px"}}>
             <div style={{fontSize:15,fontWeight:700,color:"var(--g)",marginBottom:8}}>Escaneie o QR Code para pagar</div>
@@ -733,7 +736,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
           💡 {plano==="anual" ? <><strong>Menos de R$ 1,92 por dia</strong> — menos que um café.</> : <><strong>Diluído no seu protocolo custa menos que os hormônios 💉</strong></>}
         </div>
-        <button onClick={()=>setStep("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
+        <button onClick={()=>{setBrickKey(k=>k+1);setStep("pagamento");}} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
           <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
           {plano==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
         </button>
@@ -923,6 +926,7 @@ export default function App() {
   const [screen, setScreen] = useState(null);
   const [modal,  setModal]  = useState(null);
   const [toast,  setToast]  = useState(null);
+  const logoutInProgress = useRef(false);
 
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
@@ -1006,34 +1010,37 @@ export default function App() {
         setPage("app");
         setUser(session.user);
         await carregarDados(session.user.id);
+        setLoading(false);
+      } else if (error) {
+        // Erro explícito: limpa storage e encerra loading imediatamente
+        const keys = Object.keys(localStorage).filter(k => k.includes("supabase"));
+        keys.forEach(k => localStorage.removeItem(k));
+        const skeys = Object.keys(sessionStorage).filter(k => k.includes("supabase"));
+        skeys.forEach(k => sessionStorage.removeItem(k));
+        localStorage.removeItem("sessao_ativa");
+        sessionStorage.removeItem("sessao_ativa");
+        setUser(null);
+        setLoading(false);
       } else {
-        // Só limpa storage em caso de erro explícito de auth (token inválido/expirado),
-        // nunca por uma corrida de inicialização onde getSession retorna null antes
-        // do onAuthStateChange disparar — isso causava logout no reload do Android.
-        if (error) {
-          const keys = Object.keys(localStorage).filter(k => k.includes("supabase"));
-          keys.forEach(k => localStorage.removeItem(k));
-          const skeys = Object.keys(sessionStorage).filter(k => k.includes("supabase"));
-          skeys.forEach(k => sessionStorage.removeItem(k));
-          localStorage.removeItem("sessao_ativa");
-          sessionStorage.removeItem("sessao_ativa");
-          setUser(null);
-        }
-        // Se null sem erro: possível corrida de init no Android — onAuthStateChange
-        // INITIAL_SESSION vai disparar logo em seguida com a sessão real.
-        // Não seta user=null aqui para não piscar tela de login desnecessariamente.
+        // null sem error: se havia sessão ativa, aguarda INITIAL_SESSION do onAuthStateChange
+        // para evitar piscar tela de login antes da sessão ser restaurada no Android Chrome
+        const tinha_sessao = localStorage.getItem("sessao_ativa") === "1" ||
+                             sessionStorage.getItem("sessao_ativa") === "1";
+        if (!tinha_sessao) setLoading(false);
+        // Se tinha sessão: onAuthStateChange INITIAL_SESSION finaliza o loading
+        // O timeout de 5s é o fallback de segurança
       }
-      setLoading(false);
     }).catch(() => { clearTimeout(timeout); setLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
+      if (session?.user && !logoutInProgress.current) {
         localStorage.setItem("sessao_ativa", "1");
         sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
         setPage("app");
         await carregarDados(session.user.id);
       } else if (_event === "SIGNED_OUT") {
+        logoutInProgress.current = false;
         localStorage.removeItem("sessao_ativa");
         sessionStorage.removeItem("sessao_ativa");
         setUser(null);
@@ -1121,6 +1128,7 @@ export default function App() {
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
   const logout = () => {
+    logoutInProgress.current = true;
     // Limpa estado local IMEDIATAMENTE — não aguarda rede (signOut pode travar no Android)
     setModal(null);
     setUser(null);
@@ -1138,7 +1146,9 @@ export default function App() {
       sbSKeys.forEach(k => sessionStorage.removeItem(k));
     } catch(_) {}
     // Revoga o token no servidor em background — não bloqueia a UI
-    supabase.auth.signOut().catch(() => {});
+    supabase.auth.signOut().catch(() => {}).finally(() => {
+      logoutInProgress.current = false;
+    });
   };
 
   const addFazenda = async (f) => {
@@ -2563,6 +2573,7 @@ function Modal({modal,setModal}){
           <button className="btn btn-gh" style={{flex:1}} onClick={close}>Cancelar</button>
           <button className="btn btn-d" style={{flex:1}} onClick={()=>{
             modal.onOk?.();
+            close();
           }}>Confirmar</button>
         </div>
       </>}
