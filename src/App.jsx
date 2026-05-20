@@ -643,7 +643,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
         )}
         <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>Pagamento seguro via Mercado Pago</div>
         {!pixData && (
-          <button onClick={handlePix} disabled={processando}
+          <button id="btn-pix" onClick={handlePix} disabled={processando}
             style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:12,cursor:"pointer"}}>
             Pagar com PIX
           </button>
@@ -687,10 +687,10 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
           <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
           {plano==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
         </button>
-        <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(msgWA)}`} target="_blank" rel="noreferrer"
-          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
-          💬 Prefiro pagar via PIX · falar no WhatsApp
-        </a>
+        <button onClick={()=>{setStep("pagamento"); setTimeout(()=>document.getElementById("btn-pix")?.click(),800);}}
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer",border:"none"}}>
+          Pagar com PIX
+        </button>
         <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>🔒 Pagamento seguro · PIX, cartão de crédito ou débito</div>
         <button onClick={onLogout} style={{background:"none",border:"none",color:"var(--gr4)",fontSize:13,cursor:"pointer",fontFamily:"var(--f)",width:"100%",textAlign:"center"}}>Sair da conta</button>
       </div>
@@ -2282,7 +2282,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           {processandoPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Processando...</div>}
           <div id="cardPayment-perfil"/>
           <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>Pagamento seguro via Mercado Pago</div>
-          <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF. Pode me ajudar?")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)",marginTop:8}}>💬 Prefiro pagar via PIX · WhatsApp</a>
+          <button onClick={handlePix} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",marginTop:8,width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
         </div>
       ) : (
         <>
@@ -2303,7 +2303,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
             <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
             {planoPerfilSel==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
           </button>
-          <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Quero assinar o Controle IATF. Pode me ajudar?")}`} target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",fontSize:12,color:"#25D366",fontWeight:700,textDecoration:"none",padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:8,border:"1px solid rgba(37,211,102,.2)"}}>💬 Prefiro pagar via PIX · falar no WhatsApp</a>
+          <button onClick={()=>setStepPerfil("pagamento")} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
         </>
       )}
     </div>}
