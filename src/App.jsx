@@ -409,6 +409,8 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
 
     let brickController = null;
     let destroyed = false;
+    setErro("");
+    setProcessando(false);
 
     // Limpa qualquer instância anterior do Brick
     const container = document.getElementById("cardPayment-container");
@@ -488,12 +490,13 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
                 return Promise.reject(new Error(result.error || `HTTP ${res.status}`));
               }
 
-              if (result.status === "approved" || result.status === "authorized") {
+              const okStatus = ["approved","authorized","in_process","pending"];
+              if (okStatus.includes(result.status)) {
                 if (setPerfil) setPerfil(x => ({ ...x, assinante: true, plano }));
                 setStep("pago");
                 return Promise.resolve();
               } else {
-                setErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão"));
+                setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.status || "tente outro cartão"));
                 return Promise.reject(new Error(result.detail || result.status || "not approved"));
               }
             } catch (e) {
@@ -2138,7 +2141,8 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 clearTimeout(tid);
               }
               const result = await res.json();
-              if (result.status === "approved" || result.status === "authorized") { 
+              const okStatus2 = ["approved","authorized","in_process","pending"];
+              if (okStatus2.includes(result.status)) { 
                 setStepPerfil("pago");
                 setPerfil(x => ({...x, assinante: true, plano: planoPerfilSel}));
               } else { 
