@@ -1007,18 +1007,21 @@ export default function App() {
         setUser(session.user);
         await carregarDados(session.user.id);
       } else {
-        // Se há erro de auth (storage corrompido pelo Android após MP),
-        // limpa tudo e pede login novamente
-        if (error || localStorage.getItem("sessao_ativa") === "1") {
-          // Limpa storage corrompido
+        // Só limpa storage em caso de erro explícito de auth (token inválido/expirado),
+        // nunca por uma corrida de inicialização onde getSession retorna null antes
+        // do onAuthStateChange disparar — isso causava logout no reload do Android.
+        if (error) {
           const keys = Object.keys(localStorage).filter(k => k.includes("supabase"));
           keys.forEach(k => localStorage.removeItem(k));
           const skeys = Object.keys(sessionStorage).filter(k => k.includes("supabase"));
           skeys.forEach(k => sessionStorage.removeItem(k));
           localStorage.removeItem("sessao_ativa");
           sessionStorage.removeItem("sessao_ativa");
+          setUser(null);
         }
-        setUser(null);
+        // Se null sem erro: possível corrida de init no Android — onAuthStateChange
+        // INITIAL_SESSION vai disparar logo em seguida com a sessão real.
+        // Não seta user=null aqui para não piscar tela de login desnecessariamente.
       }
       setLoading(false);
     }).catch(() => { clearTimeout(timeout); setLoading(false); });
@@ -1117,14 +1120,8 @@ export default function App() {
   }, [user, dataKey]);
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
-  const logout = async () => {
-    try { await supabase.auth.signOut(); } catch(_) {}
-    try {
-      const sbKeys = Object.keys(localStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
-      sbKeys.forEach(k => localStorage.removeItem(k));
-      const sbSKeys = Object.keys(sessionStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
-      sbSKeys.forEach(k => sessionStorage.removeItem(k));
-    } catch(_) {}
+  const logout = () => {
+    // Limpa estado local IMEDIATAMENTE — não aguarda rede (signOut pode travar no Android)
     setModal(null);
     setUser(null);
     setPerfil(null);
@@ -1134,6 +1131,14 @@ export default function App() {
     setSemenBank([]);
     setScreen(null);
     setPage("app");
+    try {
+      const sbKeys = Object.keys(localStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
+      sbKeys.forEach(k => localStorage.removeItem(k));
+      const sbSKeys = Object.keys(sessionStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
+      sbSKeys.forEach(k => sessionStorage.removeItem(k));
+    } catch(_) {}
+    // Revoga o token no servidor em background — não bloqueia a UI
+    supabase.auth.signOut().catch(() => {});
   };
 
   const addFazenda = async (f) => {
