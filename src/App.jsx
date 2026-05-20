@@ -398,7 +398,7 @@ function diasRestantesTrial(createdAt) {
 function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
-  const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pago"
+  const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pix" | "pago"
   const [processando, setProcessando] = useState(false);
   const [pixData, setPixData] = useState(null);
   const [pixPolling, setPixPolling] = useState(false);
@@ -597,6 +597,50 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
   );
 
   // Tela de pagamento com Brick
+  if (step === "pix") {
+    // Auto-trigger PIX when step changes
+    if (!pixData && !processando) {
+      handlePix();
+    }
+    return (
+      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
+        <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+            <button onClick={()=>{setStep("planos");setPixData(null);setPixPolling(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
+            <div style={{flex:1,textAlign:"center",fontSize:16,fontWeight:800}}>
+              {plano==="anual" ? `Anual · R$ 699,90` : `Mensal · R$ 73,90/mês`}
+            </div>
+          </div>
+          {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
+          {processando && !pixData && (
+            <div style={{textAlign:"center",padding:20,color:"var(--g)",fontWeight:600}}>Gerando QR Code PIX...</div>
+          )}
+          {pixData && (
+            <div style={{textAlign:"center",padding:"10px 0"}}>
+              <div style={{fontSize:15,fontWeight:700,color:"var(--g)",marginBottom:12}}>Escaneie o QR Code para pagar</div>
+              {pixData.qr_code_base64 && (
+                <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code PIX"
+                  style={{width:220,height:220,borderRadius:12,border:"2px solid var(--gm)",marginBottom:12,display:"block",margin:"0 auto 12px"}}/>
+              )}
+              <div style={{fontSize:12,color:"var(--gr4)",marginBottom:8}}>ou copie o código PIX abaixo:</div>
+              <div style={{background:"var(--gr1)",borderRadius:8,padding:"8px 12px",fontSize:11,wordBreak:"break-all",marginBottom:12,textAlign:"left"}}>
+                {pixData.qr_code}
+              </div>
+              <button onClick={()=>{navigator.clipboard?.writeText(pixData.qr_code).then(()=>alert("Código copiado!"));}}
+                style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",fontWeight:700,cursor:"pointer",width:"100%",marginBottom:8}}>
+                Copiar código PIX
+              </button>
+              <div style={{fontSize:12,color:"var(--gr4)",marginTop:8}}>
+                {pixPolling ? "Aguardando confirmação do pagamento..." : ""}
+              </div>
+            </div>
+          )}
+          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>Pagamento seguro via Mercado Pago</div>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "pagamento") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
       <img src="/logo-transparent.png" alt="Controle IATF" style={{width:70,height:70,objectFit:"contain",marginBottom:8}}/>
@@ -687,8 +731,8 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
           <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
           {plano==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
         </button>
-        <button onClick={()=>{setStep("pagamento"); setTimeout(()=>document.getElementById("btn-pix")?.click(),800);}}
-          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,textDecoration:"none",marginBottom:16,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer",border:"none"}}>
+        <button onClick={()=>setStep("pix")}
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,marginBottom:16,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>
           Pagar com PIX
         </button>
         <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>🔒 Pagamento seguro · PIX, cartão de crédito ou débito</div>
