@@ -382,7 +382,7 @@ const MP_PUBLIC_KEY = "APP_USR-a18e7639-8d8e-4631-af31-d214b0c38cc8";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 const EDGE_PAGAMENTO_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
 const EDGE_ASSINATURA_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-assinatura";
-const EDGE_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-pix";
+const EDGE_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-handler";
 const EDGE_CHECK_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/check-pix";
 
 function diasRestantesTrial(createdAt) {
