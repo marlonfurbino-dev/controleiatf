@@ -463,14 +463,22 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
 
               // Mensal = assinatura recorrente, Anual = cobrança única
               const url = plano === "mensal" ? EDGE_ASSINATURA_URL : EDGE_PAGAMENTO_URL;
-              const res = await fetch(url, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${authToken}`,
-                },
-                body: JSON.stringify(payload),
-              });
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000);
+              let res;
+              try {
+                res = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${authToken}`,
+                  },
+                  body: JSON.stringify(payload),
+                  signal: controller.signal,
+                });
+              } finally {
+                clearTimeout(timeoutId);
+              }
 
               const result = await res.json();
 
@@ -2106,20 +2114,29 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               const formData = submitData?.formData || submitData || {};
               const {data:{session}} = await supabase.auth.getSession();
               const authToken = session?.access_token||"";
-              const res = await fetch(EDGE_PAGAMENTO_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
-                body: JSON.stringify({ 
-                  token: formData.token, 
-                  plano: planoPerfilSel, 
-                  email: user?.email, 
-                  userId: user?.id, 
-                  installments: formData.installments || 1, 
-                  payment_method_id: formData.payment_method_id,
-                  issuer_id: formData.issuer_id,
-                  payer: formData.payer,
-                }),
-              });
+              const edgeUrl = planoPerfilSel === "mensal" ? EDGE_ASSINATURA_URL : EDGE_PAGAMENTO_URL;
+              const ctrl = new AbortController();
+              const tid = setTimeout(() => ctrl.abort(), 30000);
+              let res;
+              try {
+                res = await fetch(edgeUrl, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+                  body: JSON.stringify({ 
+                    token: formData.token, 
+                    plano: planoPerfilSel, 
+                    email: user?.email, 
+                    userId: user?.id, 
+                    installments: Number(formData.installments) || 1, 
+                    payment_method_id: formData.payment_method_id,
+                    issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
+                    payer: formData.payer,
+                  }),
+                  signal: ctrl.signal,
+                });
+              } finally {
+                clearTimeout(tid);
+              }
               const result = await res.json();
               if (result.status === "approved" || result.status === "authorized") { 
                 setStepPerfil("pago");
