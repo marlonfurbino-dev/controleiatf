@@ -640,14 +640,13 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
             <div style={{textAlign:"center",color:"var(--g)",fontWeight:700,fontSize:15}}>⏳ Processando pagamento...</div>
           </div>}
         </div>
+        </div>
         )}
         <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>🔒 Pagamento seguro via Mercado Pago</div>
-        {!pixData && (
-          <button onClick={handlePix} disabled={processando}
-            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:12,cursor:"pointer"}}>
-            📱 Pagar com PIX
-          </button>
-        )}
+        <button onClick={handlePix} disabled={processando}
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:12,cursor:"pointer"}}>
+          📱 Pagar com PIX
+        </button>
       </div>
     </div>
   );
