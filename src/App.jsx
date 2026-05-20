@@ -455,6 +455,11 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
     return () => clearInterval(interval);
   }, [pixPolling, pixData]);
 
+  // Auto-dispara PIX ao entrar no step "pix"
+  useEffect(() => {
+    if (step === "pix" && !pixData && !processando) handlePix();
+  }, [step]);
+
   // Inicializa o Brick de pagamento
   useEffect(() => {
     if (step !== "pagamento") return;
@@ -511,7 +516,12 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
                 installments: Number(formData.installments) || 1,
                 payment_method_id: formData.payment_method_id,
                 issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
-                payer: formData.payer,
+                payer: {
+                  email: user?.email || formData.payer?.email,
+                  first_name: user?.user_metadata?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
+                  last_name: user?.user_metadata?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
+                  identification: formData.payer?.identification || {},
+                },
               };
 
 
@@ -582,7 +592,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
       const el = document.getElementById("cardPayment-container");
       if (el) el.innerHTML = "";
     };
-  }, [step, plano]);
+  }, [step, plano, brickKey]);
 
   // Tela de sucesso
   if (step === "pago") return (
@@ -598,10 +608,6 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
 
   // Tela de pagamento com Brick
   if (step === "pix") {
-    // Auto-trigger PIX when step changes
-    if (!pixData && !processando) {
-      handlePix();
-    }
     return (
       <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
         <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420}}>
@@ -1024,10 +1030,11 @@ export default function App() {
         setUser(session.user);
         setPage("app");
         await carregarDados(session.user.id);
-      } else {
+      } else if (_event === "SIGNED_OUT") {
         localStorage.removeItem("sessao_ativa");
         sessionStorage.removeItem("sessao_ativa");
         setUser(null);
+        setPerfil(null);
       }
       setLoading(false);
     });
@@ -1112,9 +1119,15 @@ export default function App() {
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
   const logout = async () => {
     try { await supabase.auth.signOut(); } catch(_) {}
-    try { localStorage.clear(); sessionStorage.clear(); } catch(_) {}
+    try {
+      const sbKeys = Object.keys(localStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
+      sbKeys.forEach(k => localStorage.removeItem(k));
+      const sbSKeys = Object.keys(sessionStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
+      sbSKeys.forEach(k => sessionStorage.removeItem(k));
+    } catch(_) {}
     setModal(null);
     setUser(null);
+    setPerfil(null);
     setFazendas([]);
     setProtocolos([]);
     setAnimais([]);
@@ -2206,20 +2219,78 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const getWAConvite=(token,email)=>`https://api.whatsapp.com/send?text=${encodeURIComponent(`Olá! Você foi convidado para a equipe do Controle IATF.%0AClique no link para aceitar:%0A${getLinkConvite(token)}`)}`;
   const save=async()=>{
     setSaveErr("");
-    const {error} = await supabase.from("perfis").update({
-      nome: f.nome,
-      sobrenome: f.sobrenome,
-      cidade: f.cidade,
-      whatsapp: f.whatsapp,
-    }).eq("id", user.id);
-    if(error){ setSaveErr("Erro ao salvar: "+error.message); return; }
-    setPerfil(x=>({...x,...f}));
-    setEditing(false);
-    ping("Perfil atualizado!");
+    try {
+      const {data:{session}} = await supabase.auth.getSession();
+      if(!session){ setSaveErr("Sessão expirada. Faça login novamente."); return; }
+      const {error} = await supabase.from("perfis").update({
+        nome: f.nome,
+        sobrenome: f.sobrenome,
+        cidade: f.cidade,
+        whatsapp: f.whatsapp,
+      }).eq("id", user.id);
+      if(error){ setSaveErr("Erro ao salvar: "+error.message); return; }
+      setPerfil(x=>({...x,...f}));
+      setEditing(false);
+      ping("Perfil atualizado!");
+    } catch(e) {
+      setSaveErr("Erro ao salvar: "+e.message);
+    }
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
-  const [stepPerfil, setStepPerfil] = useState("planos"); // "planos" | "pagamento" | "pago"
+  const [stepPerfil, setStepPerfil] = useState("planos"); // "planos" | "pagamento" | "pix" | "pago"
   const [processandoPerfil, setProcessandoPerfil] = useState(false);
+  const [pixDataPerfil, setPixDataPerfil] = useState(null);
+  const [pixPollingPerfil, setPixPollingPerfil] = useState(false);
+  const [brickKeyPerfil, setBrickKeyPerfil] = useState(0);
+
+  const handlePerfilPix = async () => {
+    setProcessandoPerfil(true);
+    setPagErro("");
+    try {
+      const {data:{session}} = await supabase.auth.getSession();
+      const authToken = session?.access_token || "";
+      const res = await fetch(EDGE_PIX_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body: JSON.stringify({ plano: planoPerfilSel, email: user?.email, userId: user?.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPagErro("Erro ao gerar PIX: " + (data.error || "tente novamente")); return; }
+      setPixDataPerfil(data);
+      setPixPollingPerfil(true);
+    } catch(e) {
+      setPagErro("Erro: " + e.message);
+    } finally {
+      setProcessandoPerfil(false);
+    }
+  };
+
+  useEffect(() => {
+    if (stepPerfil === "pix" && !pixDataPerfil && !processandoPerfil) handlePerfilPix();
+  }, [stepPerfil]);
+
+  useEffect(() => {
+    if (!pixPollingPerfil || !pixDataPerfil?.payment_id) return;
+    const interval = setInterval(async () => {
+      try {
+        const {data:{session}} = await supabase.auth.getSession();
+        const authToken = session?.access_token || "";
+        const res = await fetch(EDGE_CHECK_PIX_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+          body: JSON.stringify({ payment_id: pixDataPerfil.payment_id, userId: user?.id, plano: planoPerfilSel }),
+        });
+        const data = await res.json();
+        if (data.status === "approved") {
+          clearInterval(interval);
+          setPixPollingPerfil(false);
+          setPerfil(x => ({ ...x, assinante: true, plano: planoPerfilSel }));
+          setStepPerfil("pago");
+        }
+      } catch(e) { console.error("polling pix perfil:", e); }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [pixPollingPerfil, pixDataPerfil]);
 
   // Inicializa Brick quando step muda para pagamento
   useEffect(() => {
@@ -2248,15 +2319,20 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 res = await fetch(edgeUrl, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
-                  body: JSON.stringify({ 
-                    token: formData.token, 
-                    plano: planoPerfilSel, 
-                    email: user?.email, 
-                    userId: user?.id, 
-                    installments: Number(formData.installments) || 1, 
+                  body: JSON.stringify({
+                    token: formData.token,
+                    plano: planoPerfilSel,
+                    email: user?.email,
+                    userId: user?.id,
+                    installments: Number(formData.installments) || 1,
                     payment_method_id: formData.payment_method_id,
                     issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
-                    payer: formData.payer,
+                    payer: {
+                      email: user?.email || formData.payer?.email,
+                      first_name: user?.user_metadata?.nome || perfil?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
+                      last_name: user?.user_metadata?.sobrenome || perfil?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
+                      identification: formData.payer?.identification || {},
+                    },
                   }),
                   signal: ctrl.signal,
                 });
@@ -2284,7 +2360,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       document.head.appendChild(script);
     } else { initBrick(); }
     return () => { const el = document.getElementById("cardPayment-perfil"); if (el) el.innerHTML = ""; };
-  }, [stepPerfil, planoPerfilSel]);
+  }, [stepPerfil, planoPerfilSel, brickKeyPerfil]);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
     <div className="profile-section">
@@ -2326,7 +2402,25 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           {processandoPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Processando...</div>}
           <div id="cardPayment-perfil"/>
           <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>Pagamento seguro via Mercado Pago</div>
-          <button onClick={handlePix} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",marginTop:8,width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
+          <button onClick={()=>{setPixDataPerfil(null);setPixPollingPerfil(false);setStepPerfil("pix");}} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",marginTop:8,width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
+        </div>
+      ) : stepPerfil === "pix" ? (
+        <div style={{padding:"8px 0"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+            <button onClick={()=>{setStepPerfil("planos");setPixDataPerfil(null);setPixPollingPerfil(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontFamily:"var(--f)",fontSize:12,fontWeight:600}}>← Voltar</button>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--g)"}}>{planoPerfilSel==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
+          </div>
+          {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>⚠️ {pagErro}</div>}
+          {processandoPerfil&&!pixDataPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Gerando QR Code PIX...</div>}
+          {pixDataPerfil&&<div style={{textAlign:"center"}}>
+            <div style={{fontSize:14,fontWeight:700,color:"var(--g)",marginBottom:10}}>Escaneie o QR Code para pagar</div>
+            {pixDataPerfil.qr_code_base64&&<img src={`data:image/png;base64,${pixDataPerfil.qr_code_base64}`} alt="QR Code PIX" style={{width:200,height:200,borderRadius:12,border:"2px solid var(--gm)",display:"block",margin:"0 auto 10px"}}/>}
+            <div style={{fontSize:11,color:"var(--gr4)",marginBottom:6}}>ou copie o código PIX:</div>
+            <div style={{background:"var(--gr1)",borderRadius:8,padding:"8px",fontSize:10,wordBreak:"break-all",marginBottom:10,textAlign:"left"}}>{pixDataPerfil.qr_code}</div>
+            <button onClick={()=>{navigator.clipboard?.writeText(pixDataPerfil.qr_code).then(()=>ping("Código copiado!"));}} style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,cursor:"pointer",width:"100%",marginBottom:6,fontFamily:"var(--f)"}}>Copiar código PIX</button>
+            <div style={{fontSize:11,color:"var(--gr4)"}}>{pixPollingPerfil?"⏳ Aguardando confirmação do pagamento...":""}</div>
+          </div>}
+          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>Pagamento seguro via Mercado Pago</div>
         </div>
       ) : (
         <>
@@ -2347,7 +2441,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
             <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
             {planoPerfilSel==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
           </button>
-          <button onClick={()=>setStepPerfil("pagamento")} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
+          <button onClick={()=>{setPixDataPerfil(null);setPixPollingPerfil(false);setStepPerfil("pix");}} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
         </>
       )}
     </div>}
