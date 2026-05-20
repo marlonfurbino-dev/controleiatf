@@ -397,7 +397,7 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
   const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pago"
-  const [processando, setProcessando] = useState(true); // true até onReady disparar
+  const [processando, setProcessando] = useState(false);
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_ANO}.`
@@ -413,7 +413,6 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
     // Limpa qualquer instância anterior do Brick
     const container = document.getElementById("cardPayment-container");
     if (container) container.innerHTML = "";
-    setProcessando(true); // mostra "Processando..." enquanto Brick carrega
 
     const initBrick = async () => {
       if (destroyed) return;
@@ -548,8 +547,12 @@ function PaywallScreen({ user, onLogout, pagLoading, setPagLoading, setPerfil })
           </div>
         </div>
         {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
-        {processando && <div style={{textAlign:"center",padding:"20px",color:"var(--g)",fontWeight:600}}>Processando...</div>}
-        <div id="cardPayment-container"/>
+        <div style={{position:"relative"}}>
+          <div id="cardPayment-container"/>
+          {processando && <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.85)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:12,zIndex:10}}>
+            <div style={{textAlign:"center",color:"var(--g)",fontWeight:700,fontSize:15}}>⏳ Processando pagamento...</div>
+          </div>}
+        </div>
         <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>🔒 Pagamento seguro via Mercado Pago</div>
         <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent(msgWA)}`} target="_blank" rel="noreferrer"
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#25D366",fontWeight:700,textDecoration:"none",marginTop:12,padding:"10px",background:"rgba(37,211,102,.08)",borderRadius:12,border:"1px solid rgba(37,211,102,.2)"}}>
@@ -2082,7 +2085,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
   const [stepPerfil, setStepPerfil] = useState("planos"); // "planos" | "pagamento" | "pago"
-  const [processandoPerfil, setProcessandoPerfil] = useState(true); // true até onReady disparar
+  const [processandoPerfil, setProcessandoPerfil] = useState(false);
 
   // Inicializa Brick quando step muda para pagamento
   useEffect(() => {
