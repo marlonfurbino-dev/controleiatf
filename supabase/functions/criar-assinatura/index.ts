@@ -35,6 +35,11 @@ serve(async (req) => {
       return resp({ error: "Configuração do servidor incompleta: MP_ACCESS_TOKEN ausente. Contate o suporte." }, 500);
     }
 
+    const isTestToken = mpToken.startsWith("TEST-");
+    const mpAmbiente = isTestToken ? "teste" : "producao";
+    console.log("[criar-assinatura] ambiente MP_ACCESS_TOKEN: %s (prefixo: %s)",
+      mpAmbiente, mpToken.slice(0, 8) + "***");
+
     const valor = String(plano) === "anual" ? 699.90 : 73.90;
 
     const payerObj = (payer && typeof payer === "object") ? payer as Record<string, unknown> : {};
@@ -102,7 +107,7 @@ serve(async (req) => {
       }
     }
 
-    return resp({ ...mpData, _mp_http_status: mpRes.status });
+    return resp({ ...mpData, _mp_http_status: mpRes.status, _mp_ambiente: mpAmbiente });
 
   } catch (e) {
     console.error("[criar-assinatura] exception:", e);

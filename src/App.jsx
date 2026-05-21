@@ -431,7 +431,7 @@ function decodeMPPaymentStatus(result) {
   if (detail.includes("bad_filled_card_number"))return `Número do cartão inválido.${ref}`;
   if (detail.includes("bad_filled"))            return `Dados do cartão inválidos.${ref}`;
   if (detail.includes("max_attempts"))          return `Muitas tentativas recusadas. Tente outro cartão.${ref}`;
-  if (detail.includes("cc_rejected_high_risk")) return `Pagamento recusado por segurança.${ref}`;
+  if (detail.includes("cc_rejected_high_risk")) return `Pagamento recusado por segurança. Se o problema persistir com cartões diferentes, pode ser necessário verificar a configuração do servidor.${ref}`;
   if (detail.includes("cc_rejected_other"))     return `Cartão recusado pelo banco emissor.${ref}`;
   if (detail.includes("rejected"))              return `Cartão recusado: ${detail}.${ref}`;
   if (result?.status === "in_process" || result?.status === "pending") return "Pagamento em análise — você receberá confirmação em breve.";
@@ -626,14 +626,21 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               } finally { clearTimeout(tId); }
 
               const result = await res.json().catch(() => ({ error: "Resposta do servidor não é JSON." }));
-              console.log("[Brick onSubmit] edge http=%s _mp_http=%s status=%s detail=%s id=%s cause=%s",
-                res.status, result?._mp_http_status, result?.status, result?.status_detail, result?.id,
+              console.log("[Brick onSubmit] edge http=%s _mp_http=%s ambiente=%s status=%s detail=%s id=%s cause=%s",
+                res.status, result?._mp_http_status, result?._mp_ambiente, result?.status, result?.status_detail, result?.id,
                 JSON.stringify(result?.cause ?? []),
               );
 
               // ── Erro de servidor (nossa edge function falhou antes de chamar o MP) ──
               if (!res.ok) {
                 const msg = result?.error || `Erro interno do servidor (HTTP ${res.status}). Tente novamente ou contate o suporte.`;
+                setErro(msg);
+                throw new Error(msg);
+              }
+
+              // ── Detecta mismatch de ambiente MP (ACCESS_TOKEN de teste + chave pública de produção) ──
+              if (result?._mp_ambiente === "teste") {
+                const msg = "Erro de configuração: servidor usando credencial de TESTE do Mercado Pago. Acesse Supabase → Edge Functions → Secrets e atualize MP_ACCESS_TOKEN para a chave de produção (APP_USR-...).";
                 setErro(msg);
                 throw new Error(msg);
               }
@@ -2569,13 +2576,19 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               } finally { clearTimeout(tid); }
 
               const result = await res.json().catch(() => ({ error: "Resposta do servidor não é JSON." }));
-              console.log("[BrickPerfil onSubmit] edge http=%s _mp_http=%s status=%s detail=%s id=%s cause=%s",
-                res.status, result?._mp_http_status, result?.status, result?.status_detail, result?.id,
+              console.log("[BrickPerfil onSubmit] edge http=%s _mp_http=%s ambiente=%s status=%s detail=%s id=%s cause=%s",
+                res.status, result?._mp_http_status, result?._mp_ambiente, result?.status, result?.status_detail, result?.id,
                 JSON.stringify(result?.cause ?? []),
               );
 
               if (!res.ok) {
                 const msg = result?.error || `Erro interno do servidor (HTTP ${res.status}).`;
+                setPagErro(msg); throw new Error(msg);
+              }
+
+              // ── Detecta mismatch de ambiente MP ──
+              if (result?._mp_ambiente === "teste") {
+                const msg = "Erro de configuração: servidor usando credencial de TESTE do Mercado Pago. Acesse Supabase → Edge Functions → Secrets e atualize MP_ACCESS_TOKEN para a chave de produção (APP_USR-...).";
                 setPagErro(msg); throw new Error(msg);
               }
 

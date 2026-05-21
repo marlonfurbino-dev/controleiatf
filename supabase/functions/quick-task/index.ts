@@ -39,6 +39,22 @@ serve(async (req) => {
       return resp({ error: "Configuração do servidor incompleta: MP_ACCESS_TOKEN ausente. Contate o suporte." }, 500);
     }
 
+    const isTestToken = mpToken.startsWith("TEST-");
+    const mpAmbiente = isTestToken ? "teste" : "producao";
+    console.log("[quick-task] ambiente MP_ACCESS_TOKEN: %s (prefixo: %s)",
+      mpAmbiente, mpToken.slice(0, 8) + "***");
+
+    // Token de teste não consegue processar tokens gerados com chave pública de produção.
+    // Se detectar mismatch, retorna erro imediatamente sem chamar o MP.
+    const tokenStr = String(token);
+    const isTestCardToken = tokenStr.startsWith("TEST-") || tokenStr.length < 20;
+    if (isTestToken && !isTestCardToken) {
+      console.error("[quick-task] MISMATCH: MP_ACCESS_TOKEN é de TESTE mas o token do cartão parece de PRODUÇÃO. Troque MP_ACCESS_TOKEN por credencial de produção (APP_USR-...).");
+    }
+    if (!isTestToken && isTestCardToken) {
+      console.error("[quick-task] MISMATCH: MP_ACCESS_TOKEN é de PRODUÇÃO mas o token do cartão parece de TESTE. Use cartões reais em produção.");
+    }
+
     // ── 4. Valor de acordo com o plano ─────────────────────────────────────
     const valor = String(plano) === "anual" ? 699.90 : 73.90;
 
@@ -117,7 +133,7 @@ serve(async (req) => {
 
     // Sempre HTTP 200 quando o MP respondeu (mesmo que pagamento rejeitado ou erro de validação MP).
     // O campo _mp_http_status informa o código real do MP para o frontend interpretar.
-    return resp({ ...mpData, _mp_http_status: mpRes.status });
+    return resp({ ...mpData, _mp_http_status: mpRes.status, _mp_ambiente: mpAmbiente });
 
   } catch (e) {
     console.error("[quick-task] exception não tratada:", e);
