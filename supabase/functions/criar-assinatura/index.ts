@@ -1,4 +1,4 @@
-// quick-task — cobrança única de cartão (plano anual)
+// criar-assinatura — cobrança de cartão para plano mensal
 // Processa pagamento no Mercado Pago e persiste assinante=true no Supabase.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -15,6 +15,9 @@ serve(async (req) => {
   }
 
   try {
+    const body = await req.json();
+    console.log("[criar-assinatura] body recebido:", JSON.stringify(body));
+
     const {
       token,
       plano,
@@ -24,7 +27,7 @@ serve(async (req) => {
       payment_method_id,
       issuer_id,
       payer,
-    } = await req.json();
+    } = body;
 
     if (!token || !userId) {
       return new Response(
@@ -36,10 +39,27 @@ serve(async (req) => {
     const mpToken = Deno.env.get("MP_ACCESS_TOKEN");
     if (!mpToken) throw new Error("MP_ACCESS_TOKEN não configurado");
 
+    // Mensal = R$ 73,90 | Anual (fallback) = R$ 699,90
     const valor = plano === "anual" ? 699.90 : 73.90;
-    console.log("[quick-task] plano:", plano, "valor:", valor, "userId:", userId, "token:", token?.slice(0, 8) + "...");
 
     // ── Cria pagamento no Mercado Pago ───────────────────────────────────
+    const mpBody = {
+      transaction_amount: valor,
+      token,
+      description: `Controle IATF - Plano ${plano ?? "mensal"}`,
+      installments: Number(installments) || 1,
+      payment_method_id,
+      issuer_id: issuer_id ? Number(issuer_id) : undefined,
+      payer: {
+        email: payer?.email ?? email,
+        first_name: payer?.first_name ?? "",
+        last_name: payer?.last_name ?? "",
+        identification: payer?.identification ?? {},
+      },
+    };
+
+    console.log("[criar-assinatura] chamando MP:", JSON.stringify(mpBody));
+
     const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
       headers: {
@@ -47,26 +67,13 @@ serve(async (req) => {
         "Content-Type": "application/json",
         "X-Idempotency-Key": `${userId}-${Date.now()}`,
       },
-      body: JSON.stringify({
-        transaction_amount: valor,
-        token,
-        description: `Controle IATF - Plano ${plano}`,
-        installments: Number(installments) || 1,
-        payment_method_id,
-        issuer_id: issuer_id ? Number(issuer_id) : undefined,
-        payer: {
-          email: payer?.email ?? email,
-          first_name: payer?.first_name ?? "",
-          last_name: payer?.last_name ?? "",
-          identification: payer?.identification ?? {},
-        },
-      }),
+      body: JSON.stringify(mpBody),
     });
 
     const payment = await mpRes.json();
+    console.log("[criar-assinatura] resposta MP:", mpRes.status, JSON.stringify(payment));
 
     // ── Persiste assinatura no Supabase quando aprovado ──────────────────
-    // BUG ORIGINAL: este bloco estava ausente — o perfil nunca era atualizado.
     const okStatus = ["approved", "authorized", "in_process", "pending"];
     if (okStatus.includes(payment.status)) {
       const supabase = createClient(
@@ -78,15 +85,13 @@ serve(async (req) => {
         .from("perfis")
         .update({
           assinante: true,
-          plano: plano,
+          plano: plano ?? "mensal",
           mp_payment_id: String(payment.id),
         })
         .eq("id", userId);
 
       if (dbError) {
-        console.error("Erro ao atualizar perfil:", dbError.message);
-        // Não falha o pagamento por erro de DB — o pagamento já foi aprovado.
-        // O admin pode corrigir manualmente se necessário.
+        console.error("[criar-assinatura] Erro ao atualizar perfil:", dbError.message);
       }
     }
 
@@ -95,7 +100,7 @@ serve(async (req) => {
       status: mpRes.ok ? 200 : 422,
     });
   } catch (e) {
-    console.error("quick-task error:", e);
+    console.error("[criar-assinatura] error:", e);
     return new Response(
       JSON.stringify({ error: e.message }),
       { headers: { ...CORS, "Content-Type": "application/json" }, status: 500 },

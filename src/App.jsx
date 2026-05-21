@@ -62,6 +62,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
     chevron: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
     note:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
     cow:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="13" rx="7" ry="6"/><circle cx="9" cy="11" r="1" fill={color}/><circle cx="15" cy="11" r="1" fill={color}/><path d="M8 7c0-2 1-4 4-4s4 2 4 4"/><path d="M9 19c-1 1.5-2 2-3 2"/><path d="M15 19c1 1.5 2 2 3 2"/></svg>,
+    reload:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
     logout:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
     bell:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
     key:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
@@ -509,20 +510,29 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           onSubmit: async (submitData) => {
             setProcessando(true);
             setErro("");
+            console.log("[Brick onSubmit] dados recebidos:", JSON.stringify(submitData));
             const formData = submitData?.formData || submitData || {};
 
             try {
+              if (!formData.token) {
+                setErro("Token do cartão não gerado. Verifique os dados e tente novamente.");
+                return Promise.reject(new Error("token ausente"));
+              }
+
               const { data: { session } } = await supabase.auth.getSession();
               const authToken = session?.access_token || "";
 
+              // Aceita snake_case (Brick v2) e camelCase (versões anteriores do SDK)
+              const payMethodId = formData.payment_method_id || formData.paymentMethodId || "";
+              const issuerId = formData.issuer_id ?? formData.issuerId;
               const payload = {
                 token: formData.token,
                 plano,
                 email: user?.email,
                 userId: user?.id,
                 installments: Number(formData.installments) || 1,
-                payment_method_id: formData.payment_method_id,
-                issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
+                payment_method_id: payMethodId,
+                issuer_id: issuerId != null ? String(issuerId) : undefined,
                 payer: {
                   email: user?.email || formData.payer?.email,
                   first_name: user?.user_metadata?.nome || perfil?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
@@ -531,9 +541,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 },
               };
 
-
-              // Mensal = assinatura recorrente, Anual = cobrança única
               const url = plano === "mensal" ? EDGE_ASSINATURA_URL : EDGE_PAGAMENTO_URL;
+              console.log("[Brick onSubmit] enviando para:", url, "payload:", JSON.stringify(payload));
               const controller = new AbortController();
               const timeoutId = setTimeout(() => controller.abort(), 30000);
               let res;
@@ -552,11 +561,11 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               }
 
               const result = await res.json();
-
+              console.log("[Brick onSubmit] resposta:", res.status, result);
 
               if (!res.ok) {
-                setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.error || `HTTP ${res.status}`));
-                return Promise.reject(new Error(result.error || `HTTP ${res.status}`));
+                setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.error || `HTTP ${res.status}`));
+                return Promise.reject(new Error(result.error || result.message || `HTTP ${res.status}`));
               }
 
               const okStatus = ["approved","authorized","in_process","pending"];
@@ -567,7 +576,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 setStep("pago");
                 return Promise.resolve();
               } else {
-                setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.status || "tente outro cartão"));
+                setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.status || "tente outro cartão"));
                 return Promise.reject(new Error(result.detail || result.status || "not approved"));
               }
             } catch (e) {
@@ -1506,6 +1515,7 @@ _Controle IATF — controleiatf.com.br_`;
           </span>
         )
       }
+      <button className="hdr-btn" title="Recarregar" onClick={()=>window.location.reload()}><Icon name="reload" size={18}/></button>
       <button className="hdr-btn" title="Sair" onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}><Icon name="logout" size={18}/></button>
     </div>
 
@@ -2386,11 +2396,35 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           onError: (err) => setPagErro("Erro: " + (err?.message || "tente novamente")),
           onSubmit: async (submitData) => {
             setProcessandoPerfil(true); setPagErro("");
+            console.log("[BrickPerfil onSubmit] dados recebidos:", JSON.stringify(submitData));
             try {
               const formData = submitData?.formData || submitData || {};
+              if (!formData.token) {
+                setPagErro("Token do cartão não gerado. Verifique os dados e tente novamente.");
+                return Promise.reject(new Error("token ausente"));
+              }
               const {data:{session}} = await supabase.auth.getSession();
               const authToken = session?.access_token||"";
               const edgeUrl = planoPerfilSel === "mensal" ? EDGE_ASSINATURA_URL : EDGE_PAGAMENTO_URL;
+              // Aceita snake_case (Brick v2) e camelCase (versões anteriores do SDK)
+              const payMethodId2 = formData.payment_method_id || formData.paymentMethodId || "";
+              const issuerId2 = formData.issuer_id ?? formData.issuerId;
+              const bodyPayload = {
+                token: formData.token,
+                plano: planoPerfilSel,
+                email: user?.email,
+                userId: user?.id,
+                installments: Number(formData.installments) || 1,
+                payment_method_id: payMethodId2,
+                issuer_id: issuerId2 != null ? String(issuerId2) : undefined,
+                payer: {
+                  email: user?.email || formData.payer?.email,
+                  first_name: user?.user_metadata?.nome || perfil?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
+                  last_name: user?.user_metadata?.sobrenome || perfil?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
+                  identification: formData.payer?.identification || {},
+                },
+              };
+              console.log("[BrickPerfil onSubmit] enviando para:", edgeUrl, "payload:", JSON.stringify(bodyPayload));
               const ctrl = new AbortController();
               const tid = setTimeout(() => ctrl.abort(), 30000);
               let res;
@@ -2398,27 +2432,18 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 res = await fetch(edgeUrl, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
-                  body: JSON.stringify({
-                    token: formData.token,
-                    plano: planoPerfilSel,
-                    email: user?.email,
-                    userId: user?.id,
-                    installments: Number(formData.installments) || 1,
-                    payment_method_id: formData.payment_method_id,
-                    issuer_id: formData.issuer_id ? String(formData.issuer_id) : undefined,
-                    payer: {
-                      email: user?.email || formData.payer?.email,
-                      first_name: user?.user_metadata?.nome || perfil?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
-                      last_name: user?.user_metadata?.sobrenome || perfil?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
-                      identification: formData.payer?.identification || {},
-                    },
-                  }),
+                  body: JSON.stringify(bodyPayload),
                   signal: ctrl.signal,
                 });
               } finally {
                 clearTimeout(tid);
               }
               const result = await res.json();
+              console.log("[BrickPerfil onSubmit] resposta:", res.status, result);
+              if (!res.ok) {
+                setPagErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.error || `HTTP ${res.status}`));
+                return Promise.reject(new Error(result.error || result.message || `HTTP ${res.status}`));
+              }
               const okStatus2 = ["approved","authorized","in_process","pending"];
               if (okStatus2.includes(result.status)) {
                 await supabase.from("perfis").update({ assinante: true, plano: planoPerfilSel }).eq("id", user?.id);
@@ -2426,10 +2451,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 setStepPerfil("pago");
                 return Promise.resolve();
               } else {
-                setPagErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão"));
+                setPagErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.status || "tente outro cartão"));
                 return Promise.reject(new Error(result.detail || result.status || "not approved"));
               }
             } catch(e) {
+              console.error("[BrickPerfil] catch:", e);
               setPagErro("Erro: " + e.message);
               return Promise.reject(e);
             } finally {
