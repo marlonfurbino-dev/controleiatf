@@ -542,10 +542,18 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       const bricksBuilder = mp.bricks();
       const valor = plano === "anual" ? 699.90 : 73.90;
 
+      const _waDig = (perfil?.whatsapp || "").replace(/\D/g, "");
+      const _phoneInit = _waDig.length >= 10 ? { areaCode: _waDig.slice(0, 2), number: _waDig.slice(2) } : undefined;
       try { brickRef.current = await bricksBuilder.create("cardPayment", "cardPayment-container", {
         initialization: {
           amount: valor,
-          payer: { email: user?.email || "", identification: { type: "CPF", number: "" } },
+          payer: {
+            email: user?.email || "",
+            firstName: perfil?.nome || "",
+            lastName: perfil?.sobrenome || "",
+            identification: { type: "CPF", number: "" },
+            ...(_phoneInit ? { phone: _phoneInit } : {}),
+          },
         },
         customization: {
           paymentMethods: { minInstallments: 1, maxInstallments: plano === "anual" ? 12 : 1 },
@@ -653,11 +661,17 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 throw new Error(msg);
               }
 
+              // ── Log diagnóstico: qual conta MP está recebendo os pagamentos ──
+              if (result?._mp_conta_email) {
+                console.log("[Brick onSubmit] CONTA MP QUE RECEBE O PAGAMENTO: email=%s id=%s",
+                  result._mp_conta_email, result._mp_conta_id ?? "?");
+              }
+
               // ── MP rejeitou a requisição (credencial errada, CPF inválido, token inválido) ──
               const mpHttp = result?._mp_http_status ?? 200;
               if (mpHttp >= 400) {
                 const msg = decodeMPApiError(result);
-                setErro(msg);
+                setErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
                 throw new Error(msg);
               }
 
@@ -670,7 +684,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 // Sucesso: retorna sem lançar erro — o Brick resolve a Promise implicitamente
               } else {
                 const msg = decodeMPPaymentStatus(result);
-                setErro(msg);
+                setErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
                 throw new Error(msg);
               }
 
@@ -1088,15 +1102,30 @@ export default function App() {
     };
   }, []);
 
-  // Recarregar dados quando app volta ao foco (ex: retorno do MP)
+  // Recarregar dados quando app volta ao foco — cobre wake-up do Android, BFCache e troca de conta.
+  // Não depende de `user` para funcionar mesmo quando o estado ainda é null (abertura fresh do PWA).
   useEffect(() => {
-    if (!user) return;
-    const reload = () => {
-      if (document.visibilityState === "visible") setDataKey(k => k + 1);
+    const onVisible = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        // Atualiza user apenas se mudou (troca de conta ou primeira carga)
+        setUser(u => (u?.id !== session.user.id ? session.user : u));
+        setDataKey(k => k + 1);
+      } catch(e) {
+        console.warn("[visibilidade] erro ao recarregar sessão:", e);
+      }
     };
-    document.addEventListener("visibilitychange", reload);
-    return () => document.removeEventListener("visibilitychange", reload);
-  }, [user]);
+    // pageshow cobre restores do BFCache (Android Chrome PWA)
+    const onPageShow = (e) => { if (e.persisted) onVisible(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, []);
 
   // Verificar token de convite na URL
   useEffect(() => {
@@ -1131,7 +1160,7 @@ export default function App() {
 
     const timeout = setTimeout(() => setLoading(false), 2000);
 
-    const carregarDados = async (uid) => {
+    const carregarDados = async (uid, tentativa = 1) => {
       const [perfilRes, fz, pr, an, sm] = await Promise.all([
         supabase.from("perfis").select("*").eq("id", uid).single(),
         supabase.from("fazendas").select("*").eq("user_id", uid).order("at",{ascending:false}),
@@ -1139,6 +1168,13 @@ export default function App() {
         supabase.from("animais").select("*").eq("user_id", uid).order("at",{ascending:false}),
         supabase.from("semen_bank").select("*").eq("user_id", uid).order("at",{ascending:false}),
       ]);
+      // Se token expirou, aguarda refresh e retenta
+      const erroJWT = fz.error?.code === "PGRST301" || fz.error?.message?.includes("JWT") || (fz.data === null && fz.error);
+      if (erroJWT && tentativa < 3) {
+        await new Promise(r => setTimeout(r, 800 * tentativa));
+        try { await supabase.auth.refreshSession(); } catch(_) {}
+        return carregarDados(uid, tentativa + 1);
+      }
       if (perfilRes.data) setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
       if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
       if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
@@ -1187,7 +1223,13 @@ export default function App() {
         logoutInProgress.current = false; // novo SIGNED_IN reseta o flag de logout
         localStorage.setItem("sessao_ativa", "1");
         sessionStorage.setItem("sessao_ativa", "1");
-        setUser(session.user);
+        // Na troca de conta, limpa dados do usuário anterior antes de carregar os novos
+        setUser(prev => {
+          if (prev && prev.id !== session.user.id) {
+            setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); setPerfil(null);
+          }
+          return session.user;
+        });
         setPage("app");
         await carregarDados(session.user.id);
       } else if (_event === "SIGNED_OUT") {
@@ -2353,9 +2395,10 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const[f,setF]=useState({nome:perfil?.nome||"",sobrenome:perfil?.sobrenome||"",cidade:perfil?.cidade||"",whatsapp:perfil?.whatsapp||""});
   const[saveErr,setSaveErr]=useState("");
 
-  // Sincroniza f quando perfil carrega ou muda
+  // Sincroniza f quando perfil carrega ou muda — ignora se o usuário está editando
+  // para não apagar o que ele digitou durante um reload de dados em background
   useEffect(()=>{
-    if(perfil) setF({nome:perfil.nome||"",sobrenome:perfil.sobrenome||"",cidade:perfil.cidade||"",whatsapp:perfil.whatsapp||""});
+    if(perfil && !editing) setF({nome:perfil.nome||"",sobrenome:perfil.sobrenome||"",cidade:perfil.cidade||"",whatsapp:perfil.whatsapp||""});
   },[perfil]);
   const[pagErro,setPagErro]=useState("");
   const[membros,setMembros]=useState([]);
@@ -2507,8 +2550,19 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       if (!window.MercadoPago) { setTimeout(initBrick, 500); return; }
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilderPerfil = mp.bricks();
+      const _waDig2 = (perfil?.whatsapp || "").replace(/\D/g, "");
+      const _phoneInit2 = _waDig2.length >= 10 ? { areaCode: _waDig2.slice(0, 2), number: _waDig2.slice(2) } : undefined;
       try { brickRefPerfil.current = await bricksBuilderPerfil.create("cardPayment", "cardPayment-perfil", {
-        initialization: { amount: valor, payer: { email: user?.email || "", identification: { type: "CPF", number: "" } } },
+        initialization: {
+          amount: valor,
+          payer: {
+            email: user?.email || "",
+            firstName: perfil?.nome || "",
+            lastName: perfil?.sobrenome || "",
+            identification: { type: "CPF", number: "" },
+            ...(_phoneInit2 ? { phone: _phoneInit2 } : {}),
+          },
+        },
         customization: {
           paymentMethods: { minInstallments: 1, maxInstallments: planoPerfilSel === "anual" ? 12 : 1 },
           visual: { style: { theme: "default" }, hidePaymentButton: false, hideFormTitle: false },
@@ -2606,10 +2660,17 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 setPagErro(msg); throw new Error(msg);
               }
 
+              // ── Log diagnóstico: qual conta MP está recebendo os pagamentos ──
+              if (result?._mp_conta_email) {
+                console.log("[BrickPerfil onSubmit] CONTA MP QUE RECEBE O PAGAMENTO: email=%s id=%s",
+                  result._mp_conta_email, result._mp_conta_id ?? "?");
+              }
+
               const mpHttp = result?._mp_http_status ?? 200;
               if (mpHttp >= 400) {
                 const msg = decodeMPApiError(result);
-                setPagErro(msg); throw new Error(msg);
+                setPagErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
+                throw new Error(msg);
               }
 
               const okStatus = ["approved", "authorized", "in_process", "pending"];
@@ -2619,7 +2680,8 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 setStepPerfil("pago");
               } else {
                 const msg = decodeMPPaymentStatus(result);
-                setPagErro(msg); throw new Error(msg);
+                setPagErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
+                throw new Error(msg);
               }
 
             } catch (e) {

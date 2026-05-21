@@ -44,6 +44,22 @@ serve(async (req) => {
     console.log("[quick-task] ambiente MP_ACCESS_TOKEN: %s (prefixo: %s)",
       mpAmbiente, mpToken.slice(0, 8) + "***");
 
+    // ── Identifica qual conta MP está associada ao token ───────────────────
+    let mpContaEmail = "não identificado";
+    let mpContaId: string | number = "?";
+    try {
+      const meRes = await fetch("https://api.mercadopago.com/users/me", {
+        headers: { Authorization: `Bearer ${mpToken}` },
+      });
+      const meData = await meRes.json().catch(() => ({}));
+      mpContaEmail = meData?.email ?? "não identificado";
+      mpContaId = meData?.id ?? "?";
+      console.log("[quick-task] CONTA MP ATIVA: id=%s email=%s nickname=%s",
+        mpContaId, mpContaEmail, meData?.nickname ?? "");
+    } catch (meEx) {
+      console.warn("[quick-task] Não foi possível identificar conta MP:", meEx);
+    }
+
     // Token de teste não consegue processar tokens gerados com chave pública de produção.
     // Se detectar mismatch, retorna erro imediatamente sem chamar o MP.
     const tokenStr = String(token);
@@ -69,18 +85,58 @@ serve(async (req) => {
       ? { type: String(identObj.type ?? "CPF"), number: cpfNumeros }
       : null;
 
+    // ── 5b. Busca perfil no Supabase para complementar payer.first_name / last_name ──
+    // Melhora pontuação de qualidade MP (+3 pts). O Brick envia esses dados,
+    // mas usamos o perfil como fallback caso venham vazios.
+    let perfilNome = "";
+    let perfilSobrenome = "";
+    try {
+      const sbProfile = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      );
+      const { data: perfil } = await sbProfile
+        .from("perfis")
+        .select("nome, sobrenome")
+        .eq("id", userId)
+        .single();
+      perfilNome = String(perfil?.nome ?? "").trim();
+      perfilSobrenome = String(perfil?.sobrenome ?? "").trim();
+    } catch (profileEx) {
+      console.warn("[quick-task] erro ao buscar perfil:", profileEx);
+    }
+
+    const firstName = String(payerObj.first_name ?? "").trim() || perfilNome;
+    const lastName  = String(payerObj.last_name  ?? "").trim() || perfilSobrenome;
+
     // ── 6. Payload para o MP ───────────────────────────────────────────────
+    // Nota: o SDK oficial do MP (npm:mercadopago) não é compatível com Deno Edge Functions
+    // pois depende de módulos Node.js não completamente polyfillados. Usando fetch direto.
+    const planoLabel = String(plano ?? "anual") === "anual" ? "Anual" : "Mensal";
     const mpPayload: Record<string, unknown> = {
       transaction_amount: valor,
       token,
-      description: `Controle IATF – Plano ${plano ?? "anual"}`,
+      external_reference: String(userId),
+      description: `Controle IATF – Plano ${planoLabel}`,
       installments: Number(installments) || 1,
       payment_method_id,
       payer: {
         email: String(payerObj.email ?? email ?? ""),
-        first_name: String(payerObj.first_name ?? ""),
-        last_name: String(payerObj.last_name ?? ""),
+        ...(firstName ? { first_name: firstName } : {}),
+        ...(lastName  ? { last_name:  lastName  } : {}),
         ...(identification ? { identification } : {}),
+      },
+      // additional_info.items: melhora pontuação de qualidade MP (+2 pts)
+      additional_info: {
+        items: [{
+          id: `controle-iatf-${plano ?? "anual"}`,
+          title: `Controle IATF – Plano ${planoLabel}`,
+          description: String(plano) === "anual"
+            ? "Acesso completo ao Controle IATF por 12 meses"
+            : "Acesso completo ao Controle IATF por 1 mês",
+          quantity: 1,
+          unit_price: valor,
+        }],
       },
     };
     if (issuer_id) mpPayload.issuer_id = Number(issuer_id);
@@ -90,8 +146,8 @@ serve(async (req) => {
       Number(installments) || 1,
       issuer_id ?? "(sem issuer)",
       identification ? identification.number.slice(0, 3) + "***" : "NÃO ENVIADO",
-      String(payerObj.first_name ?? "") || "(vazio)",
-      String(payerObj.last_name ?? "") || "(vazio)",
+      firstName || "(vazio)",
+      lastName  || "(vazio)",
       String(payerObj.email ?? email ?? "") || "(vazio)",
       String(token).slice(0, 14) + "***",
     );
@@ -138,7 +194,7 @@ serve(async (req) => {
 
     // Sempre HTTP 200 quando o MP respondeu (mesmo que pagamento rejeitado ou erro de validação MP).
     // O campo _mp_http_status informa o código real do MP para o frontend interpretar.
-    return resp({ ...mpData, _mp_http_status: mpRes.status, _mp_ambiente: mpAmbiente });
+    return resp({ ...mpData, _mp_http_status: mpRes.status, _mp_ambiente: mpAmbiente, _mp_conta_email: mpContaEmail, _mp_conta_id: String(mpContaId) });
 
   } catch (e) {
     console.error("[quick-task] exception não tratada:", e);
