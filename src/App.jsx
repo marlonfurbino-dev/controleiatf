@@ -403,6 +403,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   const [pixData, setPixData] = useState(null);
   const [pixPolling, setPixPolling] = useState(false);
   const [brickKey, setBrickKey] = useState(0);
+  const brickRef = useRef(null); // ref para destruir instância anterior do Brick
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_ANO}.`
@@ -466,12 +467,13 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   useEffect(() => {
     if (step !== "pagamento") return;
 
-    let brickController = null;
     let destroyed = false;
     setErro("");
     setProcessando(false);
 
-    // Limpa qualquer instância anterior do Brick
+    // Destrói instância anterior antes de criar nova (evita esqueleto cinza após reload)
+    try { brickRef.current?.unmount?.(); } catch(_) {}
+    brickRef.current = null;
     const container = document.getElementById("cardPayment-container");
     if (container) container.innerHTML = "";
 
@@ -488,14 +490,14 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       const bricksBuilder = mp.bricks();
       const valor = plano === "anual" ? 699.90 : 73.90;
 
-      brickController = await bricksBuilder.create("cardPayment", "cardPayment-container", {
+      brickRef.current = await bricksBuilder.create("cardPayment", "cardPayment-container", {
         initialization: {
           amount: valor,
-          payer: { email: user?.email },
+          payer: { email: user?.email || "", identification: { type: "CPF", number: "" } },
         },
         customization: {
           paymentMethods: { minInstallments: 1, maxInstallments: plano === "anual" ? 12 : 1 },
-          visual: { style: { theme: "default" } },
+          visual: { style: { theme: "default" }, hidePaymentButton: false, hideFormTitle: false },
         },
         callbacks: {
           onReady: () => { setProcessando(false); },
@@ -581,10 +583,18 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     };
 
     if (!window.MercadoPago) {
-      const script = document.createElement("script");
-      script.src = "https://sdk.mercadopago.com/js/v2";
-      script.onload = initBrick;
-      document.head.appendChild(script);
+      // Evita carregar o SDK mais de uma vez
+      if (!document.getElementById("mp-sdk-script")) {
+        const script = document.createElement("script");
+        script.id = "mp-sdk-script";
+        script.src = "https://sdk.mercadopago.com/js/v2";
+        script.onload = initBrick;
+        document.head.appendChild(script);
+      } else {
+        const waitForMP = setInterval(() => {
+          if (window.MercadoPago) { clearInterval(waitForMP); initBrick(); }
+        }, 100);
+      }
     } else {
       initBrick();
     }
@@ -595,7 +605,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     return () => {
       destroyed = true;
       clearTimeout(safetyTimer);
-      try { brickController?.unmount?.(); } catch(_) {}
+      try { brickRef.current?.unmount?.(); } catch(_) {}
+      brickRef.current = null;
       const el = document.getElementById("cardPayment-container");
       if (el) el.innerHTML = "";
     };
@@ -2294,6 +2305,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const [pixDataPerfil, setPixDataPerfil] = useState(null);
   const [pixPollingPerfil, setPixPollingPerfil] = useState(false);
   const [brickKeyPerfil, setBrickKeyPerfil] = useState(0);
+  const brickRefPerfil = useRef(null); // ref para destruir instância anterior do Brick no perfil
 
   const handlePerfilPix = async () => {
     setProcessandoPerfil(true);
@@ -2348,13 +2360,27 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   // Inicializa Brick quando step muda para pagamento
   useEffect(() => {
     if (stepPerfil !== "pagamento") return;
+    let destroyed = false;
+
+    // Destrói instância anterior antes de criar nova (evita esqueleto cinza após reload)
+    try { brickRefPerfil.current?.unmount?.(); } catch(_) {}
+    brickRefPerfil.current = null;
+    const containerPerfil = document.getElementById("cardPayment-perfil");
+    if (containerPerfil) containerPerfil.innerHTML = "";
+
     const valor = planoPerfilSel === "anual" ? 699.90 : 73.90;
-    const initBrick = () => {
+    const initBrick = async () => {
+      await new Promise(r => setTimeout(r, 300));
+      if (destroyed) return;
       if (!window.MercadoPago) { setTimeout(initBrick, 500); return; }
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
-      mp.bricks().create("cardPayment", "cardPayment-perfil", {
-        initialization: { amount: valor, payer: { email: user?.email } },
-        customization: { paymentMethods: { minInstallments: 1, maxInstallments: planoPerfilSel === "anual" ? 12 : 1 } },
+      const bricksBuilderPerfil = mp.bricks();
+      brickRefPerfil.current = await bricksBuilderPerfil.create("cardPayment", "cardPayment-perfil", {
+        initialization: { amount: valor, payer: { email: user?.email || "", identification: { type: "CPF", number: "" } } },
+        customization: {
+          paymentMethods: { minInstallments: 1, maxInstallments: planoPerfilSel === "anual" ? 12 : 1 },
+          visual: { style: { theme: "default" }, hidePaymentButton: false, hideFormTitle: false },
+        },
         callbacks: {
           onReady: () => setProcessandoPerfil(false),
           onError: (err) => setPagErro("Erro: " + (err?.message || "tente novamente")),
@@ -2398,22 +2424,48 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 await supabase.from("perfis").update({ assinante: true, plano: planoPerfilSel }).eq("id", user?.id);
                 setPerfil(x => ({...x, assinante: true, plano: planoPerfilSel}));
                 setStepPerfil("pago");
+                return Promise.resolve();
               } else {
                 setPagErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão"));
+                return Promise.reject(new Error(result.detail || result.status || "not approved"));
               }
-            } catch(e) { setPagErro("Erro: " + e.message); }
-            setProcessandoPerfil(false);
+            } catch(e) {
+              setPagErro("Erro: " + e.message);
+              return Promise.reject(e);
+            } finally {
+              setProcessandoPerfil(false);
+            }
           },
         },
       });
+      if (destroyed) {
+        try { brickRefPerfil.current?.unmount?.(); } catch(_) {}
+        brickRefPerfil.current = null;
+        const el = document.getElementById("cardPayment-perfil");
+        if (el) el.innerHTML = "";
+      }
     };
     if (!window.MercadoPago) {
-      const script = document.createElement("script");
-      script.src = "https://sdk.mercadopago.com/js/v2";
-      script.onload = initBrick;
-      document.head.appendChild(script);
+      // Evita carregar o SDK mais de uma vez
+      if (!document.getElementById("mp-sdk-script")) {
+        const script = document.createElement("script");
+        script.id = "mp-sdk-script";
+        script.src = "https://sdk.mercadopago.com/js/v2";
+        script.onload = initBrick;
+        document.head.appendChild(script);
+      } else {
+        const waitForMP = setInterval(() => {
+          if (window.MercadoPago) { clearInterval(waitForMP); initBrick(); }
+        }, 100);
+      }
     } else { initBrick(); }
-    return () => { const el = document.getElementById("cardPayment-perfil"); if (el) el.innerHTML = ""; };
+    return () => {
+      destroyed = true;
+      try { brickRefPerfil.current?.unmount?.(); } catch(_) {}
+      brickRefPerfil.current = null;
+      const el = document.getElementById("cardPayment-perfil");
+      if (el) el.innerHTML = "";
+    };
   }, [stepPerfil, planoPerfilSel, brickKeyPerfil]);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
