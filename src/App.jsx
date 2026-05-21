@@ -507,17 +507,19 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
             setProcessando(false);
             setErro("Erro no formulário: " + (err?.message || "tente novamente"));
           },
-          // ⚠️ CRÍTICO: onSubmit DEVE retornar Promise — sem isso Android trava e iOS dá 400
+          // ⚠️ CRÍTICO: onSubmit deve usar throw (não return Promise.reject) para o Brick resetar
           onSubmit: async (submitData) => {
             setProcessando(true);
             setErro("");
             console.log("[Brick onSubmit] dados recebidos:", JSON.stringify(submitData));
             const formData = submitData?.formData || submitData || {};
+            let errorHandled = false;
 
             try {
               if (!formData.token) {
+                errorHandled = true;
                 setErro("Token do cartão não gerado. Verifique os dados e tente novamente.");
-                return Promise.reject(new Error("token ausente"));
+                throw new Error("token ausente");
               }
 
               const { data: { session } } = await supabase.auth.getSession();
@@ -550,10 +552,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               try {
                 res = await fetch(url, {
                   method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${authToken}`,
-                  },
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
                   body: JSON.stringify(payload),
                   signal: controller.signal,
                 });
@@ -565,8 +564,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               console.log("[Brick onSubmit] resposta:", res.status, result);
 
               if (!res.ok) {
+                errorHandled = true;
                 setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.error || `HTTP ${res.status}`));
-                return Promise.reject(new Error(result.error || result.message || `HTTP ${res.status}`));
+                throw new Error(result.error || result.message || `HTTP ${res.status}`);
               }
 
               const okStatus = ["approved","authorized","in_process","pending"];
@@ -575,8 +575,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 await supabase.from("perfis").update({ assinante: true, plano }).eq("id", user?.id);
                 if (setPerfil) setPerfil(x => ({ ...x, assinante: true, plano }));
                 setStep("pago");
-                return Promise.resolve();
+                // Sucesso: não lança erro — Promise resolve implicitamente
               } else {
+                errorHandled = true;
                 const detalhe = result.status_detail || result.detail || result.message || "";
                 const msgRecusa = detalhe.includes("insufficient_amount")
                   ? "Saldo insuficiente no cartão."
@@ -586,17 +587,18 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                   ? "Limite de tentativas atingido. Tente outro cartão."
                   : "Cartão recusado. Verifique os dados ou tente outro cartão.";
                 setErro(msgRecusa);
-                setBrickKey(k => k + 1); // força remount para nova tentativa limpa
-                return Promise.reject(new Error(msgRecusa));
+                throw new Error(msgRecusa);
               }
             } catch (e) {
               console.error("[Brick] catch:", e);
-              const msgErro = e.name === "AbortError"
-                ? "Tempo esgotado. Verifique a conexão e tente novamente."
-                : "Erro ao processar pagamento: " + e.message;
-              setErro(msgErro);
-              setBrickKey(k => k + 1);
-              return Promise.reject(new Error(msgErro));
+              if (!errorHandled) {
+                const msgErro = e.name === "AbortError"
+                  ? "Tempo esgotado. Verifique a conexão e tente novamente."
+                  : "Erro ao processar pagamento: " + e.message;
+                setErro(msgErro);
+              }
+              setBrickKey(k => k + 1); // força remount para nova tentativa limpa
+              throw e; // sempre re-throw: o Brick precisa do erro para resetar estado interno
             } finally {
               setProcessando(false);
             }
@@ -628,6 +630,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     return () => {
       destroyed = true;
       clearTimeout(safetyTimer);
+      setProcessando(false); // garante reset do estado ao desmontar o Brick
+      setErro("");
       try { brickRef.current?.unmount?.(); } catch(_) {}
       brickRef.current = null;
       const el = document.getElementById("cardPayment-container");
@@ -2415,11 +2419,14 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           onSubmit: async (submitData) => {
             setProcessandoPerfil(true); setPagErro("");
             console.log("[BrickPerfil onSubmit] dados recebidos:", JSON.stringify(submitData));
+            const formData = submitData?.formData || submitData || {};
+            let errorHandledPerfil = false;
+
             try {
-              const formData = submitData?.formData || submitData || {};
               if (!formData.token) {
+                errorHandledPerfil = true;
                 setPagErro("Token do cartão não gerado. Verifique os dados e tente novamente.");
-                return Promise.reject(new Error("token ausente"));
+                throw new Error("token ausente");
               }
               const {data:{session}} = await supabase.auth.getSession();
               const authToken = session?.access_token||"";
@@ -2459,16 +2466,18 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               const result = await res.json();
               console.log("[BrickPerfil onSubmit] resposta:", res.status, result);
               if (!res.ok) {
+                errorHandledPerfil = true;
                 setPagErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.error || `HTTP ${res.status}`));
-                return Promise.reject(new Error(result.error || result.message || `HTTP ${res.status}`));
+                throw new Error(result.error || result.message || `HTTP ${res.status}`);
               }
               const okStatus2 = ["approved","authorized","in_process","pending"];
               if (okStatus2.includes(result.status)) {
                 await supabase.from("perfis").update({ assinante: true, plano: planoPerfilSel }).eq("id", user?.id);
                 setPerfil(x => ({...x, assinante: true, plano: planoPerfilSel}));
                 setStepPerfil("pago");
-                return Promise.resolve();
+                // Sucesso: não lança erro — Promise resolve implicitamente
               } else {
+                errorHandledPerfil = true;
                 const detalhePerfil = result.status_detail || result.detail || result.message || "";
                 const msgRecusaPerfil = detalhePerfil.includes("insufficient_amount")
                   ? "Saldo insuficiente no cartão."
@@ -2478,17 +2487,18 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                   ? "Limite de tentativas atingido. Tente outro cartão."
                   : "Cartão recusado. Verifique os dados ou tente outro cartão.";
                 setPagErro(msgRecusaPerfil);
-                setBrickKeyPerfil(k => k + 1); // força remount para nova tentativa limpa
-                return Promise.reject(new Error(msgRecusaPerfil));
+                throw new Error(msgRecusaPerfil);
               }
             } catch(e) {
               console.error("[BrickPerfil] catch:", e);
-              const msgErroPerfil = e.name === "AbortError"
-                ? "Tempo esgotado. Verifique a conexão e tente novamente."
-                : "Erro ao processar pagamento: " + e.message;
-              setPagErro(msgErroPerfil);
-              setBrickKeyPerfil(k => k + 1);
-              return Promise.reject(new Error(msgErroPerfil));
+              if (!errorHandledPerfil) {
+                const msgErroPerfil = e.name === "AbortError"
+                  ? "Tempo esgotado. Verifique a conexão e tente novamente."
+                  : "Erro ao processar pagamento: " + e.message;
+                setPagErro(msgErroPerfil);
+              }
+              setBrickKeyPerfil(k => k + 1); // força remount para nova tentativa limpa
+              throw e; // sempre re-throw: o Brick precisa do erro para resetar estado interno
             } finally {
               setProcessandoPerfil(false);
             }
@@ -2518,6 +2528,8 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     } else { initBrick(); }
     return () => {
       destroyed = true;
+      setProcessandoPerfil(false); // garante reset do estado ao desmontar o Brick
+      setPagErro("");
       try { brickRefPerfil.current?.unmount?.(); } catch(_) {}
       brickRefPerfil.current = null;
       const el = document.getElementById("cardPayment-perfil");
