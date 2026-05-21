@@ -504,6 +504,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           onReady: () => { setProcessando(false); },
           onError: (err) => {
             console.error("[Brick onError]", err);
+            setProcessando(false);
             setErro("Erro no formulário: " + (err?.message || "tente novamente"));
           },
           // ⚠️ CRÍTICO: onSubmit DEVE retornar Promise — sem isso Android trava e iOS dá 400
@@ -576,13 +577,26 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 setStep("pago");
                 return Promise.resolve();
               } else {
-                setErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.status || "tente outro cartão"));
-                return Promise.reject(new Error(result.detail || result.status || "not approved"));
+                const detalhe = result.status_detail || result.detail || result.message || "";
+                const msgRecusa = detalhe.includes("insufficient_amount")
+                  ? "Saldo insuficiente no cartão."
+                  : detalhe.includes("bad_filled")
+                  ? "Dados do cartão inválidos. Verifique e tente novamente."
+                  : detalhe.includes("max_attempts")
+                  ? "Limite de tentativas atingido. Tente outro cartão."
+                  : "Cartão recusado. Verifique os dados ou tente outro cartão.";
+                setErro(msgRecusa);
+                setBrickKey(k => k + 1); // força remount para nova tentativa limpa
+                return Promise.reject(new Error(msgRecusa));
               }
             } catch (e) {
               console.error("[Brick] catch:", e);
-              setErro("Erro: " + e.message);
-              return Promise.reject(e);
+              const msgErro = e.name === "AbortError"
+                ? "Tempo esgotado. Verifique a conexão e tente novamente."
+                : "Erro ao processar pagamento: " + e.message;
+              setErro(msgErro);
+              setBrickKey(k => k + 1);
+              return Promise.reject(new Error(msgErro));
             } finally {
               setProcessando(false);
             }
@@ -2393,7 +2407,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         },
         callbacks: {
           onReady: () => setProcessandoPerfil(false),
-          onError: (err) => setPagErro("Erro: " + (err?.message || "tente novamente")),
+          onError: (err) => {
+            console.error("[BrickPerfil onError]", err);
+            setProcessandoPerfil(false);
+            setPagErro("Erro no formulário: " + (err?.message || "tente novamente"));
+          },
           onSubmit: async (submitData) => {
             setProcessandoPerfil(true); setPagErro("");
             console.log("[BrickPerfil onSubmit] dados recebidos:", JSON.stringify(submitData));
@@ -2451,13 +2469,26 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 setStepPerfil("pago");
                 return Promise.resolve();
               } else {
-                setPagErro("Pagamento não aprovado: " + (result.detail || result.status_detail || result.message || result.status || "tente outro cartão"));
-                return Promise.reject(new Error(result.detail || result.status || "not approved"));
+                const detalhePerfil = result.status_detail || result.detail || result.message || "";
+                const msgRecusaPerfil = detalhePerfil.includes("insufficient_amount")
+                  ? "Saldo insuficiente no cartão."
+                  : detalhePerfil.includes("bad_filled")
+                  ? "Dados do cartão inválidos. Verifique e tente novamente."
+                  : detalhePerfil.includes("max_attempts")
+                  ? "Limite de tentativas atingido. Tente outro cartão."
+                  : "Cartão recusado. Verifique os dados ou tente outro cartão.";
+                setPagErro(msgRecusaPerfil);
+                setBrickKeyPerfil(k => k + 1); // força remount para nova tentativa limpa
+                return Promise.reject(new Error(msgRecusaPerfil));
               }
             } catch(e) {
               console.error("[BrickPerfil] catch:", e);
-              setPagErro("Erro: " + e.message);
-              return Promise.reject(e);
+              const msgErroPerfil = e.name === "AbortError"
+                ? "Tempo esgotado. Verifique a conexão e tente novamente."
+                : "Erro ao processar pagamento: " + e.message;
+              setPagErro(msgErroPerfil);
+              setBrickKeyPerfil(k => k + 1);
+              return Promise.reject(new Error(msgErroPerfil));
             } finally {
               setProcessandoPerfil(false);
             }
