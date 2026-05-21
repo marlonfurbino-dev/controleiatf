@@ -588,6 +588,12 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               const payMethodId = fd.payment_method_id || fd.paymentMethodId || "";
               const issuerId    = fd.issuer_id ?? fd.issuerId;
 
+              // Nome do titular: prioriza o que o Brick coletou (nome exato do cartão)
+              const cardholderFull = (fd.cardholderName || fd.holderName || fd.payer?.name || "").trim();
+              const nameParts = cardholderFull ? cardholderFull.split(/\s+/) : [];
+              const cardFirst = nameParts[0] || "";
+              const cardLast  = nameParts.slice(1).join(" ") || "";
+
               const payload = {
                 token: fd.token,
                 plano,
@@ -598,8 +604,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 issuer_id: issuerId != null ? String(issuerId) : undefined,
                 payer: {
                   email:      user?.email || fd.payer?.email || "",
-                  first_name: user?.user_metadata?.nome     || perfil?.nome     || fd.payer?.firstName || fd.payer?.first_name || "",
-                  last_name:  user?.user_metadata?.sobrenome || perfil?.sobrenome || fd.payer?.lastName  || fd.payer?.last_name  || "",
+                  first_name: cardFirst || user?.user_metadata?.nome     || perfil?.nome     || fd.payer?.firstName || fd.payer?.first_name || "",
+                  last_name:  cardLast  || user?.user_metadata?.sobrenome || perfil?.sobrenome || fd.payer?.lastName  || fd.payer?.last_name  || "",
                   identification: fd.payer?.identification || {},
                 },
               };
@@ -2528,6 +2534,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               const payMethodId = fd.payment_method_id || fd.paymentMethodId || "";
               const issuerId    = fd.issuer_id ?? fd.issuerId;
 
+              const cardholderFullP = (fd.cardholderName || fd.holderName || fd.payer?.name || "").trim();
+              const namePartsP = cardholderFullP ? cardholderFullP.split(/\s+/) : [];
+              const cardFirstP = namePartsP[0] || "";
+              const cardLastP  = namePartsP.slice(1).join(" ") || "";
+
               const bodyPayload = {
                 token: fd.token,
                 plano: planoPerfilSel,
@@ -2538,8 +2549,8 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 issuer_id: issuerId != null ? String(issuerId) : undefined,
                 payer: {
                   email:      user?.email || fd.payer?.email || "",
-                  first_name: user?.user_metadata?.nome      || perfil?.nome      || fd.payer?.firstName || fd.payer?.first_name || "",
-                  last_name:  user?.user_metadata?.sobrenome  || perfil?.sobrenome  || fd.payer?.lastName  || fd.payer?.last_name  || "",
+                  first_name: cardFirstP || user?.user_metadata?.nome      || perfil?.nome      || fd.payer?.firstName || fd.payer?.first_name || "",
+                  last_name:  cardLastP  || user?.user_metadata?.sobrenome  || perfil?.sobrenome  || fd.payer?.lastName  || fd.payer?.last_name  || "",
                   identification: fd.payer?.identification || {},
                 },
               };
