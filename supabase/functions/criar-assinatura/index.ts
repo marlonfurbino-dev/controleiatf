@@ -66,9 +66,14 @@ serve(async (req) => {
     };
     if (issuer_id) mpPayload.issuer_id = Number(issuer_id);
 
-    console.log("[criar-assinatura] plano=%s valor=%s userId=%s method=%s cpf=%s token=%s",
+    console.log("[criar-assinatura] payload enviado ao MP: plano=%s valor=%s userId=%s method=%s installments=%s issuer=%s cpf=%s firstName=%s lastName=%s email=%s token=%s",
       plano, valor, userId, payment_method_id,
+      Number(installments) || 1,
+      issuer_id ?? "(sem issuer)",
       identification ? identification.number.slice(0, 3) + "***" : "NÃO ENVIADO",
+      String(payerObj.first_name ?? "") || "(vazio)",
+      String(payerObj.last_name ?? "") || "(vazio)",
+      String(payerObj.email ?? email ?? "") || "(vazio)",
       String(token).slice(0, 14) + "***",
     );
 

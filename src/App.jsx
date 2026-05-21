@@ -431,7 +431,7 @@ function decodeMPPaymentStatus(result) {
   if (detail.includes("bad_filled_card_number"))return `Número do cartão inválido.${ref}`;
   if (detail.includes("bad_filled"))            return `Dados do cartão inválidos.${ref}`;
   if (detail.includes("max_attempts"))          return `Muitas tentativas recusadas. Tente outro cartão.${ref}`;
-  if (detail.includes("cc_rejected_high_risk")) return `Pagamento recusado por segurança. Se o problema persistir com cartões diferentes, pode ser necessário verificar a configuração do servidor.${ref}`;
+  if (detail.includes("cc_rejected_high_risk")) return `Pagamento recusado por segurança pelo banco emissor. Aguarde alguns minutos e tente novamente, ou use o PIX como alternativa.${ref}`;
   if (detail.includes("cc_rejected_other"))     return `Cartão recusado pelo banco emissor.${ref}`;
   if (detail.includes("rejected"))              return `Cartão recusado: ${detail}.${ref}`;
   if (result?.status === "in_process" || result?.status === "pending") return "Pagamento em análise — você receberá confirmação em breve.";
@@ -856,7 +856,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
         </div>
         <div style={{background:plano==="anual"?"var(--gp)":"var(--gr1)",border:`2px solid ${plano==="anual"?"var(--gm)":"var(--gr2)"}`,borderRadius:16,padding:"20px 16px",marginBottom:16,textAlign:"center"}}>
           {plano==="anual"&&<div style={{fontSize:11,fontWeight:800,color:"#1b6b3a",textTransform:"uppercase",letterSpacing:.5,marginBottom:4}}>⭐ Mais popular</div>}
-          <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{plano==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}</div>
+          <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}<span style={{fontSize:16,fontWeight:500,color:"#5a8a6a"}}>{plano==="anual"?"/ano":"/mês"}</span></div>
           <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>{plano==="anual"?"cobrado à vista · parcele em até 12x com juros":"por mês · renovação automática"}</div>
           {plano==="anual"&&<div style={{marginTop:8,background:"#1b6b3a",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>Você economiza {ECONOMIA_ANUAL} por ano</div>}
         </div>
@@ -965,7 +965,7 @@ function AuthScreen({ onAuth }) {
 
         {tab === "cadastro" && (
           <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:14,fontSize:13,color:"var(--g)",fontWeight:600,textAlign:"center"}}>
-            🎉 7 dias grátis · sem cartão de crédito · depois a partir de {PRECO_ANUAL_MES}/mês
+            🎉 7 dias grátis · sem cartão de crédito · depois a partir de {PRECO_MENSAL}/mês ou {PRECO_ANUAL_ANO}/ano
           </div>
         )}
 
@@ -2740,7 +2740,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           </div>
           <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
             {planoPerfilSel==="anual"&&<div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>}
-            <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_MES:PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
+            <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>{planoPerfilSel==="anual"?"/ano":"/mês"}</span></div>
             <div style={{fontSize:11,color:"var(--gr4)"}}>{planoPerfilSel==="anual"?`cobrado à vista · parcele em até 12x com juros · economize ${ECONOMIA_ANUAL}`:"cobrança mensal automática · cancele quando quiser"}</div>
           </div>
           {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
