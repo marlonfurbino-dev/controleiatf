@@ -989,7 +989,7 @@ export default function App() {
       window.history.replaceState({}, "", "/app");
     }
 
-    const timeout = setTimeout(() => setLoading(false), 5000);
+    const timeout = setTimeout(() => setLoading(false), 2000);
 
     const carregarDados = async (uid) => {
       const [perfilRes, fz, pr, an, sm] = await Promise.all([
@@ -1032,12 +1032,19 @@ export default function App() {
                              sessionStorage.getItem("sessao_ativa") === "1";
         if (!tinha_sessao) setLoading(false);
         // Se tinha sessão: onAuthStateChange INITIAL_SESSION finaliza o loading
-        // O timeout de 5s é o fallback de segurança
+        // O timeout (definido acima) é o fallback de segurança
       }
     }).catch(() => { clearTimeout(timeout); setLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user && !logoutInProgress.current) {
+      // Bloqueia apenas TOKEN_REFRESHED durante logout para evitar re-autenticação involuntária.
+      // SIGNED_IN de um novo login nunca deve ser bloqueado — senão dados nunca carregam após logout.
+      if (logoutInProgress.current && _event === "TOKEN_REFRESHED") {
+        setLoading(false);
+        return;
+      }
+      if (session?.user) {
+        logoutInProgress.current = false; // novo SIGNED_IN reseta o flag de logout
         localStorage.setItem("sessao_ativa", "1");
         sessionStorage.setItem("sessao_ativa", "1");
         setUser(session.user);
@@ -2329,6 +2336,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         if (data.status === "approved") {
           clearInterval(interval);
           setPixPollingPerfil(false);
+          await supabase.from("perfis").update({ assinante: true, plano: planoPerfilSel }).eq("id", user?.id);
           setPerfil(x => ({ ...x, assinante: true, plano: planoPerfilSel }));
           setStepPerfil("pago");
         }
@@ -2386,11 +2394,12 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               }
               const result = await res.json();
               const okStatus2 = ["approved","authorized","in_process","pending"];
-              if (okStatus2.includes(result.status)) { 
-                setStepPerfil("pago");
+              if (okStatus2.includes(result.status)) {
+                await supabase.from("perfis").update({ assinante: true, plano: planoPerfilSel }).eq("id", user?.id);
                 setPerfil(x => ({...x, assinante: true, plano: planoPerfilSel}));
-              } else { 
-                setPagErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão")); 
+                setStepPerfil("pago");
+              } else {
+                setPagErro("Pagamento não aprovado: " + (result.detail || result.status || "tente outro cartão"));
               }
             } catch(e) { setPagErro("Erro: " + e.message); }
             setProcessandoPerfil(false);
