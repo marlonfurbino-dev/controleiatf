@@ -1627,9 +1627,6 @@ _Controle IATF — controleiatf.com.br_`;
         <div className="hdr-title">Controle<em style={{color:"#6fcf8e"}}> IATF</em></div>
         <div className="hdr-sub">{user.email}</div>
       </div>
-      {ehAssinante && (
-        <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
-      )}
       <button className="hdr-btn" title="Recarregar" onClick={()=>window.location.reload()}><Icon name="reload" size={18}/></button>
       <button className="hdr-btn" title="Sair" onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}><Icon name="logout" size={18}/></button>
     </div>
@@ -2799,7 +2796,15 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       </div>
     }
     <button className="btn btn-d btn-full" style={{marginTop:8}} onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}>Sair da conta</button>
-    <div style={{marginTop:24,fontSize:12,color:"var(--gr4)",textAlign:"center"}}>
+
+    <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_CONTATO}&text=${encodeURIComponent("Olá! Tenho uma dúvida sobre o Controle IATF.")}`}
+      target="_blank" rel="noreferrer"
+      style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:12,padding:"12px 16px",background:"rgba(37,211,102,.1)",border:"1.5px solid rgba(37,211,102,.3)",borderRadius:"var(--r8)",textDecoration:"none",color:"#1a7a3c",fontWeight:700,fontSize:14}}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#25d366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Dúvidas e sugestões — WhatsApp
+    </a>
+
+    <div style={{marginTop:16,fontSize:12,color:"var(--gr4)",textAlign:"center"}}>
       <span style={{cursor:"pointer",textDecoration:"underline"}} onClick={()=>setModal({type:"termos"})}>Termos de Uso</span>
       {" · "}
       <span style={{cursor:"pointer",textDecoration:"underline"}} onClick={()=>setModal({type:"privacidade"})}>Política de Privacidade</span>
@@ -2922,19 +2927,24 @@ function SemenForm({onSave,onCancel}){
 // ── DG Tab ────────────────────────────────────────────────────────────────
 function DGTab({ user, ping }) {
   const storageKey = `dg_fazendas_${user?.id}`;
-  const [fazendas, setFazendas] = useState([]);
-  const [dgLoading, setDgLoading] = useState(true);
+  // Inicializa do localStorage imediatamente — sem flash de "Carregando"
+  const [fazendas, setFazendas] = useState(() => DB.get(storageKey) || []);
+  const [dgLoading, setDgLoading] = useState(false);
   const [tela, setTela] = useState(null); // null = lista | {type:"fazenda", id} | {type:"nova"}
+  // Contador de escritas locais — impede que o sync assíncrono sobrescreva dados novos
+  const writeCountRef = useRef(0);
 
-  // Salva no localStorage como cache offline
   const cacheLocal = (fzList) => DB.set(storageKey, fzList);
 
-  // Carrega do Supabase; migra do localStorage se Supabase estiver vazio
+  // Sincroniza com Supabase em background; migra do localStorage se necessário
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    const load = async () => {
-      setDgLoading(true);
+    const capturedWrites = writeCountRef.current;
+    const hasLocal = (DB.get(storageKey) || []).length > 0;
+    if (!hasLocal) setDgLoading(true);
+
+    const sync = async () => {
       try {
         const [fzRes, anRes] = await Promise.all([
           supabase.from("dg_fazendas").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
@@ -2944,9 +2954,11 @@ function DGTab({ user, ping }) {
         if (fzRes.error) throw fzRes.error;
         const fzData = fzRes.data || [];
         const anData = anRes.data || [];
+        // Não sobrescreve se o usuário fez alterações locais durante o sync
+        const semEscritasLocais = writeCountRef.current === capturedWrites;
         if (fzData.length === 0) {
-          // Migra dados do localStorage para o Supabase (primeira vez)
           const local = DB.get(storageKey) || [];
+          // Migra dados existentes do localStorage para o Supabase (primeira vez)
           if (local.length > 0) {
             for (const f of local) {
               await supabase.from("dg_fazendas").upsert({
@@ -2965,7 +2977,7 @@ function DGTab({ user, ping }) {
               }
             }
           }
-          if (!cancelled) { setFazendas(local); cacheLocal(local); }
+          if (!cancelled && semEscritasLocais && !hasLocal) { setFazendas(local); cacheLocal(local); }
         } else {
           const fzList = fzData.map(f => ({
             ...f,
@@ -2976,21 +2988,21 @@ function DGTab({ user, ping }) {
               id: a.id, nome: a.nome, status: a.status || null,
             })),
           }));
-          if (!cancelled) { setFazendas(fzList); cacheLocal(fzList); }
+          if (!cancelled && semEscritasLocais) { setFazendas(fzList); cacheLocal(fzList); }
         }
       } catch (e) {
-        console.error("[DGTab] Supabase load:", e);
-        // Fallback offline
-        if (!cancelled) setFazendas(DB.get(storageKey) || []);
+        console.error("[DGTab] Supabase sync:", e);
+        if (!cancelled && !hasLocal) setFazendas(DB.get(storageKey) || []);
       } finally {
         if (!cancelled) setDgLoading(false);
       }
     };
-    load();
+    sync();
     return () => { cancelled = true; };
   }, [user?.id]);
 
   const addFazenda = async (dados) => {
+    writeCountRef.current++;
     const id = uid();
     const criadoEm = new Date().toISOString();
     const nova = { ...dados, id, animais: [], criadoEm };
@@ -3009,6 +3021,7 @@ function DGTab({ user, ping }) {
   };
 
   const updateFazenda = (id, dados) => {
+    writeCountRef.current++;
     const newList = fazendas.map(f => f.id === id ? { ...f, ...dados } : f);
     setFazendas(newList); cacheLocal(newList);
     const upd = {};
@@ -3025,6 +3038,7 @@ function DGTab({ user, ping }) {
   };
 
   const deleteFazenda = (id) => {
+    writeCountRef.current++;
     const newList = fazendas.filter(f => f.id !== id);
     setFazendas(newList); cacheLocal(newList);
     setTela(null); ping("Fazenda removida");
@@ -3033,6 +3047,7 @@ function DGTab({ user, ping }) {
   };
 
   const addAnimal = (fazId, animal) => {
+    writeCountRef.current++;
     const id = uid();
     const newAnimal = { ...animal, id };
     const newList = fazendas.map(f => f.id === fazId
@@ -3045,6 +3060,7 @@ function DGTab({ user, ping }) {
   };
 
   const updateAnimal = (fazId, animalId, dados) => {
+    writeCountRef.current++;
     const newList = fazendas.map(f => f.id === fazId
       ? { ...f, animais: f.animais.map(a => a.id === animalId ? { ...a, ...dados } : a) } : f);
     setFazendas(newList); cacheLocal(newList);
@@ -3058,6 +3074,7 @@ function DGTab({ user, ping }) {
   };
 
   const deleteAnimal = (fazId, animalId) => {
+    writeCountRef.current++;
     const newList = fazendas.map(f => f.id === fazId
       ? { ...f, animais: f.animais.filter(a => a.id !== animalId) } : f);
     setFazendas(newList); cacheLocal(newList);
