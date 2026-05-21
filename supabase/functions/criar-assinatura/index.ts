@@ -1,64 +1,71 @@
-// criar-assinatura — cobrança de cartão para plano mensal
-// Processa pagamento no Mercado Pago e persiste assinante=true no Supabase.
+// criar-assinatura — processa pagamento com cartão via Mercado Pago (plano mensal)
+// Lógica idêntica ao quick-task; separado por semântica (mensal vs avulso).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const resp = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    headers: { ...CORS, "Content-Type": "application/json" },
+    status,
+  });
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const body = await req.json();
-    console.log("[criar-assinatura] body recebido:", JSON.stringify(body));
-
-    const {
-      token,
-      plano,
-      email,
-      userId,
-      installments,
-      payment_method_id,
-      issuer_id,
-      payer,
-    } = body;
-
-    if (!token || !userId) {
-      return new Response(
-        JSON.stringify({ error: "token e userId são obrigatórios" }),
-        { headers: { ...CORS, "Content-Type": "application/json" }, status: 400 },
-      );
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return resp({ error: "Body inválido ou não é JSON." }, 400);
     }
 
+    const { token, plano, email, userId, installments, payment_method_id, issuer_id, payer } = body as Record<string, unknown>;
+
+    if (!token)             return resp({ error: "Campo obrigatório ausente: token. O cartão não foi tokenizado." }, 400);
+    if (!userId)            return resp({ error: "Campo obrigatório ausente: userId." }, 400);
+    if (!payment_method_id) return resp({ error: "Campo obrigatório ausente: payment_method_id." }, 400);
+
     const mpToken = Deno.env.get("MP_ACCESS_TOKEN");
-    if (!mpToken) throw new Error("MP_ACCESS_TOKEN não configurado");
+    if (!mpToken) {
+      console.error("[criar-assinatura] CRÍTICO: MP_ACCESS_TOKEN não configurado.");
+      return resp({ error: "Configuração do servidor incompleta: MP_ACCESS_TOKEN ausente. Contate o suporte." }, 500);
+    }
 
-    // Mensal = R$ 73,90 | Anual (fallback) = R$ 699,90
-    const valor = plano === "anual" ? 699.90 : 73.90;
+    const valor = String(plano) === "anual" ? 699.90 : 73.90;
 
-    // ── Cria pagamento no Mercado Pago ───────────────────────────────────
-    const mpBody = {
+    const payerObj = (payer && typeof payer === "object") ? payer as Record<string, unknown> : {};
+    const identObj = (payerObj.identification && typeof payerObj.identification === "object")
+      ? payerObj.identification as Record<string, unknown>
+      : {};
+    const cpfNumeros = String(identObj.number ?? "").replace(/\D/g, "");
+    const identification = cpfNumeros
+      ? { type: String(identObj.type ?? "CPF"), number: cpfNumeros }
+      : null;
+
+    const mpPayload: Record<string, unknown> = {
       transaction_amount: valor,
       token,
-      description: `Controle IATF - Plano ${plano ?? "mensal"}`,
+      description: `Controle IATF – Plano ${plano ?? "mensal"}`,
       installments: Number(installments) || 1,
       payment_method_id,
-      issuer_id: issuer_id ? Number(issuer_id) : undefined,
       payer: {
-        email: payer?.email ?? email,
-        first_name: payer?.first_name ?? "",
-        last_name: payer?.last_name ?? "",
-        identification: payer?.identification ?? {},
+        email: String(payerObj.email ?? email ?? ""),
+        first_name: String(payerObj.first_name ?? ""),
+        last_name: String(payerObj.last_name ?? ""),
+        ...(identification ? { identification } : {}),
       },
     };
+    if (issuer_id) mpPayload.issuer_id = Number(issuer_id);
 
-    console.log("[criar-assinatura] chamando MP:", JSON.stringify(mpBody));
+    console.log("[criar-assinatura] plano=%s valor=%s userId=%s method=%s cpf=%s token=%s",
+      plano, valor, userId, payment_method_id,
+      identification ? identification.number.slice(0, 3) + "***" : "NÃO ENVIADO",
+      String(token).slice(0, 14) + "***",
+    );
 
     const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
@@ -67,43 +74,38 @@ serve(async (req) => {
         "Content-Type": "application/json",
         "X-Idempotency-Key": `${userId}-${Date.now()}`,
       },
-      body: JSON.stringify(mpBody),
+      body: JSON.stringify(mpPayload),
     });
 
-    const payment = await mpRes.json();
-    console.log("[criar-assinatura] resposta MP:", mpRes.status, JSON.stringify(payment));
+    const mpData = await mpRes.json().catch(() => ({ _parse_error: true }));
 
-    // ── Persiste assinatura no Supabase quando aprovado ──────────────────
-    const okStatus = ["approved", "authorized", "in_process", "pending"];
-    if (okStatus.includes(payment.status)) {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      );
+    console.log("[criar-assinatura] MP http=%s status=%s detail=%s id=%s cause=%s",
+      mpRes.status, mpData?.status ?? "(sem status)",
+      mpData?.status_detail ?? "", mpData?.id ?? "",
+      JSON.stringify(mpData?.cause ?? []),
+    );
 
-      const { error: dbError } = await supabase
-        .from("perfis")
-        .update({
-          assinante: true,
-          plano: plano ?? "mensal",
-          mp_payment_id: String(payment.id),
-        })
-        .eq("id", userId);
-
-      if (dbError) {
-        console.error("[criar-assinatura] Erro ao atualizar perfil:", dbError.message);
+    const statusStr = String(mpData?.status ?? "");
+    if (["approved", "authorized", "in_process", "pending"].includes(statusStr)) {
+      try {
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        );
+        const { error: dbErr } = await supabase
+          .from("perfis")
+          .update({ assinante: true, plano: plano ?? "mensal", mp_payment_id: String(mpData.id) })
+          .eq("id", userId);
+        if (dbErr) console.error("[criar-assinatura] Supabase error:", dbErr.message);
+      } catch (dbEx) {
+        console.error("[criar-assinatura] Supabase exception:", dbEx);
       }
     }
 
-    return new Response(JSON.stringify(payment), {
-      headers: { ...CORS, "Content-Type": "application/json" },
-      status: mpRes.ok ? 200 : 422,
-    });
+    return resp({ ...mpData, _mp_http_status: mpRes.status });
+
   } catch (e) {
-    console.error("[criar-assinatura] error:", e);
-    return new Response(
-      JSON.stringify({ error: e.message }),
-      { headers: { ...CORS, "Content-Type": "application/json" }, status: 500 },
-    );
+    console.error("[criar-assinatura] exception:", e);
+    return resp({ error: String((e as Error)?.message ?? "Erro interno."), _tipo: "excecao_servidor" }, 500);
   }
 });

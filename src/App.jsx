@@ -395,6 +395,49 @@ function diasRestantesTrial(createdAt) {
   return Math.max(0, TRIAL_DIAS - diff);
 }
 
+// ── Decodificadores de erro do Mercado Pago ──────────────────────────────
+function decodeMPCause(code, description) {
+  const MAP = {
+    "324": "CPF inválido. Verifique o número do CPF informado.",
+    "325": "CPF inválido (dígito verificador incorreto). Verifique e tente novamente.",
+    "326": "CPF não encontrado no sistema. Verifique o número.",
+    "E301": "Token do cartão inválido ou expirado. Preencha os dados do cartão novamente.",
+    "E302": "Código de segurança (CVV) inválido.",
+    "316":  "Nome do titular inválido.",
+    "E303": "Número de parcelas inválido.",
+  };
+  return MAP[String(code)] ?? `Erro MP (${code}): ${description ?? "verifique os dados e tente novamente."}`;
+}
+
+function decodeMPApiError(result) {
+  // MP retornou erro na requisição (400, 401, 422) — pagamento não foi criado
+  if (result?.error === "unauthorized" || result?._mp_http_status === 401) {
+    return "Credencial do Mercado Pago inválida. Contate o suporte técnico.";
+  }
+  if (result?.cause?.length) {
+    return decodeMPCause(result.cause[0].code, result.cause[0].description);
+  }
+  if (result?.message) return `Erro no pagamento: ${result.message}`;
+  return `Erro ao processar pagamento (HTTP ${result?._mp_http_status ?? "?"}).`;
+}
+
+function decodeMPPaymentStatus(result) {
+  // MP criou o pagamento mas ele foi recusado — aparece no painel MP
+  const detail = String(result?.status_detail ?? "");
+  const ref = result?.id ? ` (Ref MP: ${result.id})` : "";
+  if (detail.includes("insufficient_amount"))   return `Saldo insuficiente no cartão.${ref}`;
+  if (detail.includes("bad_filled_date"))       return `Data de vencimento inválida.${ref}`;
+  if (detail.includes("bad_filled_security"))   return `Código de segurança (CVV) inválido.${ref}`;
+  if (detail.includes("bad_filled_card_number"))return `Número do cartão inválido.${ref}`;
+  if (detail.includes("bad_filled"))            return `Dados do cartão inválidos.${ref}`;
+  if (detail.includes("max_attempts"))          return `Muitas tentativas recusadas. Tente outro cartão.${ref}`;
+  if (detail.includes("cc_rejected_high_risk")) return `Pagamento recusado por segurança.${ref}`;
+  if (detail.includes("cc_rejected_other"))     return `Cartão recusado pelo banco emissor.${ref}`;
+  if (detail.includes("rejected"))              return `Cartão recusado: ${detail}.${ref}`;
+  if (result?.status === "in_process" || result?.status === "pending") return "Pagamento em análise — você receberá confirmação em breve.";
+  return `Pagamento não aprovado${detail ? `: ${detail}` : ""}.${ref}`;
+}
+
 // ── Tela de pagamento com Mercado Pago Bricks ────────────────────────────
 function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setPerfil }) {
   const [erro, setErro] = useState("");
@@ -507,22 +550,29 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
             setProcessando(false);
             setErro("Erro no formulário: " + (err?.message || "tente novamente"));
           },
-          // ⚠️ CRÍTICO: onSubmit deve usar throw (não return Promise.reject) para o Brick resetar
           onSubmit: async (submitData) => {
             setProcessando(true);
             setErro("");
-            console.log("[Brick onSubmit] dados recebidos:", JSON.stringify(submitData));
-            const formData = submitData?.formData || submitData || {};
-            let errorHandled = false;
+
+            // Extrai formData — Bricks v2 embala em { formData:{...} }, versões antigas passam direto
+            const fd = (submitData?.formData && typeof submitData.formData === "object")
+              ? submitData.formData
+              : (submitData || {});
+
+            console.log("[Brick onSubmit] token=%s method=%s installments=%s payer=%s",
+              fd.token?.slice(0, 14) + "***",
+              fd.payment_method_id || fd.paymentMethodId,
+              fd.installments,
+              JSON.stringify({ email: fd.payer?.email, identification: fd.payer?.identification }),
+            );
 
             try {
-              if (!formData.token) {
-                errorHandled = true;
-                setErro("Token do cartão não gerado. Verifique os dados e tente novamente.");
+              if (!fd.token) {
+                setErro("Cartão não tokenizado. Preencha todos os dados do cartão e tente novamente.");
                 throw new Error("token ausente");
               }
 
-              // getSession com timeout de 8s — evita travar indefinidamente em rede ruim
+              // getSession com timeout — evita travar em rede ruim
               let authToken = "";
               try {
                 const sessRes = await Promise.race([
@@ -532,32 +582,33 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 authToken = sessRes?.data?.session?.access_token || "";
               } catch (sessErr) {
                 if (sessErr.message !== "timeout_sessao") throw sessErr;
-                console.warn("[Brick] getSession timeout — seguindo sem token");
+                console.warn("[Brick] getSession timeout — prosseguindo sem token de sessão");
               }
 
-              // Aceita snake_case (Brick v2) e camelCase (versões anteriores do SDK)
-              const payMethodId = formData.payment_method_id || formData.paymentMethodId || "";
-              const issuerId = formData.issuer_id ?? formData.issuerId;
+              const payMethodId = fd.payment_method_id || fd.paymentMethodId || "";
+              const issuerId    = fd.issuer_id ?? fd.issuerId;
+
               const payload = {
-                token: formData.token,
+                token: fd.token,
                 plano,
-                email: user?.email,
+                email:  user?.email,
                 userId: user?.id,
-                installments: Number(formData.installments) || 1,
+                installments:      Number(fd.installments) || 1,
                 payment_method_id: payMethodId,
                 issuer_id: issuerId != null ? String(issuerId) : undefined,
                 payer: {
-                  email: user?.email || formData.payer?.email,
-                  first_name: user?.user_metadata?.nome || perfil?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
-                  last_name: user?.user_metadata?.sobrenome || perfil?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
-                  identification: formData.payer?.identification || {},
+                  email:      user?.email || fd.payer?.email || "",
+                  first_name: user?.user_metadata?.nome     || perfil?.nome     || fd.payer?.firstName || fd.payer?.first_name || "",
+                  last_name:  user?.user_metadata?.sobrenome || perfil?.sobrenome || fd.payer?.lastName  || fd.payer?.last_name  || "",
+                  identification: fd.payer?.identification || {},
                 },
               };
 
               const url = plano === "mensal" ? EDGE_ASSINATURA_URL : EDGE_PAGAMENTO_URL;
-              console.log("[Brick onSubmit] enviando para:", url, "payload:", JSON.stringify(payload));
+              console.log("[Brick onSubmit] POST →", url);
+
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 20000);
+              const tId = setTimeout(() => controller.abort(), 25000);
               let res;
               try {
                 res = await fetch(url, {
@@ -566,57 +617,48 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                   body: JSON.stringify(payload),
                   signal: controller.signal,
                 });
-              } finally {
-                clearTimeout(timeoutId);
-              }
+              } finally { clearTimeout(tId); }
 
-              const result = await res.json();
-              console.log("[Brick onSubmit] MP resposta:", res.status, "status:", result?.status, "detail:", result?.status_detail, "id:", result?.id);
+              const result = await res.json().catch(() => ({ error: "Resposta do servidor não é JSON." }));
+              console.log("[Brick onSubmit] edge http=%s _mp_http=%s status=%s detail=%s id=%s cause=%s",
+                res.status, result?._mp_http_status, result?.status, result?.status_detail, result?.id,
+                JSON.stringify(result?.cause ?? []),
+              );
 
+              // ── Erro de servidor (nossa edge function falhou antes de chamar o MP) ──
               if (!res.ok) {
-                errorHandled = true;
-                setErro("Pagamento não aprovado: " + (result?.detail || result?.status_detail || result?.message || result?.error || `HTTP ${res.status}`));
-                throw new Error(result?.error || result?.message || `HTTP ${res.status}`);
+                const msg = result?.error || `Erro interno do servidor (HTTP ${res.status}). Tente novamente ou contate o suporte.`;
+                setErro(msg);
+                throw new Error(msg);
               }
 
-              if (!result || typeof result.status === "undefined") {
-                errorHandled = true;
-                setErro("Resposta inválida do servidor. Tente novamente.");
-                throw new Error("resultado sem status");
+              // ── MP rejeitou a requisição (credencial errada, CPF inválido, token inválido) ──
+              const mpHttp = result?._mp_http_status ?? 200;
+              if (mpHttp >= 400) {
+                const msg = decodeMPApiError(result);
+                setErro(msg);
+                throw new Error(msg);
               }
 
-              const okStatus = ["approved","authorized","in_process","pending"];
-              if (okStatus.includes(result.status)) {
+              // ── Pagamento criado no MP — verifica se foi aprovado ──
+              const okStatus = ["approved", "authorized", "in_process", "pending"];
+              if (okStatus.includes(result?.status)) {
                 await supabase.from("perfis").update({ assinante: true, plano }).eq("id", user?.id);
                 if (setPerfil) setPerfil(x => ({ ...x, assinante: true, plano }));
                 setStep("pago");
+                // Sucesso: retorna sem lançar erro — o Brick resolve a Promise implicitamente
               } else {
-                errorHandled = true;
-                const detalhe = result.status_detail || result.detail || result.message || "";
-                // Inclui o ID do pagamento MP na mensagem para o usuário localizar no painel
-                const refMP = result.id ? ` (Ref MP: ${result.id})` : "";
-                const msgRecusa = detalhe.includes("insufficient_amount")
-                  ? `Saldo insuficiente no cartão.${refMP}`
-                  : detalhe.includes("bad_filled")
-                  ? `Dados do cartão inválidos. Verifique e tente novamente.${refMP}`
-                  : detalhe.includes("max_attempts")
-                  ? `Limite de tentativas atingido. Tente outro cartão.${refMP}`
-                  : `Cartão recusado${detalhe ? ` — ${detalhe}` : ""}.${refMP} Verifique os dados ou tente outro cartão.`;
-                setErro(msgRecusa);
-                throw new Error(msgRecusa);
+                const msg = decodeMPPaymentStatus(result);
+                setErro(msg);
+                throw new Error(msg);
               }
+
             } catch (e) {
-              console.error("[Brick] catch:", e);
-              if (!errorHandled) {
-                const msgErro = e.name === "AbortError"
-                  ? "Tempo esgotado. Verifique a conexão e tente novamente."
-                  : "Erro ao processar pagamento: " + e.message;
-                setErro(msgErro);
+              if (e.name === "AbortError") {
+                setErro("Tempo esgotado (25s). Verifique a conexão e tente novamente.");
               }
-              // NÃO chamar setBrickKey aqui — destruir o Brick antes do throw causar
-              // race condition: o SDK não processa a rejeição e trava em "Processando..."
-              // O botão "Tentar novamente" usa setBrickKey para remount manual se necessário.
-              throw e;
+              // setErro já foi chamado nos blocos acima para todos os outros casos
+              throw e; // o Brick precisa do throw para sair do estado "Processando"
             } finally {
               setProcessando(false);
             }
@@ -661,6 +703,18 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       if (el) el.innerHTML = "";
     };
   }, [step, plano, brickKey]);
+
+  // Watchdog: se "Processando..." ficar preso por 30s, força reset e remonta o Brick
+  useEffect(() => {
+    if (!processando) return;
+    const wd = setTimeout(() => {
+      console.warn("[PaywallScreen watchdog] processando stuck 30s — forçando reset");
+      setProcessando(false);
+      setErro("Tempo esgotado. Clique em 'Tentar novamente' para recarregar o formulário.");
+      setBrickKey(k => k + 1);
+    }, 30000);
+    return () => clearTimeout(wd);
+  }, [processando]);
 
   // Tela de sucesso
   if (step === "pago") return (
@@ -2441,16 +2495,23 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           },
           onSubmit: async (submitData) => {
             setProcessandoPerfil(true); setPagErro("");
-            console.log("[BrickPerfil onSubmit] dados recebidos:", JSON.stringify(submitData));
-            const formData = submitData?.formData || submitData || {};
-            let errorHandledPerfil = false;
+
+            const fd = (submitData?.formData && typeof submitData.formData === "object")
+              ? submitData.formData : (submitData || {});
+
+            console.log("[BrickPerfil onSubmit] token=%s method=%s installments=%s payer=%s",
+              fd.token?.slice(0, 14) + "***",
+              fd.payment_method_id || fd.paymentMethodId,
+              fd.installments,
+              JSON.stringify({ email: fd.payer?.email, identification: fd.payer?.identification }),
+            );
 
             try {
-              if (!formData.token) {
-                errorHandledPerfil = true;
-                setPagErro("Token do cartão não gerado. Verifique os dados e tente novamente.");
+              if (!fd.token) {
+                setPagErro("Cartão não tokenizado. Preencha todos os dados do cartão e tente novamente.");
                 throw new Error("token ausente");
               }
+
               let authToken = "";
               try {
                 const sessRes = await Promise.race([
@@ -2460,30 +2521,32 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 authToken = sessRes?.data?.session?.access_token || "";
               } catch (sessErr) {
                 if (sessErr.message !== "timeout_sessao") throw sessErr;
-                console.warn("[BrickPerfil] getSession timeout — seguindo sem token");
+                console.warn("[BrickPerfil] getSession timeout — prosseguindo sem token");
               }
-              const edgeUrl = planoPerfilSel === "mensal" ? EDGE_ASSINATURA_URL : EDGE_PAGAMENTO_URL;
-              // Aceita snake_case (Brick v2) e camelCase (versões anteriores do SDK)
-              const payMethodId2 = formData.payment_method_id || formData.paymentMethodId || "";
-              const issuerId2 = formData.issuer_id ?? formData.issuerId;
+
+              const edgeUrl     = planoPerfilSel === "mensal" ? EDGE_ASSINATURA_URL : EDGE_PAGAMENTO_URL;
+              const payMethodId = fd.payment_method_id || fd.paymentMethodId || "";
+              const issuerId    = fd.issuer_id ?? fd.issuerId;
+
               const bodyPayload = {
-                token: formData.token,
+                token: fd.token,
                 plano: planoPerfilSel,
-                email: user?.email,
+                email:  user?.email,
                 userId: user?.id,
-                installments: Number(formData.installments) || 1,
-                payment_method_id: payMethodId2,
-                issuer_id: issuerId2 != null ? String(issuerId2) : undefined,
+                installments:      Number(fd.installments) || 1,
+                payment_method_id: payMethodId,
+                issuer_id: issuerId != null ? String(issuerId) : undefined,
                 payer: {
-                  email: user?.email || formData.payer?.email,
-                  first_name: user?.user_metadata?.nome || perfil?.nome || formData.payer?.firstName || formData.payer?.first_name || "",
-                  last_name: user?.user_metadata?.sobrenome || perfil?.sobrenome || formData.payer?.lastName || formData.payer?.last_name || "",
-                  identification: formData.payer?.identification || {},
+                  email:      user?.email || fd.payer?.email || "",
+                  first_name: user?.user_metadata?.nome      || perfil?.nome      || fd.payer?.firstName || fd.payer?.first_name || "",
+                  last_name:  user?.user_metadata?.sobrenome  || perfil?.sobrenome  || fd.payer?.lastName  || fd.payer?.last_name  || "",
+                  identification: fd.payer?.identification || {},
                 },
               };
-              console.log("[BrickPerfil onSubmit] enviando para:", edgeUrl, "payload:", JSON.stringify(bodyPayload));
+
+              console.log("[BrickPerfil onSubmit] POST →", edgeUrl);
               const ctrl = new AbortController();
-              const tid = setTimeout(() => ctrl.abort(), 20000);
+              const tid  = setTimeout(() => ctrl.abort(), 25000);
               let res;
               try {
                 res = await fetch(edgeUrl, {
@@ -2492,47 +2555,38 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                   body: JSON.stringify(bodyPayload),
                   signal: ctrl.signal,
                 });
-              } finally {
-                clearTimeout(tid);
-              }
-              const result = await res.json();
-              console.log("[BrickPerfil onSubmit] MP resposta:", res.status, "status:", result?.status, "detail:", result?.status_detail, "id:", result?.id);
+              } finally { clearTimeout(tid); }
+
+              const result = await res.json().catch(() => ({ error: "Resposta do servidor não é JSON." }));
+              console.log("[BrickPerfil onSubmit] edge http=%s _mp_http=%s status=%s detail=%s id=%s cause=%s",
+                res.status, result?._mp_http_status, result?.status, result?.status_detail, result?.id,
+                JSON.stringify(result?.cause ?? []),
+              );
+
               if (!res.ok) {
-                errorHandledPerfil = true;
-                setPagErro("Pagamento não aprovado: " + (result?.detail || result?.status_detail || result?.message || result?.error || `HTTP ${res.status}`));
-                throw new Error(result?.error || result?.message || `HTTP ${res.status}`);
+                const msg = result?.error || `Erro interno do servidor (HTTP ${res.status}).`;
+                setPagErro(msg); throw new Error(msg);
               }
-              if (!result || typeof result.status === "undefined") {
-                errorHandledPerfil = true;
-                setPagErro("Resposta inválida do servidor. Tente novamente.");
-                throw new Error("resultado sem status");
+
+              const mpHttp = result?._mp_http_status ?? 200;
+              if (mpHttp >= 400) {
+                const msg = decodeMPApiError(result);
+                setPagErro(msg); throw new Error(msg);
               }
-              const okStatus2 = ["approved","authorized","in_process","pending"];
-              if (okStatus2.includes(result.status)) {
+
+              const okStatus = ["approved", "authorized", "in_process", "pending"];
+              if (okStatus.includes(result?.status)) {
                 await supabase.from("perfis").update({ assinante: true, plano: planoPerfilSel }).eq("id", user?.id);
-                setPerfil(x => ({...x, assinante: true, plano: planoPerfilSel}));
+                setPerfil(x => ({ ...x, assinante: true, plano: planoPerfilSel }));
                 setStepPerfil("pago");
               } else {
-                errorHandledPerfil = true;
-                const detalhePerfil = result.status_detail || result.detail || result.message || "";
-                const refMP2 = result.id ? ` (Ref MP: ${result.id})` : "";
-                const msgRecusaPerfil = detalhePerfil.includes("insufficient_amount")
-                  ? `Saldo insuficiente no cartão.${refMP2}`
-                  : detalhePerfil.includes("bad_filled")
-                  ? `Dados do cartão inválidos. Verifique e tente novamente.${refMP2}`
-                  : detalhePerfil.includes("max_attempts")
-                  ? `Limite de tentativas atingido. Tente outro cartão.${refMP2}`
-                  : `Cartão recusado${detalhePerfil ? ` — ${detalhePerfil}` : ""}.${refMP2} Verifique os dados ou tente outro cartão.`;
-                setPagErro(msgRecusaPerfil);
-                throw new Error(msgRecusaPerfil);
+                const msg = decodeMPPaymentStatus(result);
+                setPagErro(msg); throw new Error(msg);
               }
-            } catch(e) {
-              console.error("[BrickPerfil] catch:", e);
-              if (!errorHandledPerfil) {
-                const msgErroPerfil = e.name === "AbortError"
-                  ? "Tempo esgotado. Verifique a conexão e tente novamente."
-                  : "Erro ao processar pagamento: " + e.message;
-                setPagErro(msgErroPerfil);
+
+            } catch (e) {
+              if (e.name === "AbortError") {
+                setPagErro("Tempo esgotado (25s). Verifique a conexão e tente novamente.");
               }
               throw e;
             } finally {
@@ -2577,6 +2631,19 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       if (el) el.innerHTML = "";
     };
   }, [stepPerfil, planoPerfilSel, brickKeyPerfil]);
+
+  // Watchdog: se "Processando..." ficar preso por 30s, força reset e remonta o Brick
+  useEffect(() => {
+    if (!processandoPerfil) return;
+    const wd = setTimeout(() => {
+      console.warn("[PerfilTab watchdog] processando stuck 30s — forçando reset");
+      setProcessandoPerfil(false);
+      setPagErro("Tempo esgotado. Clique em 'Tentar novamente' para recarregar o formulário.");
+      setBrickKeyPerfil(k => k + 1);
+    }, 30000);
+    return () => clearTimeout(wd);
+  }, [processandoPerfil]);
+
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:16}}>Meu Perfil 👤</div>
     <div className="profile-section">
