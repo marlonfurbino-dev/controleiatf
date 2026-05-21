@@ -387,12 +387,20 @@ const EDGE_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quic
 const EDGE_CHECK_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/check-pix";
 
 function diasRestantesTrial(createdAt) {
-  if (!createdAt) return TRIAL_DIAS; // sem data = considera trial completo
+  if (!createdAt) return TRIAL_DIAS;
   const criado = new Date(createdAt);
   if (isNaN(criado.getTime())) return TRIAL_DIAS;
   const hoje = new Date();
   const diff = Math.floor((hoje - criado) / 86400000);
   return Math.max(0, TRIAL_DIAS - diff);
+}
+
+function formatPhone(v) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2)  return d.length ? `(${d}` : "";
+  if (d.length <= 6)  return `(${d.slice(0,2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
 }
 
 // ── Decodificadores de erro do Mercado Pago ──────────────────────────────
@@ -912,10 +920,14 @@ function AuthScreen({ onAuth }) {
 
   const handleCadastro = async () => {
     setErro(""); setLoading(true);
-    if (!nome) { setErro("Informe seu nome."); setLoading(false); return; }
-    if (!sobrenome) { setErro("Informe seu sobrenome."); setLoading(false); return; }
-    if (!cidade) { setErro("Informe sua cidade."); setLoading(false); return; }
-    if (!whatsapp) { setErro("Informe seu WhatsApp."); setLoading(false); return; }
+    if (!nome.trim()) { setErro("Informe seu nome."); setLoading(false); return; }
+    if (!sobrenome.trim()) { setErro("Informe seu sobrenome."); setLoading(false); return; }
+    if (!cidade.trim()) { setErro("Informe sua cidade / estado."); setLoading(false); return; }
+    const foneDigits = whatsapp.replace(/\D/g, "");
+    if (foneDigits.length < 10 || foneDigits.length > 11) {
+      setErro("WhatsApp inválido. Use o formato (DDD) 99999-9999.");
+      setLoading(false); return;
+    }
     if (!termos) { setErro("Aceite os termos de uso para continuar."); setLoading(false); return; }
     if (senha.length < 6) { setErro("Senha deve ter no mínimo 6 caracteres."); setLoading(false); return; }
     try {
@@ -975,7 +987,7 @@ function AuthScreen({ onAuth }) {
             <div className="fg"><label className="fl">Sobrenome</label><input className="fi" value={sobrenome} onChange={e=>setSobrenome(e.target.value)} placeholder="Sobrenome"/></div>
           </div>
           <div className="fg"><label className="fl">Cidade</label><input className="fi" value={cidade} onChange={e=>setCidade(e.target.value)} placeholder="Ex: Belo Horizonte - MG"/></div>
-          <div className="fg"><label className="fl">WhatsApp</label><input className="fi" type="tel" value={whatsapp} onChange={e=>setWhatsapp(e.target.value)} placeholder="(31) 99999-9999"/></div>
+          <div className="fg"><label className="fl">WhatsApp *</label><input className="fi" type="tel" inputMode="numeric" value={whatsapp} onChange={e=>setWhatsapp(formatPhone(e.target.value))} placeholder="(31) 99999-9999" maxLength={15}/></div>
         </>}
         <div className="fg"><label className="fl">Email</label><input className="fi" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com"/></div>
         {tab !== "recuperar" && <div className="fg"><label className="fl">Senha</label><input className="fi" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/></div>}
@@ -1615,14 +1627,9 @@ _Controle IATF — controleiatf.com.br_`;
         <div className="hdr-title">Controle<em style={{color:"#6fcf8e"}}> IATF</em></div>
         <div className="hdr-sub">{user.email}</div>
       </div>
-      {ehAssinante
-        ? <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
-        : diasRestantes <= 3 && diasRestantes > 0 && (
-          <span style={{fontSize:11,fontWeight:700,background:"var(--yl)",color:"var(--y)",padding:"3px 8px",borderRadius:99,marginRight:6}}>
-            {diasRestantes}d trial
-          </span>
-        )
-      }
+      {ehAssinante && (
+        <span style={{fontSize:11,fontWeight:700,background:"var(--gp)",color:"var(--g)",padding:"3px 8px",borderRadius:99,marginRight:6}}>✅ Ativo</span>
+      )}
       <button className="hdr-btn" title="Recarregar" onClick={()=>window.location.reload()}><Icon name="reload" size={18}/></button>
       <button className="hdr-btn" title="Sair" onClick={()=>setModal({type:"confirm",msg:"Deseja sair da sua conta?",onOk:logout})}><Icon name="logout" size={18}/></button>
     </div>
@@ -2400,21 +2407,31 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const getWAConvite=(token,email)=>`https://api.whatsapp.com/send?text=${encodeURIComponent(`Olá! Você foi convidado para a equipe do Controle IATF.%0AClique no link para aceitar:%0A${getLinkConvite(token)}`)}`;
   const save=async()=>{
     setSaveErr("");
+    if(!f.nome.trim()){ setSaveErr("Informe seu nome."); return; }
+    if(!f.sobrenome.trim()){ setSaveErr("Informe seu sobrenome."); return; }
+    const foneDigits = f.whatsapp.replace(/\D/g,"");
+    if(foneDigits.length < 10){ setSaveErr("WhatsApp inválido. Use o formato (DDD) 99999-9999."); return; }
     try {
       const {data:{session}} = await supabase.auth.getSession();
       if(!session){ setSaveErr("Sessão expirada. Faça login novamente."); return; }
-      const {error} = await supabase.from("perfis").update({
-        nome: f.nome,
-        sobrenome: f.sobrenome,
-        cidade: f.cidade,
+      const {error} = await supabase.from("perfis").upsert({
+        id: user.id,
+        email: user.email,
+        nome: f.nome.trim(),
+        sobrenome: f.sobrenome.trim(),
+        cidade: f.cidade.trim(),
         whatsapp: f.whatsapp,
-      }).eq("id", user.id);
-      if(error){ setSaveErr("Erro ao salvar: "+error.message); return; }
-      setPerfil(x=>({...x,...f}));
+      }, { onConflict: "id" });
+      if(error){ setSaveErr("Erro ao salvar: "+error.message); console.error("[PerfilTab save]", error); return; }
+      // Lê de volta para confirmar que o dado foi persistido
+      const {data:novo} = await supabase.from("perfis").select("*").eq("id",user.id).single();
+      if(novo) setPerfil(x=>({...x,...novo}));
+      else setPerfil(x=>({...x,...f}));
       setEditing(false);
       ping("Perfil atualizado!");
     } catch(e) {
       setSaveErr("Erro ao salvar: "+e.message);
+      console.error("[PerfilTab save] exception:", e);
     }
   };
   const [planoPerfilSel, setPlanoPerfilSel] = useState("anual");
@@ -2767,7 +2784,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           <div className="fg"><label className="fl">Sobrenome</label><input className="fi" value={f.sobrenome} onChange={e=>setF(x=>({...x,sobrenome:e.target.value}))}/></div>
         </div>
         <div className="fg"><label className="fl">Cidade</label><input className="fi" value={f.cidade} onChange={e=>setF(x=>({...x,cidade:e.target.value}))}/></div>
-        <div className="fg"><label className="fl">WhatsApp</label><input className="fi" value={f.whatsapp} onChange={e=>setF(x=>({...x,whatsapp:e.target.value}))}/></div>
+        <div className="fg"><label className="fl">WhatsApp *</label><input className="fi" type="tel" inputMode="numeric" value={f.whatsapp} onChange={e=>setF(x=>({...x,whatsapp:formatPhone(e.target.value)}))} placeholder="(31) 99999-9999" maxLength={15}/></div>
         {saveErr&&<div className="auth-err" style={{marginBottom:8}}>{saveErr}</div>}
         <div className="row" style={{gap:8,marginTop:8}}>
           <button className="btn btn-gh" style={{flex:1}} onClick={()=>setEditing(false)}>Cancelar</button>
@@ -2905,45 +2922,148 @@ function SemenForm({onSave,onCancel}){
 // ── DG Tab ────────────────────────────────────────────────────────────────
 function DGTab({ user, ping }) {
   const storageKey = `dg_fazendas_${user?.id}`;
-  const [fazendas, setFazendas] = useState(() => DB.get(storageKey) || []);
+  const [fazendas, setFazendas] = useState([]);
+  const [dgLoading, setDgLoading] = useState(true);
   const [tela, setTela] = useState(null); // null = lista | {type:"fazenda", id} | {type:"nova"}
 
-  const salvarFazendas = (nova) => { setFazendas(nova); DB.set(storageKey, nova); };
+  // Salva no localStorage como cache offline
+  const cacheLocal = (fzList) => DB.set(storageKey, fzList);
 
-  const addFazenda = (dados) => {
-    const nova = [...fazendas, { ...dados, id: uid(), animais: [], criadoEm: new Date().toISOString() }];
-    salvarFazendas(nova);
+  // Carrega do Supabase; migra do localStorage se Supabase estiver vazio
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const load = async () => {
+      setDgLoading(true);
+      try {
+        const [fzRes, anRes] = await Promise.all([
+          supabase.from("dg_fazendas").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+          supabase.from("dg_animais").select("*").eq("user_id", user.id),
+        ]);
+        if (cancelled) return;
+        if (fzRes.error) throw fzRes.error;
+        const fzData = fzRes.data || [];
+        const anData = anRes.data || [];
+        if (fzData.length === 0) {
+          // Migra dados do localStorage para o Supabase (primeira vez)
+          const local = DB.get(storageKey) || [];
+          if (local.length > 0) {
+            for (const f of local) {
+              await supabase.from("dg_fazendas").upsert({
+                id: f.id, user_id: user.id, nome: f.nome,
+                proprietario: f.proprietario || "", cidade: f.cidade || "",
+                telefone: f.telefone || "",
+                data_inseminacao: f.dataInseminacao || null,
+                data_dg: f.dataDG || null,
+                created_at: f.criadoEm || new Date().toISOString(),
+              }, { onConflict: "id" });
+              for (const a of (f.animais || [])) {
+                await supabase.from("dg_animais").upsert({
+                  id: a.id, fazenda_dg_id: f.id, user_id: user.id,
+                  nome: a.nome, status: a.status || null,
+                }, { onConflict: "id" });
+              }
+            }
+          }
+          if (!cancelled) { setFazendas(local); cacheLocal(local); }
+        } else {
+          const fzList = fzData.map(f => ({
+            ...f,
+            dataInseminacao: f.data_inseminacao || "",
+            dataDG: f.data_dg || "",
+            criadoEm: f.created_at,
+            animais: anData.filter(a => a.fazenda_dg_id === f.id).map(a => ({
+              id: a.id, nome: a.nome, status: a.status || null,
+            })),
+          }));
+          if (!cancelled) { setFazendas(fzList); cacheLocal(fzList); }
+        }
+      } catch (e) {
+        console.error("[DGTab] Supabase load:", e);
+        // Fallback offline
+        if (!cancelled) setFazendas(DB.get(storageKey) || []);
+      } finally {
+        if (!cancelled) setDgLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const addFazenda = async (dados) => {
+    const id = uid();
+    const criadoEm = new Date().toISOString();
+    const nova = { ...dados, id, animais: [], criadoEm };
+    const newList = [...fazendas, nova];
+    setFazendas(newList); cacheLocal(newList);
     ping("Fazenda cadastrada!");
-    setTela({ type: "fazenda", id: nova[nova.length - 1].id });
+    setTela({ type: "fazenda", id });
+    supabase.from("dg_fazendas").insert({
+      id, user_id: user.id, nome: dados.nome,
+      proprietario: dados.proprietario || "", cidade: dados.cidade || "",
+      telefone: dados.telefone || "",
+      data_inseminacao: dados.dataInseminacao || null,
+      data_dg: dados.dataDG || null,
+      created_at: criadoEm,
+    }).then(({ error }) => { if (error) console.error("[DGTab addFazenda]", error); });
   };
 
   const updateFazenda = (id, dados) => {
-    salvarFazendas(fazendas.map(f => f.id === id ? { ...f, ...dados } : f));
+    const newList = fazendas.map(f => f.id === id ? { ...f, ...dados } : f);
+    setFazendas(newList); cacheLocal(newList);
+    const upd = {};
+    if (dados.dataInseminacao !== undefined) upd.data_inseminacao = dados.dataInseminacao || null;
+    if (dados.dataDG !== undefined) upd.data_dg = dados.dataDG || null;
+    if (dados.nome !== undefined) upd.nome = dados.nome;
+    if (dados.proprietario !== undefined) upd.proprietario = dados.proprietario;
+    if (dados.cidade !== undefined) upd.cidade = dados.cidade;
+    if (dados.telefone !== undefined) upd.telefone = dados.telefone;
+    if (Object.keys(upd).length) {
+      supabase.from("dg_fazendas").update(upd).eq("id", id)
+        .then(({ error }) => { if (error) console.error("[DGTab updateFazenda]", error); });
+    }
   };
 
   const deleteFazenda = (id) => {
-    salvarFazendas(fazendas.filter(f => f.id !== id));
-    setTela(null);
-    ping("Fazenda removida");
+    const newList = fazendas.filter(f => f.id !== id);
+    setFazendas(newList); cacheLocal(newList);
+    setTela(null); ping("Fazenda removida");
+    supabase.from("dg_fazendas").delete().eq("id", id)
+      .then(({ error }) => { if (error) console.error("[DGTab deleteFazenda]", error); });
   };
 
   const addAnimal = (fazId, animal) => {
-    salvarFazendas(fazendas.map(f => f.id === fazId
-      ? { ...f, animais: [...(f.animais || []), { ...animal, id: uid() }] }
-      : f));
+    const id = uid();
+    const newAnimal = { ...animal, id };
+    const newList = fazendas.map(f => f.id === fazId
+      ? { ...f, animais: [...(f.animais || []), newAnimal] } : f);
+    setFazendas(newList); cacheLocal(newList);
+    supabase.from("dg_animais").insert({
+      id, fazenda_dg_id: fazId, user_id: user.id,
+      nome: animal.nome, status: animal.status || null,
+    }).then(({ error }) => { if (error) console.error("[DGTab addAnimal]", error); });
   };
 
   const updateAnimal = (fazId, animalId, dados) => {
-    salvarFazendas(fazendas.map(f => f.id === fazId
-      ? { ...f, animais: f.animais.map(a => a.id === animalId ? { ...a, ...dados } : a) }
-      : f));
+    const newList = fazendas.map(f => f.id === fazId
+      ? { ...f, animais: f.animais.map(a => a.id === animalId ? { ...a, ...dados } : a) } : f);
+    setFazendas(newList); cacheLocal(newList);
+    const upd = {};
+    if (dados.nome !== undefined) upd.nome = dados.nome;
+    if ("status" in dados) upd.status = dados.status;
+    if (Object.keys(upd).length) {
+      supabase.from("dg_animais").update(upd).eq("id", animalId)
+        .then(({ error }) => { if (error) console.error("[DGTab updateAnimal]", error); });
+    }
   };
 
   const deleteAnimal = (fazId, animalId) => {
-    salvarFazendas(fazendas.map(f => f.id === fazId
-      ? { ...f, animais: f.animais.filter(a => a.id !== animalId) }
-      : f));
+    const newList = fazendas.map(f => f.id === fazId
+      ? { ...f, animais: f.animais.filter(a => a.id !== animalId) } : f);
+    setFazendas(newList); cacheLocal(newList);
     ping("Animal removido");
+    supabase.from("dg_animais").delete().eq("id", animalId)
+      .then(({ error }) => { if (error) console.error("[DGTab deleteAnimal]", error); });
   };
 
   if (tela?.type === "fazenda") {
@@ -2970,13 +3090,15 @@ function DGTab({ user, ping }) {
     <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 2 }}>Diagnóstico de Gestação</div>
     <div style={{ fontSize: 13, color: "var(--gr4)", marginBottom: 16 }}>Fazendas atendidas apenas para DG</div>
 
-    {fazendas.length === 0
+    {dgLoading && <div style={{textAlign:"center",padding:"32px 0",color:"var(--gr4)",fontSize:13}}>Carregando...</div>}
+
+    {!dgLoading && fazendas.length === 0
       ? <div className="empty">
           <Icon name="dg" size={44} />
           <div className="empty-t">Nenhum DG cadastrado</div>
           <div className="empty-s">Toque no + para iniciar um novo diagnóstico</div>
         </div>
-      : fazendas.map(f => {
+      : !dgLoading && fazendas.map(f => {
           const prenhas = (f.animais || []).filter(a => a.status === "P").length;
           const total = (f.animais || []).length;
           const taxa = total > 0 ? Math.round(prenhas / total * 100) : null;
@@ -3017,7 +3139,7 @@ function DGNovaFazenda({ onSave, onCancel }) {
     <div className="fg"><label className="fl">Nome da Fazenda *</label><input className="fi" value={f.nome} onChange={e => s("nome", e.target.value)} placeholder="Ex: Fazenda Santa Luzia" /></div>
     <div className="fg"><label className="fl">Proprietário *</label><input className="fi" value={f.proprietario} onChange={e => s("proprietario", e.target.value)} placeholder="Ex: João da Silva" /></div>
     <div className="fg"><label className="fl">Cidade</label><input className="fi" value={f.cidade} onChange={e => s("cidade", e.target.value)} placeholder="Ex: Ipatinga - MG" /></div>
-    <div className="fg"><label className="fl">Telefone</label><input className="fi" value={f.telefone} onChange={e => s("telefone", e.target.value)} placeholder="Ex: (31) 99999-9999" type="tel" /></div>
+    <div className="fg"><label className="fl">Telefone</label><input className="fi" type="tel" inputMode="numeric" value={f.telefone} onChange={e => s("telefone", formatPhone(e.target.value))} placeholder="(31) 99999-9999" maxLength={15}/></div>
     <div className="frow">
       <div className="fg"><label className="fl">Data da Inseminação</label><input className="fi" value={f.dataInseminacao} onChange={e => s("dataInseminacao", e.target.value)} type="date" /></div>
       <div className="fg"><label className="fl">Data do DG</label><input className="fi" value={f.dataDG} onChange={e => s("dataDG", e.target.value)} type="date" /></div>
