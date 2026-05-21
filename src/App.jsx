@@ -491,7 +491,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       const bricksBuilder = mp.bricks();
       const valor = plano === "anual" ? 699.90 : 73.90;
 
-      brickRef.current = await bricksBuilder.create("cardPayment", "cardPayment-container", {
+      try { brickRef.current = await bricksBuilder.create("cardPayment", "cardPayment-container", {
         initialization: {
           amount: valor,
           payer: { email: user?.email || "", identification: { type: "CPF", number: "" } },
@@ -597,14 +597,21 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                   : "Erro ao processar pagamento: " + e.message;
                 setErro(msgErro);
               }
-              setBrickKey(k => k + 1); // força remount para nova tentativa limpa
-              throw e; // sempre re-throw: o Brick precisa do erro para resetar estado interno
+              // NÃO chamar setBrickKey aqui — destruir o Brick antes do throw causar
+              // race condition: o SDK não processa a rejeição e trava em "Processando..."
+              // O botão "Tentar novamente" usa setBrickKey para remount manual se necessário.
+              throw e;
             } finally {
               setProcessando(false);
             }
           },
         },
-      });
+      }); } catch (createErr) {
+        if (!destroyed) {
+          console.error("[Brick] falha ao criar:", createErr);
+          setErro("Erro ao carregar formulário de pagamento. Clique em 'Tentar novamente'.");
+        }
+      }
     };
 
     if (!window.MercadoPago) {
@@ -613,15 +620,15 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
         const script = document.createElement("script");
         script.id = "mp-sdk-script";
         script.src = "https://sdk.mercadopago.com/js/v2";
-        script.onload = initBrick;
+        script.onload = () => initBrick().catch(e => console.error("[initBrick]", e));
         document.head.appendChild(script);
       } else {
         const waitForMP = setInterval(() => {
-          if (window.MercadoPago) { clearInterval(waitForMP); initBrick(); }
+          if (window.MercadoPago) { clearInterval(waitForMP); initBrick().catch(e => console.error("[initBrick]", e)); }
         }, 100);
       }
     } else {
-      initBrick();
+      initBrick().catch(e => console.error("[initBrick]", e));
     }
 
     // Timeout de segurança: se onReady não disparar em 5s, some o loader
@@ -2403,7 +2410,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
       if (!window.MercadoPago) { setTimeout(initBrick, 500); return; }
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilderPerfil = mp.bricks();
-      brickRefPerfil.current = await bricksBuilderPerfil.create("cardPayment", "cardPayment-perfil", {
+      try { brickRefPerfil.current = await bricksBuilderPerfil.create("cardPayment", "cardPayment-perfil", {
         initialization: { amount: valor, payer: { email: user?.email || "", identification: { type: "CPF", number: "" } } },
         customization: {
           paymentMethods: { minInstallments: 1, maxInstallments: planoPerfilSel === "anual" ? 12 : 1 },
@@ -2497,14 +2504,18 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                   : "Erro ao processar pagamento: " + e.message;
                 setPagErro(msgErroPerfil);
               }
-              setBrickKeyPerfil(k => k + 1); // força remount para nova tentativa limpa
-              throw e; // sempre re-throw: o Brick precisa do erro para resetar estado interno
+              throw e;
             } finally {
               setProcessandoPerfil(false);
             }
           },
         },
-      });
+      }); } catch (createErr) {
+        if (!destroyed) {
+          console.error("[BrickPerfil] falha ao criar:", createErr);
+          setPagErro("Erro ao carregar formulário de pagamento. Clique em 'Tentar novamente'.");
+        }
+      }
       if (destroyed) {
         try { brickRefPerfil.current?.unmount?.(); } catch(_) {}
         brickRefPerfil.current = null;
@@ -2518,14 +2529,14 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         const script = document.createElement("script");
         script.id = "mp-sdk-script";
         script.src = "https://sdk.mercadopago.com/js/v2";
-        script.onload = initBrick;
+        script.onload = () => initBrick().catch(e => console.error("[initBrickPerfil]", e));
         document.head.appendChild(script);
       } else {
         const waitForMP = setInterval(() => {
-          if (window.MercadoPago) { clearInterval(waitForMP); initBrick(); }
+          if (window.MercadoPago) { clearInterval(waitForMP); initBrick().catch(e => console.error("[initBrickPerfil]", e)); }
         }, 100);
       }
-    } else { initBrick(); }
+    } else { initBrick().catch(e => console.error("[initBrickPerfil]", e)); }
     return () => {
       destroyed = true;
       setProcessandoPerfil(false); // garante reset do estado ao desmontar o Brick
