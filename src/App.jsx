@@ -439,7 +439,7 @@ function decodeMPPaymentStatus(result) {
   if (detail.includes("bad_filled_card_number"))return `Número do cartão inválido.${ref}`;
   if (detail.includes("bad_filled"))            return `Dados do cartão inválidos.${ref}`;
   if (detail.includes("max_attempts"))          return `Muitas tentativas recusadas. Tente outro cartão.${ref}`;
-  if (detail.includes("cc_rejected_high_risk")) return `Pagamento recusado por segurança pelo banco emissor. Aguarde alguns minutos e tente novamente, ou use o PIX como alternativa.${ref}`;
+  if (detail.includes("cc_rejected_high_risk")) return `Pagamento bloqueado pelo antifraude do Mercado Pago${ref}. Causas comuns: conta MP vendedora nova/não verificada, muitas tentativas com o mesmo cartão, ou e-mail do comprador igual ao da conta vendedora. Tente: (1) outro cartão, (2) pagar via PIX, ou (3) verifique pendências no painel do Mercado Pago.`;
   if (detail.includes("cc_rejected_other"))     return `Cartão recusado pelo banco emissor.${ref}`;
   if (detail.includes("rejected"))              return `Cartão recusado: ${detail}.${ref}`;
   if (result?.status === "in_process" || result?.status === "pending") return "Pagamento em análise — você receberá confirmação em breve.";
@@ -750,6 +750,14 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               if (result?._mp_conta_email) {
                 console.log("[Brick onSubmit] CONTA MP QUE RECEBE O PAGAMENTO: email=%s id=%s",
                   result._mp_conta_email, result._mp_conta_id ?? "?");
+                // Detecta autocompra: comprador == vendedor (causa de cc_rejected_high_risk)
+                const buyerEmail = (payerData.email || user?.email || "").trim().toLowerCase();
+                const sellerEmail = String(result._mp_conta_email).trim().toLowerCase();
+                if (buyerEmail && sellerEmail && buyerEmail === sellerEmail) {
+                  const msg = `Autocompra detectada: o e-mail do comprador (${buyerEmail}) é o mesmo da conta Mercado Pago que recebe o pagamento. Use um e-mail diferente para o comprador ao testar.`;
+                  setErro(msg);
+                  throw new Error(msg);
+                }
               }
 
               // ── MP rejeitou a requisição (credencial errada, CPF inválido, token inválido) ──
@@ -3004,6 +3012,12 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               if (result?._mp_conta_email) {
                 console.log("[BrickPerfil onSubmit] CONTA MP QUE RECEBE O PAGAMENTO: email=%s id=%s",
                   result._mp_conta_email, result._mp_conta_id ?? "?");
+                const buyerEmail2 = (perfil?.email || user?.email || "").trim().toLowerCase();
+                const sellerEmail2 = String(result._mp_conta_email).trim().toLowerCase();
+                if (buyerEmail2 && sellerEmail2 && buyerEmail2 === sellerEmail2) {
+                  const msg = `Autocompra detectada: o e-mail do comprador (${buyerEmail2}) é o mesmo da conta Mercado Pago vendedora. Use um e-mail diferente para testar.`;
+                  setPagErro(msg); throw new Error(msg);
+                }
               }
 
               const mpHttp = result?._mp_http_status ?? 200;
