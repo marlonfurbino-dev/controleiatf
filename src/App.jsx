@@ -836,31 +836,60 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     return () => clearTimeout(wd);
   }, [processando]);
 
-  // Step indicator component
+  // Step indicator: 1.Dados → 2.Pagamento → 3.Confirmação
   const StepBar = ({current}) => {
-    const steps = ["Plano","Dados","Pagamento","Confirmação"];
-    const idx = {planos:0, dados:1, pagamento:2, pix:2, pago:3};
+    const steps = ["1. Dados","2. Pagamento","3. Confirmação"];
+    const idx = {dados:0, pagamento:1, pix:1, pago:2};
     const cur = idx[current] ?? 0;
     return (
-      <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:20}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:0,marginBottom:20,width:"100%",maxWidth:320}}>
         {steps.map((s,i) => (
-          <div key={s} style={{display:"flex",alignItems:"center"}}>
-            <div style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,
-              background:i<cur?"#22c55e":i===cur?"#fff":"rgba(255,255,255,0.15)",
-              color:i<=cur?"#15803d":"rgba(255,255,255,0.5)"}}>
-              {i<cur?"✓":i+1}
+          <div key={s} style={{display:"flex",alignItems:"center",flex:i<steps.length-1?1:"none"}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+              <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,
+                background:i<cur?"#22c55e":i===cur?"#fff":"rgba(255,255,255,0.15)",
+                color:i<cur?"#fff":i===cur?"#15803d":"rgba(255,255,255,0.4)"}}>
+                {i<cur?"✓":i+1}
+              </div>
+              <span style={{fontSize:10,fontWeight:600,color:i<=cur?"rgba(255,255,255,0.85)":"rgba(255,255,255,0.35)",whiteSpace:"nowrap"}}>{s}</span>
             </div>
-            {i<steps.length-1&&<div style={{width:18,height:2,background:i<cur?"rgba(34,197,94,0.6)":"rgba(255,255,255,0.15)",margin:"0 2px"}}/>}
+            {i<steps.length-1&&<div style={{height:2,flex:1,background:i<cur?"rgba(34,197,94,0.6)":"rgba(255,255,255,0.15)",margin:"0 4px",marginBottom:16}}/>}
           </div>
         ))}
       </div>
     );
   };
 
+  // Logos de bandeiras aceitas
+  const CardLogos = () => (
+    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+      {[
+        {name:"Visa",bg:"#1a1f71",color:"#fff",style:{fontStyle:"italic",letterSpacing:-1}},
+        {name:"Master",bg:"linear-gradient(90deg,#eb001b 40%,#f79e1b 60%)",color:"#fff"},
+        {name:"Elo",bg:"#ffcb05",color:"#000"},
+        {name:"Hiper",bg:"#e03021",color:"#fff"},
+        {name:"Amex",bg:"#007bc1",color:"#fff"},
+      ].map(b=>(
+        <div key={b.name} style={{background:b.bg,borderRadius:4,padding:"2px 7px",fontSize:9,fontWeight:800,color:b.color,...(b.style||{}),height:20,display:"flex",alignItems:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}>
+          {b.name}
+        </div>
+      ))}
+    </div>
+  );
+
+  // Badge Mercado Pago
+  const MPBadge = () => (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 12px",background:"#f0f8ff",borderRadius:8,border:"1px solid #bde0ff"}}>
+      <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="57%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold" fontFamily="sans-serif">MP</text></svg>
+      <span style={{fontSize:11,fontWeight:700,color:"#006aad"}}>Powered by Mercado Pago</span>
+    </div>
+  );
+
   // Tela de coleta de dados do titular
   if (step === "dados") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:60,height:60,objectFit:"contain",marginTop:16,marginBottom:12}}/>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
+      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
       <StepBar current="dados"/>
       <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:440,marginBottom:24}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
@@ -948,27 +977,29 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           </div>
         </div>
 
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,marginTop:8,marginBottom:16}}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,marginTop:8,marginBottom:14}}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span style={{fontSize:12,color:"#16a34a",fontWeight:600}}>Seus dados são criptografados e protegidos</span>
         </div>
 
-        <div style={{background:"var(--gr1)",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
-          <div style={{fontSize:11,color:"var(--gr4)",fontWeight:600,marginBottom:4}}>Resumo do plano</div>
+        <div style={{background:"#f8fafb",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
+          <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:.4}}>Resumo do pedido</div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontWeight:700,fontSize:14}}>{plano==="anual"?"Anual · 12 meses":"Mensal"}</span>
-            <span style={{fontWeight:800,fontSize:16,color:"var(--g)"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}{plano==="mensal"&&<span style={{fontSize:11,fontWeight:500,color:"var(--gr4)"}}>/mês</span>}</span>
+            <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>Controle IATF · {plano==="anual"?"Plano Anual":"Plano Mensal"}</span>
+            <span style={{fontWeight:800,fontSize:17,color:"#16a34a"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}</span>
           </div>
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{plano==="anual"?"cobrado à vista · parcele em até 12x":"renovação mensal automática"}</div>
         </div>
 
-        <button onClick={()=>prosseguirParaPagamento("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
-          <svg width="20" height="20" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#fff2"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="20" fontWeight="bold">MP</text></svg>
-          Pagar com cartão
+        <button onClick={()=>prosseguirParaPagamento("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:12,padding:"16px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10,boxShadow:"0 4px 12px rgba(0,158,227,0.35)"}}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Pagar com cartão · {plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}
         </button>
-        <button onClick={()=>prosseguirParaPagamento("pix")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>
+        <button onClick={()=>prosseguirParaPagamento("pix")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,padding:"13px",background:"rgba(0,137,123,.07)",borderRadius:12,border:"1px solid rgba(0,137,123,.25)",width:"100%",cursor:"pointer",marginBottom:14}}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00897B" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           Pagar com PIX
         </button>
-        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>🔒 Pagamento seguro · Mercado Pago</div>
+        <MPBadge/>
       </div>
     </div>
   );
@@ -976,51 +1007,69 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   // Tela de sucesso
   if (step === "pago") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
-      <div style={{fontSize:64,marginBottom:16}}>🎉</div>
-      <div style={{fontSize:22,fontWeight:800,color:"#fff",marginBottom:8,textAlign:"center"}}>Pagamento confirmado!</div>
-      <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:24,textAlign:"center"}}>Seu acesso será liberado em instantes.</div>
-      <button onClick={()=>setStep("planos")} style={{background:"#1b6b3a",color:"#fff",border:"none",borderRadius:12,padding:"14px 28px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
-        Acessar o app
-      </button>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:72,height:72,objectFit:"contain",marginBottom:20}}/>
+      <div style={{background:"#fff",borderRadius:24,padding:32,width:"100%",maxWidth:380,textAlign:"center"}}>
+        <div style={{fontSize:56,marginBottom:12}}>🎉</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#15803d",marginBottom:8}}>Assinatura ativada com sucesso!</div>
+        <div style={{fontSize:14,color:"#64748b",marginBottom:20,lineHeight:1.6}}>Seu acesso completo ao Controle IATF está ativo. Bom trabalho!</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+          {["✅ Protocolos ilimitados","✅ Diagnóstico de gestação","✅ Relatórios profissionais","✅ Banco de sêmen"].map(i=>(
+            <div key={i} style={{fontSize:13,color:"#374151",textAlign:"left"}}>{i}</div>
+          ))}
+        </div>
+        <button onClick={()=>window.location.reload()} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#16a34a",color:"#fff",border:"none",borderRadius:12,padding:"15px 28px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,cursor:"pointer",width:"100%",boxShadow:"0 4px 12px rgba(22,163,74,0.35)"}}>
+          Acessar o app agora
+        </button>
+      </div>
     </div>
   );
 
-  // Tela de pagamento com Brick
+  // Tela PIX
   if (step === "pix") {
     return (
-      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
-        <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420}}>
+      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
+        <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
+        <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
+        <StepBar current="pix"/>
+        <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420,marginBottom:24}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
             <button onClick={()=>{setStep("dados");setPixData(null);setPixPolling(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
-            <div style={{flex:1,textAlign:"center",fontSize:16,fontWeight:800}}>
-              {plano==="anual" ? `Anual · R$ 699,90` : `Mensal · R$ 73,90/mês`}
+            <div style={{flex:1,textAlign:"center",fontSize:15,fontWeight:800,color:"#1e293b"}}>Pagar com PIX</div>
+          </div>
+
+          <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:13,fontWeight:700,color:"#15803d"}}>Total a pagar</span>
+              <span style={{fontSize:18,fontWeight:800,color:"#15803d"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}</span>
             </div>
           </div>
-          {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
+
+          {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
           {processando && !pixData && (
-            <div style={{textAlign:"center",padding:20,color:"var(--g)",fontWeight:600}}>Gerando QR Code PIX...</div>
+            <div style={{textAlign:"center",padding:24,color:"var(--g)",fontWeight:600}}>Gerando QR Code PIX...</div>
           )}
           {pixData && (
             <div style={{textAlign:"center",padding:"10px 0"}}>
-              <div style={{fontSize:15,fontWeight:700,color:"var(--g)",marginBottom:12}}>Escaneie o QR Code para pagar</div>
+              <div style={{fontSize:14,fontWeight:700,color:"#15803d",marginBottom:12}}>Escaneie o QR Code para pagar</div>
               {pixData.qr_code_base64 && (
                 <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code PIX"
-                  style={{width:220,height:220,borderRadius:12,border:"2px solid var(--gm)",marginBottom:12,display:"block",margin:"0 auto 12px"}}/>
+                  style={{width:220,height:220,borderRadius:12,border:"2px solid #bbf7d0",marginBottom:12,display:"block",margin:"0 auto 12px"}}/>
               )}
-              <div style={{fontSize:12,color:"var(--gr4)",marginBottom:8}}>ou copie o código PIX abaixo:</div>
-              <div style={{background:"var(--gr1)",borderRadius:8,padding:"8px 12px",fontSize:11,wordBreak:"break-all",marginBottom:12,textAlign:"left"}}>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>ou copie o código PIX abaixo:</div>
+              <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 12px",fontSize:11,wordBreak:"break-all",marginBottom:12,textAlign:"left",color:"#374151"}}>
                 {pixData.qr_code}
               </div>
               <button onClick={()=>{navigator.clipboard?.writeText(pixData.qr_code).then(()=>alert("Código copiado!"));}}
-                style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",fontWeight:700,cursor:"pointer",width:"100%",marginBottom:8}}>
+                style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:10,padding:"12px 20px",fontWeight:700,cursor:"pointer",width:"100%",marginBottom:10,fontSize:14}}>
                 Copiar código PIX
               </button>
-              <div style={{fontSize:12,color:"var(--gr4)",marginTop:8}}>
-                {pixPolling ? "Aguardando confirmação do pagamento..." : ""}
-              </div>
+              {pixPolling && <div style={{fontSize:12,color:"#64748b",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#16a34a",animation:"pulse 1.5s infinite"}}/>
+                Aguardando confirmação do pagamento...
+              </div>}
             </div>
           )}
-          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>Pagamento seguro via Mercado Pago</div>
+          <div style={{marginTop:14}}><MPBadge/></div>
         </div>
       </div>
     );
@@ -1028,59 +1077,61 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
 
   if (step === "pagamento") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:60,height:60,objectFit:"contain",marginTop:16,marginBottom:12}}/>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
+      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
       <StepBar current="pagamento"/>
-      <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+      <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420,marginBottom:24}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
           <button onClick={()=>setStep("dados")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
-          <div style={{flex:1,textAlign:"center"}}>
-            <div style={{fontSize:16,fontWeight:800}}>
-              {plano==="anual" ? `Anual · ${PRECO_ANUAL_ANO}` : `Mensal · ${PRECO_MENSAL}/mês`}
-            </div>
-          </div>
+          <div style={{flex:1,textAlign:"center",fontSize:15,fontWeight:800,color:"#1e293b"}}>Dados do Cartão</div>
         </div>
-        {erro && <><div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:8}}>⚠️ {erro}</div><button onClick={()=>{setErro("");setBrickKey(k=>k+1);}} style={{background:"var(--yl)",border:"1px solid #e8c96a",color:"var(--y)",borderRadius:8,padding:"8px 12px",fontSize:13,fontWeight:700,cursor:"pointer",width:"100%",marginBottom:8}}>Tentar novamente</button></>}
-        {pixData ? (
-          <div style={{textAlign:"center",padding:"20px 10px"}}>
-            <div style={{fontSize:15,fontWeight:700,color:"var(--g)",marginBottom:8}}>Escaneie o QR Code para pagar</div>
-            {pixData.qr_code_base64 && (
-              <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code PIX"
-                style={{width:220,height:220,borderRadius:12,border:"2px solid var(--gm)",marginBottom:12}}/>
-            )}
-            <div style={{fontSize:12,color:"var(--gr4)",marginBottom:8}}>ou copie o código PIX:</div>
-            <div style={{background:"var(--gr1)",borderRadius:8,padding:"8px 12px",fontSize:11,wordBreak:"break-all",marginBottom:12,textAlign:"left"}}>
-              {pixData.qr_code}
+
+        {/* Resumo do valor */}
+        <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,fontWeight:700,color:"#15803d"}}>Total a pagar</span>
+            <span style={{fontSize:18,fontWeight:800,color:"#15803d"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}</span>
+          </div>
+          {plano==="anual"&&<div style={{fontSize:11,color:"#4ade80",marginTop:2}}>Parcele em até 12x com juros</div>}
+        </div>
+
+        {/* Logos das bandeiras */}
+        <div style={{marginBottom:14}}><CardLogos/></div>
+
+        {erro && (
+          <div style={{marginBottom:12}}>
+            <div style={{background:"#fef2f2",border:"1px solid #fecaca",color:"#dc2626",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:8}}>
+              ⚠️ {erro}
             </div>
-            <button onClick={()=>{navigator.clipboard?.writeText(pixData.qr_code); alert("Código copiado!");}}
-              style={{background:"var(--g)",color:"#fff",border:"none",borderRadius:8,padding:"8px 20px",fontWeight:700,cursor:"pointer",marginBottom:12}}>
-              Copiar codigo PIX
-            </button>
-            <div style={{fontSize:12,color:"var(--gr4)"}}>
-              {pixPolling ? "⏳ Aguardando confirmação do pagamento..." : ""}
-            </div>
-            <button onClick={()=>{setPixData(null);setPixPolling(false);setBrickKey(k=>k+1);}}
-              style={{background:"none",border:"none",color:"var(--g)",fontWeight:600,cursor:"pointer",fontSize:13,marginTop:8}}>
-              Pagar com cartao
+            <button onClick={()=>{setErro("");setBrickKey(k=>k+1);}} style={{background:"#fef9c3",border:"1px solid #fde047",color:"#854d0e",borderRadius:8,padding:"8px 12px",fontSize:13,fontWeight:700,cursor:"pointer",width:"100%"}}>
+              Tentar novamente
             </button>
           </div>
-        ) : (
+        )}
+
         <div style={{position:"relative"}}>
           <div id="cardPayment-container"/>
-          {processando && <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.85)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:12,zIndex:10}}>
-            <div style={{textAlign:"center",color:"var(--g)",fontWeight:700,fontSize:15}}>Processando pagamento...</div>
+          {processando && <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:12,zIndex:10}}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:15,fontWeight:700,color:"#15803d",marginBottom:4}}>Processando pagamento...</div>
+              <div style={{fontSize:12,color:"#64748b"}}>Não feche esta tela</div>
+            </div>
           </div>}
         </div>
-        )}
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,marginTop:12}}>
+
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,marginTop:14,marginBottom:10}}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span style={{fontSize:11,color:"#16a34a",fontWeight:600}}>Pagamento 100% seguro · criptografado via Mercado Pago</span>
+          <span style={{fontSize:11,color:"#16a34a",fontWeight:600}}>Pagamento 100% seguro · criptografado</span>
         </div>
+
         {!pixData && (
           <button id="btn-pix" onClick={handlePix} disabled={processando}
-            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:10,cursor:"pointer"}}>
+            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.25)",background:"rgba(0,137,123,.07)",borderRadius:12,padding:"11px 16px",width:"100%",marginBottom:14,cursor:"pointer"}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00897B" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             Pagar com PIX
           </button>
         )}
+        <MPBadge/>
       </div>
     </div>
   );
