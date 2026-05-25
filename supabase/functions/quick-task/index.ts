@@ -125,6 +125,9 @@ serve(async (req) => {
         ...(firstName ? { first_name: firstName } : {}),
         ...(lastName  ? { last_name:  lastName  } : {}),
         ...(identification ? { identification } : {}),
+        ...(payerObj.date_of_birth ? { date_of_birth: payerObj.date_of_birth } : {}),
+        ...(payerObj.phone && typeof payerObj.phone === "object" ? { phone: payerObj.phone } : {}),
+        ...(payerObj.address && typeof payerObj.address === "object" ? { address: payerObj.address } : {}),
       },
       // additional_info.items: melhora pontuação de qualidade MP (+2 pts)
       additional_info: {

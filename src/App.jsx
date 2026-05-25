@@ -446,16 +446,89 @@ function decodeMPPaymentStatus(result) {
   return `Pagamento não aprovado${detail ? `: ${detail}` : ""}.${ref}`;
 }
 
+// ── Helpers de pagamento ─────────────────────────────────────────────────
+function validarCPF(cpf) {
+  const c = cpf.replace(/\D/g, "");
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += Number(c[i]) * (10 - i);
+  let r = (s * 10) % 11; if (r === 10 || r === 11) r = 0;
+  if (r !== Number(c[9])) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += Number(c[i]) * (11 - i);
+  r = (s * 10) % 11; if (r === 10 || r === 11) r = 0;
+  return r === Number(c[10]);
+}
+function formatCPF(v) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+}
+function formatCEP(v) {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  return d.length <= 5 ? d : `${d.slice(0,5)}-${d.slice(5)}`;
+}
+
 // ── Tela de pagamento com Mercado Pago Bricks ────────────────────────────
 function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setPerfil }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
-  const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pix" | "pago"
+  const [step, setStep] = useState("planos"); // "planos" | "dados" | "pagamento" | "pix" | "pago"
   const [processando, setProcessando] = useState(false);
   const [pixData, setPixData] = useState(null);
   const [pixPolling, setPixPolling] = useState(false);
   const [brickKey, setBrickKey] = useState(0);
-  const brickRef = useRef(null); // ref para destruir instância anterior do Brick
+  const brickRef = useRef(null);
+  const [payerData, setPayerData] = useState({
+    nome: perfil?.nome || "", sobrenome: perfil?.sobrenome || "",
+    cpf: "", nascimento: "",
+    email: user?.email || "",
+    telefone: perfil?.whatsapp || "",
+    cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "",
+  });
+  const [payerErrors, setPayerErrors] = useState({});
+  const [cepLoading, setCepLoading] = useState(false);
+  const setPD = (k, v) => setPayerData(x => ({...x, [k]: v}));
+
+  const buscarCEP = async (cep) => {
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const d = await r.json();
+      if (!d.erro) {
+        setPayerData(x => ({...x, logradouro: d.logradouro||x.logradouro, bairro: d.bairro||x.bairro, cidade: d.localidade||x.cidade, uf: d.uf||x.uf}));
+      }
+    } catch(_) {} finally { setCepLoading(false); }
+  };
+
+  const validarDados = () => {
+    const errs = {};
+    if (!payerData.nome.trim()) errs.nome = "Campo obrigatório";
+    if (!payerData.sobrenome.trim()) errs.sobrenome = "Campo obrigatório";
+    const cpfDigits = payerData.cpf.replace(/\D/g, "");
+    if (!cpfDigits) errs.cpf = "Campo obrigatório";
+    else if (!validarCPF(payerData.cpf)) errs.cpf = "CPF inválido";
+    if (!payerData.nascimento) errs.nascimento = "Campo obrigatório";
+    if (!payerData.email.trim()) errs.email = "Campo obrigatório";
+    const telDigits = payerData.telefone.replace(/\D/g, "");
+    if (telDigits.length < 10) errs.telefone = "Telefone inválido";
+    const cepDigits = payerData.cep.replace(/\D/g, "");
+    if (cepDigits.length !== 8) errs.cep = "CEP inválido (8 dígitos)";
+    if (!payerData.logradouro.trim()) errs.logradouro = "Campo obrigatório";
+    if (!payerData.numero.trim()) errs.numero = "Campo obrigatório";
+    setPayerErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const prosseguirParaPagamento = (tipoPag) => {
+    if (!validarDados()) return;
+    setBrickKey(k => k + 1);
+    setStep(tipoPag || "pagamento");
+  };
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_ANO}.`
@@ -542,16 +615,17 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       const bricksBuilder = mp.bricks();
       const valor = plano === "anual" ? 699.90 : 73.90;
 
-      const _waDig = (perfil?.whatsapp || "").replace(/\D/g, "");
-      const _phoneInit = _waDig.length >= 10 ? { areaCode: _waDig.slice(0, 2), number: _waDig.slice(2) } : undefined;
+      const _telDig = payerData.telefone.replace(/\D/g, "");
+      const _phoneInit = _telDig.length >= 10 ? { areaCode: _telDig.slice(0, 2), number: _telDig.slice(2) } : undefined;
+      const _cpfDigits = payerData.cpf.replace(/\D/g, "");
       try { brickRef.current = await bricksBuilder.create("cardPayment", "cardPayment-container", {
         initialization: {
           amount: valor,
           payer: {
-            email: user?.email || "",
-            firstName: perfil?.nome || "",
-            lastName: perfil?.sobrenome || "",
-            identification: { type: "CPF", number: "" },
+            email: payerData.email || user?.email || "",
+            firstName: payerData.nome || "",
+            lastName: payerData.sobrenome || "",
+            identification: { type: "CPF", number: _cpfDigits },
             ...(_phoneInit ? { phone: _phoneInit } : {}),
           },
         },
@@ -610,19 +684,30 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               const cardFirst = nameParts[0] || "";
               const cardLast  = nameParts.slice(1).join(" ") || "";
 
+              const _cpfNum = payerData.cpf.replace(/\D/g, "");
               const payload = {
                 token: fd.token,
                 plano,
-                email:  user?.email,
+                email:  payerData.email || user?.email,
                 userId: user?.id,
                 installments:      Number(fd.installments) || 1,
                 payment_method_id: payMethodId,
                 issuer_id: issuerId != null ? String(issuerId) : undefined,
                 payer: {
-                  email:      user?.email || fd.payer?.email || "",
-                  first_name: cardFirst || user?.user_metadata?.nome     || perfil?.nome     || fd.payer?.firstName || fd.payer?.first_name || "",
-                  last_name:  cardLast  || user?.user_metadata?.sobrenome || perfil?.sobrenome || fd.payer?.lastName  || fd.payer?.last_name  || "",
-                  identification: fd.payer?.identification || {},
+                  email:      payerData.email || user?.email || fd.payer?.email || "",
+                  first_name: cardFirst || payerData.nome || "",
+                  last_name:  cardLast  || payerData.sobrenome || "",
+                  identification: { type: "CPF", number: _cpfNum || (fd.payer?.identification?.number || "") },
+                  date_of_birth: payerData.nascimento || undefined,
+                  phone: (() => { const d = payerData.telefone.replace(/\D/g,""); return d.length >= 10 ? { area_code: d.slice(0,2), number: d.slice(2) } : undefined; })(),
+                  address: payerData.cep ? {
+                    zip_code:      payerData.cep.replace(/\D/g,""),
+                    street_name:   payerData.logradouro,
+                    street_number: payerData.numero,
+                    neighborhood:  payerData.bairro,
+                    city:          payerData.cidade,
+                    federal_unit:  payerData.uf,
+                  } : undefined,
                 },
               };
 
@@ -751,6 +836,143 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     return () => clearTimeout(wd);
   }, [processando]);
 
+  // Step indicator component
+  const StepBar = ({current}) => {
+    const steps = ["Plano","Dados","Pagamento","Confirmação"];
+    const idx = {planos:0, dados:1, pagamento:2, pix:2, pago:3};
+    const cur = idx[current] ?? 0;
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:20}}>
+        {steps.map((s,i) => (
+          <div key={s} style={{display:"flex",alignItems:"center"}}>
+            <div style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,
+              background:i<cur?"#22c55e":i===cur?"#fff":"rgba(255,255,255,0.15)",
+              color:i<=cur?"#15803d":"rgba(255,255,255,0.5)"}}>
+              {i<cur?"✓":i+1}
+            </div>
+            {i<steps.length-1&&<div style={{width:18,height:2,background:i<cur?"rgba(34,197,94,0.6)":"rgba(255,255,255,0.15)",margin:"0 2px"}}/>}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Tela de coleta de dados do titular
+  if (step === "dados") return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:60,height:60,objectFit:"contain",marginTop:16,marginBottom:12}}/>
+      <StepBar current="dados"/>
+      <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:440,marginBottom:24}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
+          <button onClick={()=>setStep("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
+          <div style={{flex:1,textAlign:"center",fontSize:16,fontWeight:800,color:"var(--gr5)"}}>Dados do Titular</div>
+        </div>
+
+        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.6,marginBottom:10}}>Dados Pessoais</div>
+        <div className="frow">
+          <div className="fg">
+            <label className="fl">Nome *</label>
+            <input className="fi" value={payerData.nome} onChange={e=>setPD("nome",e.target.value)} placeholder="Nome"/>
+            {payerErrors.nome&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.nome}</div>}
+          </div>
+          <div className="fg">
+            <label className="fl">Sobrenome *</label>
+            <input className="fi" value={payerData.sobrenome} onChange={e=>setPD("sobrenome",e.target.value)} placeholder="Sobrenome"/>
+            {payerErrors.sobrenome&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.sobrenome}</div>}
+          </div>
+        </div>
+        <div className="frow">
+          <div className="fg">
+            <label className="fl">CPF *</label>
+            <input className="fi" value={payerData.cpf} onChange={e=>setPD("cpf",formatCPF(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
+            {payerErrors.cpf&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.cpf}</div>}
+          </div>
+          <div className="fg">
+            <label className="fl">Nascimento *</label>
+            <input className="fi" type="date" value={payerData.nascimento} onChange={e=>setPD("nascimento",e.target.value)}/>
+            {payerErrors.nascimento&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.nascimento}</div>}
+          </div>
+        </div>
+        <div className="fg">
+          <label className="fl">E-mail *</label>
+          <input className="fi" type="email" value={payerData.email} onChange={e=>setPD("email",e.target.value)} placeholder="seu@email.com"/>
+          {payerErrors.email&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.email}</div>}
+        </div>
+        <div className="fg">
+          <label className="fl">Telefone celular *</label>
+          <input className="fi" type="tel" inputMode="numeric" value={payerData.telefone} onChange={e=>setPD("telefone",formatPhone(e.target.value))} placeholder="(31) 99999-9999" maxLength={15}/>
+          {payerErrors.telefone&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.telefone}</div>}
+        </div>
+
+        <div style={{height:1,background:"var(--gr2)",margin:"16px 0"}}/>
+        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.6,marginBottom:10}}>Endereço de Cobrança</div>
+
+        <div className="frow">
+          <div className="fg" style={{flex:"0 0 140px"}}>
+            <label className="fl">CEP *</label>
+            <div style={{position:"relative"}}>
+              <input className="fi" value={payerData.cep} onChange={e=>{const v=formatCEP(e.target.value);setPD("cep",v);if(v.replace(/\D/g,"").length===8)buscarCEP(v);}} placeholder="00000-000" inputMode="numeric" maxLength={9}/>
+              {cepLoading&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",color:"var(--g)",fontSize:11}}>...</span>}
+            </div>
+            {payerErrors.cep&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.cep}</div>}
+          </div>
+          <div className="fg">
+            <label className="fl">Número *</label>
+            <input className="fi" value={payerData.numero} onChange={e=>setPD("numero",e.target.value)} placeholder="Nº"/>
+            {payerErrors.numero&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.numero}</div>}
+          </div>
+        </div>
+        <div className="fg">
+          <label className="fl">Rua / Logradouro *</label>
+          <input className="fi" value={payerData.logradouro} onChange={e=>setPD("logradouro",e.target.value)} placeholder="Nome da rua"/>
+          {payerErrors.logradouro&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.logradouro}</div>}
+        </div>
+        <div className="frow">
+          <div className="fg">
+            <label className="fl">Bairro</label>
+            <input className="fi" value={payerData.bairro} onChange={e=>setPD("bairro",e.target.value)} placeholder="Bairro"/>
+          </div>
+          <div className="fg">
+            <label className="fl">Complemento</label>
+            <input className="fi" value={payerData.complemento} onChange={e=>setPD("complemento",e.target.value)} placeholder="Apto, sala..."/>
+          </div>
+        </div>
+        <div className="frow">
+          <div className="fg">
+            <label className="fl">Cidade</label>
+            <input className="fi" value={payerData.cidade} onChange={e=>setPD("cidade",e.target.value)} placeholder="Cidade"/>
+          </div>
+          <div className="fg" style={{flex:"0 0 80px"}}>
+            <label className="fl">UF</label>
+            <input className="fi" value={payerData.uf} onChange={e=>setPD("uf",e.target.value.toUpperCase().slice(0,2))} placeholder="MG" maxLength={2}/>
+          </div>
+        </div>
+
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,marginTop:8,marginBottom:16}}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span style={{fontSize:12,color:"#16a34a",fontWeight:600}}>Seus dados são criptografados e protegidos</span>
+        </div>
+
+        <div style={{background:"var(--gr1)",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+          <div style={{fontSize:11,color:"var(--gr4)",fontWeight:600,marginBottom:4}}>Resumo do plano</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontWeight:700,fontSize:14}}>{plano==="anual"?"Anual · 12 meses":"Mensal"}</span>
+            <span style={{fontWeight:800,fontSize:16,color:"var(--g)"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}{plano==="mensal"&&<span style={{fontSize:11,fontWeight:500,color:"var(--gr4)"}}>/mês</span>}</span>
+          </div>
+        </div>
+
+        <button onClick={()=>prosseguirParaPagamento("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
+          <svg width="20" height="20" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#fff2"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="20" fontWeight="bold">MP</text></svg>
+          Pagar com cartão
+        </button>
+        <button onClick={()=>prosseguirParaPagamento("pix")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>
+          Pagar com PIX
+        </button>
+        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>🔒 Pagamento seguro · Mercado Pago</div>
+      </div>
+    </div>
+  );
+
   // Tela de sucesso
   if (step === "pago") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
@@ -769,7 +991,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
         <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-            <button onClick={()=>{setStep("planos");setPixData(null);setPixPolling(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
+            <button onClick={()=>{setStep("dados");setPixData(null);setPixPolling(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
             <div style={{flex:1,textAlign:"center",fontSize:16,fontWeight:800}}>
               {plano==="anual" ? `Anual · R$ 699,90` : `Mensal · R$ 73,90/mês`}
             </div>
@@ -805,11 +1027,12 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   }
 
   if (step === "pagamento") return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:70,height:70,objectFit:"contain",marginBottom:8}}/>
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
+      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:60,height:60,objectFit:"contain",marginTop:16,marginBottom:12}}/>
+      <StepBar current="pagamento"/>
       <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-          <button onClick={()=>setStep("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
+          <button onClick={()=>setStep("dados")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
           <div style={{flex:1,textAlign:"center"}}>
             <div style={{fontSize:16,fontWeight:800}}>
               {plano==="anual" ? `Anual · ${PRECO_ANUAL_ANO}` : `Mensal · ${PRECO_MENSAL}/mês`}
@@ -848,10 +1071,13 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           </div>}
         </div>
         )}
-        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:12}}>Pagamento seguro via Mercado Pago</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,marginTop:12}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span style={{fontSize:11,color:"#16a34a",fontWeight:600}}>Pagamento 100% seguro · criptografado via Mercado Pago</span>
+        </div>
         {!pixData && (
           <button id="btn-pix" onClick={handlePix} disabled={processando}
-            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:12,cursor:"pointer"}}>
+            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,border:"1px solid rgba(0,137,123,.2)",background:"rgba(0,137,123,.08)",borderRadius:12,padding:"10px 16px",width:"100%",marginTop:10,cursor:"pointer"}}>
             Pagar com PIX
           </button>
         )}
@@ -890,11 +1116,11 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
           💡 {plano==="anual" ? <><strong>Menos de R$ 1,92 por dia</strong> — menos que um café.</> : <><strong>Diluído no seu protocolo custa menos que os hormônios 💉</strong></>}
         </div>
-        <button onClick={()=>{setBrickKey(k=>k+1);setStep("pagamento");}} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
-          <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
+        <button onClick={()=>setStep("dados")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
+          <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#fff3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
           {plano==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
         </button>
-        <button onClick={()=>setStep("pix")}
+        <button onClick={()=>setStep("dados")}
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,marginBottom:16,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>
           Pagar com PIX
         </button>
@@ -1055,6 +1281,7 @@ function trackEvent(name, params={}) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
+  const [perfilCarregado, setPerfilCarregado] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pagLoading, setPagLoading] = useState(false);
 
@@ -1084,6 +1311,7 @@ export default function App() {
   const [screen, setScreen] = useState(null);
   const [modal,  setModal]  = useState(null);
   const [toast,  setToast]  = useState(null);
+  const [inactivityWarning, setInactivityWarning] = useState(false);
   const logoutInProgress = useRef(false);
 
   // Iniciar Google Analytics
@@ -1160,7 +1388,7 @@ export default function App() {
 
     const timeout = setTimeout(() => setLoading(false), 2000);
 
-    const carregarDados = async (uid, tentativa = 1) => {
+    const carregarDados = async (uid, tentativa = 1, authUser = null) => {
       const [perfilRes, fz, pr, an, sm] = await Promise.all([
         supabase.from("perfis").select("*").eq("id", uid).single(),
         supabase.from("fazendas").select("*").eq("user_id", uid).order("at",{ascending:false}),
@@ -1173,12 +1401,27 @@ export default function App() {
       if (erroJWT && tentativa < 3) {
         await new Promise(r => setTimeout(r, 800 * tentativa));
         try { await supabase.auth.refreshSession(); } catch(_) {}
-        return carregarDados(uid, tentativa + 1);
+        return carregarDados(uid, tentativa + 1, authUser);
       }
-      if (perfilRes.data) setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
+      if (perfilRes.data) {
+        setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
+      } else {
+        // Perfil não encontrado no banco — cria a partir de user_metadata do Auth.
+        // Isso ocorre quando o upsert no cadastro falhou (sem sessão ativa no momento do signup).
+        const meta = authUser?.user_metadata || {};
+        const email = authUser?.email || "";
+        if (meta.nome || email) {
+          const novoPerfil = { id: uid, nome: meta.nome||"", sobrenome: meta.sobrenome||"", cidade: meta.cidade||"", whatsapp: meta.whatsapp||"", email, plano: "individual" };
+          await supabase.from("perfis").upsert(novoPerfil);
+          setPerfil(novoPerfil);
+        }
+      }
+      setPerfilCarregado(true);
       if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
       if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
-      if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
+      const mappedAn1 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
+      if (mappedAn1.length > 0) { setAnimais(mappedAn1); DB.set(`animais_${uid}`, mappedAn1); }
+      else { const loc = DB.get(`animais_${uid}`) || []; if (loc.length > 0) setAnimais(loc); }
       if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
     };
 
@@ -1189,7 +1432,7 @@ export default function App() {
         sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
-        await carregarDados(session.user.id);
+        await carregarDados(session.user.id, 1, session.user);
         setLoading(false);
       } else if (error) {
         // Erro explícito: limpa storage e encerra loading imediatamente
@@ -1226,12 +1469,12 @@ export default function App() {
         // Na troca de conta, limpa dados do usuário anterior antes de carregar os novos
         setUser(prev => {
           if (prev && prev.id !== session.user.id) {
-            setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); setPerfil(null);
+            setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); setPerfil(null); setPerfilCarregado(false);
           }
           return session.user;
         });
         setPage("app");
-        await carregarDados(session.user.id);
+        await carregarDados(session.user.id, 1, session.user);
       } else if (_event === "SIGNED_OUT") {
         logoutInProgress.current = false;
         localStorage.removeItem("sessao_ativa");
@@ -1257,9 +1500,12 @@ export default function App() {
           supabase.from("semen_bank").select("*").eq("user_id", user.id).order("at",{ascending:false}),
         ]);
         if (perfilRes.data) setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
+        setPerfilCarregado(true);
         if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
         if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
-        if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
+        const mappedAn2 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
+        if (mappedAn2.length > 0) { setAnimais(mappedAn2); DB.set(`animais_${user.id}`, mappedAn2); }
+        else { const loc = DB.get(`animais_${user.id}`) || []; if (loc.length > 0) setAnimais(loc); }
         if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
       }
     }, 2000);
@@ -1272,6 +1518,33 @@ export default function App() {
     pedirPermissaoNotificacao();
     agendaNotificacoes(protocolos);
   }, [user, protocolos]);
+
+  // Timer de inatividade — logout automático após 30 min sem interação
+  useEffect(() => {
+    if (!user) return;
+    const TIMEOUT_MS = 30 * 60 * 1000;   // 30 minutos
+    const WARN_MS    = 28 * 60 * 1000;   // aviso aos 28 min
+
+    let warnTimer, logoutTimer;
+
+    const resetTimers = () => {
+      clearTimeout(warnTimer);
+      clearTimeout(logoutTimer);
+      setInactivityWarning(false);
+      warnTimer   = setTimeout(() => setInactivityWarning(true), WARN_MS);
+      logoutTimer = setTimeout(() => { setInactivityWarning(false); logout(); }, TIMEOUT_MS);
+    };
+
+    const EVENTS = ["click", "keydown", "scroll", "mousemove", "touchstart", "pointerdown"];
+    EVENTS.forEach(e => document.addEventListener(e, resetTimers, { passive: true }));
+    resetTimers();
+
+    return () => {
+      clearTimeout(warnTimer);
+      clearTimeout(logoutTimer);
+      EVENTS.forEach(e => document.removeEventListener(e, resetTimers));
+    };
+  }, [user]);
 
   // ── Carregar dados do Supabase quando usuário logar ──────────────────
   useEffect(() => {
@@ -1313,19 +1586,23 @@ export default function App() {
 
       if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
       if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
-      if (an.data) setAnimais(an.data.map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false})));
+      const mappedAn3 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
+      if (mappedAn3.length > 0) { setAnimais(mappedAn3); DB.set(`animais_${targetId}`, mappedAn3); }
+      else { const loc = DB.get(`animais_${targetId}`) || []; if (loc.length > 0) setAnimais(loc); }
       if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
     };
     load();
   }, [user, dataKey]);
 
   const ping = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
+  const cacheAnimais = (list) => { if (user?.id) DB.set(`animais_${user.id}`, list); };
   const logout = () => {
     logoutInProgress.current = true;
     // Limpa estado local IMEDIATAMENTE — não aguarda rede (signOut pode travar no Android)
     setModal(null);
     setUser(null);
     setPerfil(null);
+    setPerfilCarregado(false);
     setFazendas([]);
     setProtocolos([]);
     setAnimais([]);
@@ -1369,7 +1646,7 @@ export default function App() {
     const pids = protocolos.filter(p=>p.fazendaId===id).map(p=>p.id);
     setFazendas(x=>x.filter(f=>f.id!==id));
     setProtocolos(x=>x.filter(p=>p.fazendaId!==id));
-    setAnimais(x=>x.filter(a=>!pids.includes(a.protocoloId)));
+    setAnimais(x=>{const l=x.filter(a=>!pids.includes(a.protocoloId));cacheAnimais(l);return l;});
     await supabase.from("fazendas").delete().eq("id",id);
     ping("Fazenda excluída.");
   };
@@ -1397,13 +1674,13 @@ export default function App() {
   const delProtocolo = async (id) => {
     if(isMembro){ ping("Apenas o dono pode excluir."); return; }
     setProtocolos(x=>x.filter(p=>p.id!==id));
-    setAnimais(x=>x.filter(a=>a.protocoloId!==id));
+    setAnimais(x=>{const l=x.filter(a=>a.protocoloId!==id);cacheAnimais(l);return l;});
     await supabase.from("protocolos").delete().eq("id",id);
     ping("Protocolo excluído.");
   };
   const addAnimal = async (a) => {
     const n={...a,id:uid(),at:Date.now()};
-    setAnimais(x=>[n,...x]);
+    setAnimais(x=>{const l=[n,...x];cacheAnimais(l);return l;});
     const targetUserId = ownerIdRef || user.id;
     const {error} = await supabase.from("animais").insert({
       id:n.id, user_id:targetUserId, protocolo_id:a.protocoloId,
@@ -1417,11 +1694,11 @@ export default function App() {
       protocolo_individual:a.protocolo_individual||"",
       at:n.at
     });
-    if(error){ console.error("addAnimal erro:",error); ping("Erro ao salvar animal!"); }
+    if(error){ console.error("addAnimal erro:",error); ping("⚠️ Salvo localmente — sem conexão"); }
     else ping("Animal adicionado!");
   };
   const updAnimal = async (id,ch) => {
-    setAnimais(x=>x.map(a=>a.id===id?{...a,...ch}:a));
+    setAnimais(x=>{const l=x.map(a=>a.id===id?{...a,...ch}:a);cacheAnimais(l);return l;});
     // Mapear campos do frontend para colunas do banco
     const dbCh={};
     if(ch.diagnostico!==undefined) dbCh.diagnostico=ch.diagnostico;
@@ -1441,7 +1718,7 @@ export default function App() {
   };
   const delAnimal = async (id) => {
     if(isMembro){ ping("Apenas o dono pode excluir."); return; }
-    setAnimais(x=>x.filter(a=>a.id!==id));
+    setAnimais(x=>{const l=x.filter(a=>a.id!==id);cacheAnimais(l);return l;});
     await supabase.from("animais").delete().eq("id",id);
     ping("Removido.");
   };
@@ -1622,10 +1899,15 @@ _Controle IATF — controleiatf.com.br_`;
   if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
 
   // Verificar trial — usa created_at do perfil (mais confiável) ou do auth
+  // Só verifica DEPOIS que o perfil foi carregado do Supabase para evitar
+  // mostrar paywall incorretamente para assinantes durante o carregamento inicial
   const createdAtRef = perfil?.created_at || user.created_at;
   const diasRestantes = diasRestantesTrial(createdAtRef);
   const ehAssinante = perfil?.assinante === true;
-  if (diasRestantes === 0 && !ehAssinante) return <PaywallScreen user={user} perfil={perfil} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading} setPerfil={setPerfil}/>;
+  if (diasRestantes === 0 && !ehAssinante) {
+    if (!perfilCarregado) return <div className="app"><style>{CSS}</style><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:"var(--g)",fontWeight:700}}>Carregando...</div></div>;
+    return <PaywallScreen user={user} perfil={perfil} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading} setPerfil={setPerfil}/>;
+  }
 
   if(screen?.type==="fazenda"){
     const f=fazendas.find(x=>x.id===screen.id);
@@ -1674,7 +1956,7 @@ _Controle IATF — controleiatf.com.br_`;
     </div>
 
     {tab==="home"&&<div className="scr">
-      <div style={{fontSize:20,fontWeight:800,marginBottom:2}}>Olá, {perfil?.nome || "Doutor"}! 👋</div>
+      <div style={{fontSize:20,fontWeight:800,marginBottom:2}}>Olá, {perfil?.nome || user?.user_metadata?.nome || "Doutor"}! 👋</div>
       <div style={{fontSize:12,color:"var(--gr4)",marginBottom:16}}>Resumo geral do sistema</div>
 
       {alertas.map((a,i)=><div key={i} className="notif-banner"><Icon name="bell" size={18}/>{a}</div>)}
@@ -1729,7 +2011,14 @@ _Controle IATF — controleiatf.com.br_`;
     </nav>
 
     {tab==="fazendas"&&<button className="fab" onClick={()=>setModal({type:"addFazenda",onSave:addFazenda})}><Icon name="plus" size={24}/></button>}
-    {tab==="semen"&&<button className="fab" onClick={()=>setModal({type:"addSemen",onSave:addSemenDB})}><Icon name="plus" size={24}/></button>}    {toast&&<div className="toast">{toast}</div>}
+    {tab==="semen"&&<button className="fab" onClick={()=>setModal({type:"addSemen",onSave:addSemenDB})}><Icon name="plus" size={24}/></button>}
+    {toast&&<div className="toast">{toast}</div>}
+    {inactivityWarning&&<div style={{position:"fixed",bottom:72,left:0,right:0,display:"flex",justifyContent:"center",zIndex:9999,padding:"0 16px",pointerEvents:"none"}}>
+      <div style={{background:"#1b3a22",color:"#fff",borderRadius:12,padding:"12px 16px",maxWidth:420,width:"100%",display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 24px rgba(0,0,0,0.4)",pointerEvents:"all"}}>
+        <span style={{fontSize:13,flex:1,lineHeight:1.4}}>Sua sessão expirará em 2 minutos por inatividade. Toque aqui para continuar.</span>
+        <button onClick={()=>setInactivityWarning(false)} style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>Continuar</button>
+      </div>
+    </div>}
     {modal&&<Modal modal={modal} setModal={setModal}/>}
   </div>;
 }
@@ -1790,7 +2079,7 @@ function FazendaScreen({fazenda,protocolos,onBack,onAddProtocolo,onUpdProtocolo,
         </div>
       </div>)}
       {showForm
-        ?<ProtocoloForm onSave={(p)=>{onAddProtocolo(p);setShowForm(false);}} onCancel={()=>setShowForm(false)}/>
+        ?<ProtocoloForm onSave={async (p)=>{const prot=await onAddProtocolo(p);setShowForm(false);if(prot?.id)onOpenProtocolo(prot.id);}} onCancel={()=>setShowForm(false)}/>
         :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Iniciar Novo Protocolo</button>
       }
     </div>
@@ -2995,6 +3284,13 @@ function DGTab({ user, ping }) {
   const [tela, setTela] = useState(null); // null = lista | {type:"fazenda", id} | {type:"nova"}
   // Contador de escritas locais — impede que o sync assíncrono sobrescreva dados novos
   const writeCountRef = useRef(0);
+  const [saveStatus, setSaveStatus] = useState(null); // null | "saving" | "saved" | "error"
+  const saveTimerRef = useRef(null);
+  const setSaved = () => {
+    setSaveStatus("saved");
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000);
+  };
 
   const cacheLocal = (fzList) => DB.set(storageKey, fzList);
 
@@ -3065,6 +3361,7 @@ function DGTab({ user, ping }) {
 
   const addFazenda = async (dados) => {
     writeCountRef.current++;
+    setSaveStatus("saving");
     const id = uid();
     const criadoEm = new Date().toISOString();
     const nova = { ...dados, id, animais: [], criadoEm };
@@ -3072,18 +3369,20 @@ function DGTab({ user, ping }) {
     setFazendas(newList); cacheLocal(newList);
     ping("Fazenda cadastrada!");
     setTela({ type: "fazenda", id });
-    supabase.from("dg_fazendas").insert({
+    const { error } = await supabase.from("dg_fazendas").insert({
       id, user_id: user.id, nome: dados.nome,
       proprietario: dados.proprietario || "", cidade: dados.cidade || "",
       telefone: dados.telefone || "",
       data_inseminacao: dados.dataInseminacao || null,
       data_dg: dados.dataDG || null,
       created_at: criadoEm,
-    }).then(({ error }) => { if (error) console.error("[DGTab addFazenda]", error); });
+    });
+    if (error) { console.error("[DGTab addFazenda]", error); setSaveStatus("error"); } else { setSaved(); }
   };
 
-  const updateFazenda = (id, dados) => {
+  const updateFazenda = async (id, dados) => {
     writeCountRef.current++;
+    setSaveStatus("saving");
     const newList = fazendas.map(f => f.id === id ? { ...f, ...dados } : f);
     setFazendas(newList); cacheLocal(newList);
     const upd = {};
@@ -3094,9 +3393,9 @@ function DGTab({ user, ping }) {
     if (dados.cidade !== undefined) upd.cidade = dados.cidade;
     if (dados.telefone !== undefined) upd.telefone = dados.telefone;
     if (Object.keys(upd).length) {
-      supabase.from("dg_fazendas").update(upd).eq("id", id)
-        .then(({ error }) => { if (error) console.error("[DGTab updateFazenda]", error); });
-    }
+      const { error } = await supabase.from("dg_fazendas").update(upd).eq("id", id);
+      if (error) { console.error("[DGTab updateFazenda]", error); setSaveStatus("error"); } else { setSaved(); }
+    } else { setSaved(); }
   };
 
   const deleteFazenda = (id) => {
@@ -3108,21 +3407,24 @@ function DGTab({ user, ping }) {
       .then(({ error }) => { if (error) console.error("[DGTab deleteFazenda]", error); });
   };
 
-  const addAnimal = (fazId, animal) => {
+  const addAnimal = async (fazId, animal) => {
     writeCountRef.current++;
+    setSaveStatus("saving");
     const id = uid();
     const newAnimal = { ...animal, id };
     const newList = fazendas.map(f => f.id === fazId
       ? { ...f, animais: [...(f.animais || []), newAnimal] } : f);
     setFazendas(newList); cacheLocal(newList);
-    supabase.from("dg_animais").insert({
+    const { error } = await supabase.from("dg_animais").insert({
       id, fazenda_dg_id: fazId, user_id: user.id,
       nome: animal.nome, status: animal.status || null,
-    }).then(({ error }) => { if (error) console.error("[DGTab addAnimal]", error); });
+    });
+    if (error) { console.error("[DGTab addAnimal]", error); setSaveStatus("error"); } else { setSaved(); }
   };
 
-  const updateAnimal = (fazId, animalId, dados) => {
+  const updateAnimal = async (fazId, animalId, dados) => {
     writeCountRef.current++;
+    setSaveStatus("saving");
     const newList = fazendas.map(f => f.id === fazId
       ? { ...f, animais: f.animais.map(a => a.id === animalId ? { ...a, ...dados } : a) } : f);
     setFazendas(newList); cacheLocal(newList);
@@ -3130,19 +3432,20 @@ function DGTab({ user, ping }) {
     if (dados.nome !== undefined) upd.nome = dados.nome;
     if ("status" in dados) upd.status = dados.status;
     if (Object.keys(upd).length) {
-      supabase.from("dg_animais").update(upd).eq("id", animalId)
-        .then(({ error }) => { if (error) console.error("[DGTab updateAnimal]", error); });
-    }
+      const { error } = await supabase.from("dg_animais").update(upd).eq("id", animalId);
+      if (error) { console.error("[DGTab updateAnimal]", error); setSaveStatus("error"); } else { setSaved(); }
+    } else { setSaved(); }
   };
 
-  const deleteAnimal = (fazId, animalId) => {
+  const deleteAnimal = async (fazId, animalId) => {
     writeCountRef.current++;
+    setSaveStatus("saving");
     const newList = fazendas.map(f => f.id === fazId
       ? { ...f, animais: f.animais.filter(a => a.id !== animalId) } : f);
     setFazendas(newList); cacheLocal(newList);
     ping("Animal removido");
-    supabase.from("dg_animais").delete().eq("id", animalId)
-      .then(({ error }) => { if (error) console.error("[DGTab deleteAnimal]", error); });
+    const { error } = await supabase.from("dg_animais").delete().eq("id", animalId);
+    if (error) { console.error("[DGTab deleteAnimal]", error); setSaveStatus("error"); } else { setSaved(); }
   };
 
   if (tela?.type === "fazenda") {
@@ -3157,6 +3460,7 @@ function DGTab({ user, ping }) {
       onDelete={() => deleteFazenda(faz.id)}
       onUpdateFazenda={(d) => updateFazenda(faz.id, d)}
       ping={ping}
+      saveStatus={saveStatus}
     />;
   }
 
@@ -3230,12 +3534,26 @@ function DGNovaFazenda({ onSave, onCancel }) {
   </div>;
 }
 
-function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnimal, onDelete, onUpdateFazenda, ping }) {
+function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnimal, onDelete, onUpdateFazenda, ping, saveStatus }) {
   const [novoAnimal, setNovoAnimal] = useState("");
   const [adicionando, setAdicionando] = useState(false);
   const [dataIns, setDataIns] = useState(faz.dataInseminacao || "");
   const [dataDG, setDataDG] = useState(faz.dataDG || "");
+  const [busca, setBusca] = useState("");
   const animais = faz.animais || [];
+  const animaisFiltrados = busca.trim()
+    ? animais.filter(a => a.nome.toLowerCase().includes(busca.trim().toLowerCase()))
+    : animais;
+  const animaisOrdenados = [...animaisFiltrados].sort((a, b) => {
+    const ordem = { P: 0, V: 1 };
+    const sa = ordem[a.status] ?? 2;
+    const sb = ordem[b.status] ?? 2;
+    if (sa !== sb) return sa - sb;
+    // Animais sem dígito no identificador (ex: "Gleide", "Aninha") vão para o final
+    const da = /\d/.test(a.nome), db = /\d/.test(b.nome);
+    if (da !== db) return da ? -1 : 1;
+    return a.nome.localeCompare(b.nome, undefined, { numeric: true, sensitivity: "base" });
+  });
   const prenhas = animais.filter(a => a.status === "P").length;
   const vazias = animais.filter(a => a.status === "V").length;
   const semDiag = animais.filter(a => !a.status).length;
@@ -3313,6 +3631,9 @@ _controleiatf.com.br_`;
         <div style={{ fontSize: 18, fontWeight: 800 }}>{faz.nome}</div>
         <div style={{ fontSize: 12, color: "var(--gr4)" }}>👤 {faz.proprietario} · 📍 {faz.cidade || "—"}</div>
       </div>
+      {saveStatus === "saving" && <span style={{ fontSize: 11, color: "var(--y)", fontWeight: 600, whiteSpace: "nowrap" }}>● Salvando</span>}
+      {saveStatus === "saved" && <span style={{ fontSize: 11, color: "var(--g)", fontWeight: 600, whiteSpace: "nowrap" }}>✓ Salvo</span>}
+      {saveStatus === "error" && <span style={{ fontSize: 11, color: "var(--r)", fontWeight: 600, whiteSpace: "nowrap" }}>✗ Erro ao salvar</span>}
       <button className="btn btn-d btn-sm" onClick={() => { if (window.confirm("Excluir esta fazenda DG e todos os animais?")) onDelete(); }}>
         <Icon name="trash" size={14} />
       </button>
@@ -3347,17 +3668,31 @@ _controleiatf.com.br_`;
     {/* Animais */}
     <div className="sec">Animais ({total})</div>
 
+    {animais.length > 0 && (
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ position: "relative" }}>
+          <input
+            className="fi"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por brinco ou nome..."
+            style={{ paddingRight: busca ? 36 : undefined }}
+          />
+          {busca && <button onClick={() => setBusca("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--gr3)", fontSize: 16, padding: 0 }}>✕</button>}
+        </div>
+        {busca && <div style={{ fontSize: 12, color: "var(--gr4)", marginTop: 4 }}>{animaisFiltrados.length} de {animais.length} animais</div>}
+      </div>
+    )}
+
     {animais.length === 0 && !adicionando && <div className="empty">
       <div className="empty-t">Nenhum animal cadastrado</div>
       <div className="empty-s">Adicione os animais para iniciar o DG</div>
     </div>}
 
-    {/* Ordenar: marcados (P e V) primeiro, pendentes por último */}
-    {[...animais]
-      .sort((a, b) => {
-        const ordem = { P: 0, V: 1, null: 2, undefined: 2 };
-        return (ordem[a.status] ?? 2) - (ordem[b.status] ?? 2);
-      })
+    {busca && animaisFiltrados.length === 0 && <div style={{ textAlign: "center", padding: "16px 0", color: "var(--gr4)", fontSize: 13 }}>Nenhum animal encontrado para "{busca}"</div>}
+
+    {/* Ordenação alfanumérica por brinco, com marcados (P e V) primeiro */}
+    {animaisOrdenados
       .map(a => <div key={a.id} style={{
         display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
         border: `1.5px solid ${a.status === "P" ? "var(--gm)" : a.status === "V" ? "#fca5a5" : "var(--gr2)"}`,
