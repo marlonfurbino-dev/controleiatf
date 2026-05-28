@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ── Supabase ──────────────────────────────────────────────────────────────
@@ -1372,6 +1372,7 @@ export default function App() {
   const [toast,  setToast]  = useState(null);
   const [inactivityWarning, setInactivityWarning] = useState(false);
   const logoutInProgress = useRef(false);
+  const resetInactivityRef = useRef(null);
 
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
@@ -1546,30 +1547,8 @@ export default function App() {
     return () => { clearTimeout(timeout); subscription.unsubscribe(); };
   }, []);
 
-  // Fallback: se user existe mas dados não carregaram, recarrega após 2s
-  useEffect(() => {
-    if (!user) return;
-    const timer = setTimeout(async () => {
-      if (fazendas.length === 0) {
-        const [perfilRes, fz, pr, an, sm] = await Promise.all([
-          supabase.from("perfis").select("*").eq("id", user.id).single(),
-          supabase.from("fazendas").select("*").eq("user_id", user.id).order("at",{ascending:false}),
-          supabase.from("protocolos").select("*").eq("user_id", user.id).order("at",{ascending:false}),
-          supabase.from("animais").select("*").eq("user_id", user.id).order("at",{ascending:false}),
-          supabase.from("semen_bank").select("*").eq("user_id", user.id).order("at",{ascending:false}),
-        ]);
-        if (perfilRes.data) setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
-        setPerfilCarregado(true);
-        if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
-        if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
-        const mappedAn2 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
-        if (mappedAn2.length > 0) { setAnimais(mappedAn2); DB.set(`animais_${user.id}`, mappedAn2); }
-        else { const loc = DB.get(`animais_${user.id}`) || []; if (loc.length > 0) setAnimais(loc); }
-        if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
-      }
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [user]);
+  // Fallback removido — causava race condition com o effect principal de carregamento de dados
+  // O effect [user, dataKey] garante recarregamento seguro incluindo verificação de membros de equipe
 
   // Pedir permissão de notificação e agendar
   useEffect(() => {
@@ -1593,6 +1572,7 @@ export default function App() {
       warnTimer   = setTimeout(() => setInactivityWarning(true), WARN_MS);
       logoutTimer = setTimeout(() => { setInactivityWarning(false); logout(); }, TIMEOUT_MS);
     };
+    resetInactivityRef.current = resetTimers;
 
     const EVENTS = ["click", "keydown", "scroll", "mousemove", "touchstart", "pointerdown"];
     EVENTS.forEach(e => document.addEventListener(e, resetTimers, { passive: true }));
@@ -2075,10 +2055,10 @@ _Controle IATF — controleiatf.com.br_`;
     {inactivityWarning&&<div style={{position:"fixed",bottom:72,left:0,right:0,display:"flex",justifyContent:"center",zIndex:9999,padding:"0 16px",pointerEvents:"none"}}>
       <div style={{background:"#1b3a22",color:"#fff",borderRadius:12,padding:"12px 16px",maxWidth:420,width:"100%",display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 24px rgba(0,0,0,0.4)",pointerEvents:"all"}}>
         <span style={{fontSize:13,flex:1,lineHeight:1.4}}>Sua sessão expirará em 2 minutos por inatividade. Toque aqui para continuar.</span>
-        <button onClick={()=>setInactivityWarning(false)} style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>Continuar</button>
+        <button onClick={()=>{resetInactivityRef.current?.();}} style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>Continuar</button>
       </div>
     </div>}
-    {modal&&<Modal modal={modal} setModal={setModal}/>}
+    {modal&&<Modal modal={modal} setModal={setModal} sendWA={sendWA} sendWAProdutor={sendWAProdutor}/>}
   </div>;
 }
 
@@ -2147,6 +2127,7 @@ function FazendaScreen({fazenda,protocolos,onBack,onAddProtocolo,onUpdProtocolo,
 
 function FazendaForm({initial,onSave,onCancel}){
   const[f,setF]=useState(initial||{nome:"",proprietario:"",municipio:"",uf:"",endereco:"",telefone:""});
+  const[err,setErr]=useState("");
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
   return <div className="form-box">
     <div className="form-box-title">{initial?"✏️ Editar Dados da Fazenda":"🏡 Nova Fazenda"}</div>
@@ -2158,9 +2139,10 @@ function FazendaForm({initial,onSave,onCancel}){
     </div>
     <div className="fg"><label className="fl">Endereço</label><input className="fi" value={f.endereco} onChange={e=>s("endereco",e.target.value)} placeholder="Estrada, km, referência..."/></div>
     <div className="fg"><label className="fl">Telefone</label><input className="fi" value={f.telefone} onChange={e=>s("telefone",e.target.value)} placeholder="(xx) 9xxxx-xxxx"/></div>
+    {err&&<div style={{color:"var(--r)",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 10px",background:"var(--rl)",borderRadius:"var(--r8)"}}>⚠️ {err}</div>}
     <div className="row" style={{gap:8,marginTop:4}}>
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
-      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome||!f.proprietario)return alert("Preencha nome e proprietário");onSave(f);}}><Icon name="check" size={16}/> Salvar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome||!f.proprietario)return setErr("Preencha nome e proprietário");setErr("");onSave(f);}}><Icon name="check" size={16}/> Salvar</button>
     </div>
   </div>;
 }
@@ -2183,6 +2165,7 @@ function ProtocoloForm({initial,onSave,onCancel}){
   });
   const[medicamento,setMedicamento]=useState(initial?.medicamento||"");
   const[veterinario,setVeterinario]=useState(initial?.veterinario||"");
+  const[errProt,setErrProt]=useState("");
   const isEdit=!!initial;
 
   const diasDesdeD0=(dateStr)=>{
@@ -2205,7 +2188,7 @@ function ProtocoloForm({initial,onSave,onCancel}){
   };
 
   const handleSave=()=>{
-    if(!datas[0]?.data) return alert("Informe a data do D0");
+    if(!datas[0]?.data){setErrProt("Informe a data do D0.");return;}
     const n=parseInt(manejos);
     const out={
       passagens:manejos,
@@ -2282,6 +2265,7 @@ function ProtocoloForm({initial,onSave,onCancel}){
 
     <div className="div"/>
     <div className="fg"><label className="fl">Veterinário Responsável</label><input className="fi" value={veterinario} onChange={e=>setVeterinario(e.target.value)} placeholder="Nome do veterinário"/></div>
+    {errProt&&<div style={{color:"var(--r)",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 10px",background:"var(--rl)",borderRadius:"var(--r8)"}}>⚠️ {errProt}</div>}
     <div className="row" style={{gap:8,marginTop:4}}>
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
       <button className="btn btn-p" style={{flex:2}} onClick={handleSave}><Icon name="check" size={16}/> {isEdit?"Atualizar":"Salvar Protocolo"}</button>
@@ -2303,7 +2287,7 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
   return <div>
     <div className="hdr">
       <button className="hdr-btn" onClick={onBack}><Icon name="back" size={20}/></button>
-      <div style={{flex:1}}><div className="hdr-title">{f?.nome}</div><div className="hdr-sub">Protocolo IATF · 3 passagens</div></div>
+      <div style={{flex:1}}><div className="hdr-title">{f?.nome}</div><div className="hdr-sub">Protocolo IATF · {p?.passagens||"3"} manejos</div></div>
       <button className="hdr-btn" style={{marginRight:4}} onClick={()=>setEditProt(true)}><Icon name="edit" size={17}/></button>
       <button className="hdr-btn danger" style={{marginRight:4}} onClick={()=>setModal({type:"confirm",msg:"Excluir este protocolo e todos os animais?",onOk:onDelProtocolo})}><Icon name="trash" size={17}/></button>
 
@@ -2381,6 +2365,20 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
             onCancel={()=>{setShowForm(false);setEditA(null);}}/>
         :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
       }
+
+      {animais.length>0&&!showForm&&!editA&&<>
+        <div className="sec" style={{marginTop:16}}>Relatório</div>
+        <div className="row" style={{gap:8}}>
+          <a href={onWA()} target="_blank" rel="noreferrer"
+            className="btn btn-wa" style={{flex:1,textDecoration:"none"}}>
+            <Icon name="wa" size={16} color="#fff"/> Vet
+          </a>
+          <a href={onWAProdutor(p.id)} target="_blank" rel="noreferrer"
+            className="btn btn-wa" style={{flex:1,background:"#1e8a3e",textDecoration:"none"}}>
+            <Icon name="wa" size={16} color="#fff"/> Produtor
+          </a>
+        </div>
+      </>}
     </div>
   </div>;
 }
@@ -2470,6 +2468,7 @@ function AnimalCard({animal:a,onUpdDiag,onEdit,onDel,protocolo}){
 
 function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
   const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,d10:false,ia:false,diagnostico:"",obs:"",obsProdutor:"",protocolo_individual:""});
+  const[errAnimal,setErrAnimal]=useState("");
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
   const[touroSuggestions,setTouroSuggestions]=useState([]);
   const onTouroChange=(v)=>{
@@ -2551,9 +2550,10 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
       <label className="fl">Observação para o Produtor</label>
       <textarea className="fi fi-ta" value={f.obsProdutor||""} onChange={e=>s("obsProdutor",e.target.value)} placeholder="Informações para o produtor sobre este animal..."/>
     </div>
+    {errAnimal&&<div style={{color:"var(--r)",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 10px",background:"var(--rl)",borderRadius:"var(--r8)"}}>⚠️ {errAnimal}</div>}
     <div className="row" style={{gap:8,marginTop:4}}>
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
-      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome)return alert("Informe o nome do animal");onSave(f);}}><Icon name="check" size={16}/> {initial?"Atualizar":"Salvar Animal"}</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome){setErrAnimal("Informe o nome do animal.");return;}setErrAnimal("");onSave(f);}}><Icon name="check" size={16}/> {initial?"Atualizar":"Salvar Animal"}</button>
     </div>
   </div>;
 }
@@ -3237,7 +3237,7 @@ function WALink({url,onClose,bg,border,children}){
     {children}
   </a>;
 }
-function Modal({modal,setModal}){
+function Modal({modal,setModal,sendWA,sendWAProdutor}){
   const close=()=>setModal(null);
   return <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)close();}}>
     <div className="modal">
@@ -3247,20 +3247,20 @@ function Modal({modal,setModal}){
       </>}
       {modal.type==="relatorio"&&(()=>{
         let urlVet="#", urlProd="#";
-        try { urlVet=sendWA(modal.pid)||"#"; } catch(e){}
-        try { urlProd=sendWAProdutor(modal.pid)||"#"; } catch(e){}
+        try { urlVet=(sendWA&&sendWA(modal.pid))||"#"; } catch(e){}
+        try { urlProd=(sendWAProdutor&&sendWAProdutor(modal.pid))||"#"; } catch(e){}
         return <>
           <div className="modal-hdr"><div className="modal-title">📲 Enviar Relatório</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
           <div style={{fontSize:13,color:"var(--gr4)",marginBottom:20}}>Escolha o tipo de relatório para enviar via WhatsApp</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <a href={urlVet} style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
+            <a href={urlVet} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:14,background:"var(--gp)",border:"1.5px solid var(--gm)",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:28}}>🩺</span>
               <div>
                 <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Veterinário</div>
                 <div style={{fontSize:12,color:"var(--gr4)",marginTop:2}}>Completo — protocolo, datas, ECC, raça, obs clínicas</div>
               </div>
             </a>
-            <a href={urlProd} style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
+            <a href={urlProd} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:14,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"16px 18px",textAlign:"left",fontFamily:"var(--f)",width:"100%",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:28}}>🌾</span>
               <div>
                 <div style={{fontSize:15,fontWeight:800,color:"var(--gr5)"}}>Relatório Produtor</div>
@@ -3325,6 +3325,7 @@ function Modal({modal,setModal}){
 
 function SemenForm({onSave,onCancel}){
   const[f,setF]=useState({touro:"",raca:"",partida:"",quantidade:10});
+  const[errSemen,setErrSemen]=useState("");
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
   return <div>
     <div className="fg"><label className="fl">Nome do Touro *</label><input className="fi" value={f.touro} onChange={e=>s("touro",e.target.value)} placeholder="Ex: Capitão FIV da Boa Fé"/></div>
@@ -3333,9 +3334,10 @@ function SemenForm({onSave,onCancel}){
       <div className="fg"><label className="fl">Nº Partida</label><input className="fi" value={f.partida} onChange={e=>s("partida",e.target.value)} placeholder="2024/01"/></div>
     </div>
     <div className="fg"><label className="fl">Quantidade de doses</label><input className="fi" type="number" min="0" value={f.quantidade} onChange={e=>s("quantidade",parseInt(e.target.value)||0)}/></div>
+    {errSemen&&<div style={{color:"var(--r)",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 10px",background:"var(--rl)",borderRadius:"var(--r8)"}}>⚠️ {errSemen}</div>}
     <div className="row" style={{gap:8,marginTop:8}}>
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
-      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.touro||!f.raca)return alert("Preencha touro e raça");onSave(f);}}><Icon name="check" size={16}/> Salvar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.touro||!f.raca){setErrSemen("Preencha touro e raça.");return;}setErrSemen("");onSave(f);}}><Icon name="check" size={16}/> Salvar</button>
     </div>
   </div>;
 }
@@ -3574,9 +3576,11 @@ function DGTab({ user, ping }) {
 
 function DGNovaFazenda({ onSave, onCancel }) {
   const [f, setF] = useState({ nome: "", proprietario: "", cidade: "", telefone: "", dataInseminacao: "", dataDG: "" });
+  const [errDG, setErrDG] = useState("");
   const s = (k, v) => setF(x => ({ ...x, [k]: v }));
   const salvar = () => {
-    if (!f.nome.trim() || !f.proprietario.trim()) return alert("Preencha nome da fazenda e proprietário");
+    if (!f.nome.trim() || !f.proprietario.trim()) { setErrDG("Preencha nome da fazenda e proprietário."); return; }
+    setErrDG("");
     onSave(f);
   };
   return <div className="scr">
@@ -3592,6 +3596,7 @@ function DGNovaFazenda({ onSave, onCancel }) {
       <div className="fg"><label className="fl">Data da Inseminação</label><input className="fi" value={f.dataInseminacao} onChange={e => s("dataInseminacao", e.target.value)} type="date" /></div>
       <div className="fg"><label className="fl">Data do DG</label><input className="fi" value={f.dataDG} onChange={e => s("dataDG", e.target.value)} type="date" /></div>
     </div>
+    {errDG&&<div style={{color:"var(--r)",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 10px",background:"var(--rl)",borderRadius:"var(--r8)"}}>⚠️ {errDG}</div>}
     <div className="row" style={{ gap: 8, marginTop: 8 }}>
       <button className="btn btn-gh" style={{ flex: 1 }} onClick={onCancel}>Cancelar</button>
       <button className="btn btn-p" style={{ flex: 2 }} onClick={salvar}><Icon name="check" size={16} /> Salvar</button>
@@ -3602,6 +3607,7 @@ function DGNovaFazenda({ onSave, onCancel }) {
 function DGFazendaTela({ faz, onBack, onAddAnimal, onUpdateAnimal, onDeleteAnimal, onDelete, onUpdateFazenda, ping, saveStatus }) {
   const [novoAnimal, setNovoAnimal] = useState("");
   const [adicionando, setAdicionando] = useState(false);
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [dataIns, setDataIns] = useState(faz.dataInseminacao || "");
   const [dataDG, setDataDG] = useState(faz.dataDG || "");
   const [busca, setBusca] = useState("");
@@ -3699,10 +3705,19 @@ _controleiatf.com.br_`;
       {saveStatus === "saving" && <span style={{ fontSize: 11, color: "var(--y)", fontWeight: 600, whiteSpace: "nowrap" }}>● Salvando</span>}
       {saveStatus === "saved" && <span style={{ fontSize: 11, color: "var(--g)", fontWeight: 600, whiteSpace: "nowrap" }}>✓ Salvo</span>}
       {saveStatus === "error" && <span style={{ fontSize: 11, color: "var(--r)", fontWeight: 600, whiteSpace: "nowrap" }}>✗ Erro ao salvar</span>}
-      <button className="btn btn-d btn-sm" onClick={() => { if (window.confirm("Excluir esta fazenda DG e todos os animais?")) onDelete(); }}>
+      <button className="btn btn-d btn-sm" onClick={() => setConfirmarExclusao(true)}>
         <Icon name="trash" size={14} />
       </button>
     </div>
+
+    {/* Confirmar exclusão inline — substitui window.confirm que é bloqueado no iOS PWA */}
+    {confirmarExclusao && <div style={{background:"var(--rl)",border:"1px solid #fca5a5",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+      <div style={{fontSize:14,fontWeight:700,color:"var(--r)",marginBottom:10}}>⚠️ Excluir esta fazenda DG e todos os animais?</div>
+      <div className="row" style={{gap:8}}>
+        <button className="btn btn-gh" style={{flex:1}} onClick={()=>setConfirmarExclusao(false)}>Cancelar</button>
+        <button className="btn btn-d" style={{flex:1}} onClick={()=>{setConfirmarExclusao(false);onDelete();}}>Excluir</button>
+      </div>
+    </div>}
 
     {/* Datas */}
     <div style={{ display:"flex", gap:8, marginBottom:16 }}>
