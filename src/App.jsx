@@ -1323,6 +1323,7 @@ function LockScreen({ user, onUnlock }) {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saindo, setSaindo] = useState(false);
 
   const desbloquear = async () => {
     if (!senha) { setErro("Informe sua senha."); return; }
@@ -1370,12 +1371,22 @@ function LockScreen({ user, onUnlock }) {
           {loading ? "Verificando..." : "Entrar"}
         </button>
         <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"var(--gr4)"}}>
-          <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={async () => {
-            try {
-              await supabase.auth.signOut();
-            } catch(_){}
-          }}>
-            Entrar com outra conta
+          <span
+            style={{color:saindo?"var(--gr3)":"var(--g)",fontWeight:700,cursor:saindo?"default":"pointer"}}
+            onClick={async () => {
+              if (saindo) return;
+              setSaindo(true);
+              setErro("");
+              try {
+                await supabase.auth.signOut();
+                // onAuthStateChange SIGNED_OUT vai limpar user e redirecionar
+              } catch(e) {
+                setErro("Erro ao sair. Verifique a conexão.");
+                setSaindo(false);
+              }
+            }}
+          >
+            {saindo ? "Saindo..." : "Entrar com outra conta"}
           </span>
         </div>
       </div>
@@ -1442,7 +1453,7 @@ export default function App() {
   // ou após 30min inativo. Exige senha antes de mostrar dados.
   const [locked, setLocked] = useState(() => {
     try { return sessionStorage.getItem("app_unlocked") !== "1"; }
-    catch { return false; }
+    catch { return true; }  // falha no storage → bloqueia por segurança
   });
 
   // Iniciar Google Analytics
@@ -1517,8 +1528,11 @@ export default function App() {
       window.history.replaceState({}, "", "/app");
     }
 
-    // Fallback de segurança: 4s máximo de loading em qualquer situação
-    const safetyTimeout = setTimeout(() => setLoading(false), 4000);
+    // Fallback de segurança: se getSession demorar demais, encerra o loading.
+    // Se havia sessão ativa no localStorage, espera mais (8s) para evitar piscar
+    // a tela de login para usuários autenticados em redes lentas.
+    const tinha_sessao = (() => { try { return localStorage.getItem("sessao_ativa") === "1"; } catch { return false; } })();
+    const safetyTimeout = setTimeout(() => setLoading(false), tinha_sessao ? 8000 : 4000);
 
     // getSession() verifica/renova o token. setLoading(false) é chamado
     // IMEDIATAMENTE após saber se há sessão — dados carregam em background
@@ -1542,6 +1556,10 @@ export default function App() {
       if (session?.user) {
         logoutInProgress.current = false;
         localStorage.setItem("sessao_ativa", "1");
+        // SIGNED_IN via LockScreen.desbloquear: garante que locked é false
+        // (LockScreen também chama onUnlock, mas o event pode chegar primeiro)
+        try { sessionStorage.setItem("app_unlocked", "1"); } catch(_) {}
+        setLocked(false);
         setUser(prev => {
           if (prev && prev.id !== session.user.id) {
             setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]);
@@ -1635,10 +1653,9 @@ export default function App() {
         supabase.from("semen_bank").select("*").eq("user_id", targetId).order("at", {ascending:false}),
       ]);
 
-      // Se erro de JWT/auth e ainda tem tentativas, retry após 1s
-      const temErroAuth = fz.error?.code === "PGRST301" ||
-                          fz.error?.message?.includes("JWT") ||
-                          (fz.data === null && fz.error);
+      // Se erro de JWT/auth em qualquer query e ainda tem tentativas, retry após 1s
+      const isJwtError = (r) => r?.error?.code === "PGRST301" || r?.error?.message?.includes("JWT") || (r?.data === null && r?.error);
+      const temErroAuth = isJwtError(fz) || isJwtError(perfilRes) || isJwtError(pr) || isJwtError(an);
       if (temErroAuth && tentativa < 4) {
         setTimeout(() => load(tentativa + 1), 1000 * tentativa);
         return;
@@ -1646,8 +1663,9 @@ export default function App() {
 
       if (perfilRes.data) {
         setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
-      } else if (!perfilRes.error) {
-        // Perfil não encontrado: cria a partir dos metadados do Auth
+      } else if (!perfilRes.error || perfilRes.error.code === "PGRST116") {
+        // PGRST116 = 0 rows found (Supabase .single() sem resultado)
+        // Cria perfil a partir dos metadados do Auth
         const meta = user?.user_metadata || {};
         if (meta.nome || user?.email) {
           const novoPerfil = { id: user.id, nome: meta.nome||"", sobrenome: meta.sobrenome||"", cidade: meta.cidade||"", whatsapp: meta.whatsapp||"", email: user.email||"", plano: "individual" };
@@ -2414,14 +2432,12 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
       {animais.length>0&&!showForm&&!editA&&<>
         <div className="sec" style={{marginTop:16}}>Relatório</div>
         <div className="row" style={{gap:8}}>
-          <a href={onWA()} target="_blank" rel="noreferrer"
-            className="btn btn-wa" style={{flex:1,textDecoration:"none"}}>
+          <button className="btn btn-wa" style={{flex:1}} onClick={()=>{const url=onWA();if(url)window.open(url,"_blank");}}>
             <Icon name="wa" size={16} color="#fff"/> Vet
-          </a>
-          <a href={onWAProdutor(p.id)} target="_blank" rel="noreferrer"
-            className="btn btn-wa" style={{flex:1,background:"#1e8a3e",textDecoration:"none"}}>
+          </button>
+          <button className="btn btn-wa" style={{flex:1,background:"#1e8a3e"}} onClick={()=>{const url=onWAProdutor(p.id);if(url)window.open(url,"_blank");}}>
             <Icon name="wa" size={16} color="#fff"/> Produtor
-          </a>
+          </button>
         </div>
       </>}
     </div>
