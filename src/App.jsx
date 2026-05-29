@@ -1318,6 +1318,71 @@ function AuthScreen({ onAuth }) {
   );
 }
 
+// ── Lock Screen ───────────────────────────────────────────────────────────
+function LockScreen({ user, onUnlock }) {
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const desbloquear = async () => {
+    if (!senha) { setErro("Informe sua senha."); return; }
+    setLoading(true);
+    setErro("");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: senha,
+      });
+      if (error) {
+        setErro("Senha incorreta. Tente novamente.");
+        setSenha("");
+      } else {
+        onUnlock();
+      }
+    } catch(e) {
+      setErro("Erro de conexão. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-screen">
+      <img src="/logo-transparent.png" alt="Controle IATF" className="auth-logo-img"/>
+      <div className="auth-sub">controleiatf.com.br</div>
+      <div className="auth-card">
+        <div className="auth-title">🔒 Sessão bloqueada</div>
+        <div className="auth-desc">Informe sua senha para continuar</div>
+        <div style={{background:"var(--gr1)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:16,fontSize:13,color:"var(--gr4)",wordBreak:"break-all"}}>
+          {user.email}
+        </div>
+        {erro && <div className="auth-err">⚠️ {erro}</div>}
+        <div className="fg">
+          <label className="fl">Senha</label>
+          <input
+            className="fi" type="password" autoFocus
+            value={senha} onChange={e => setSenha(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && desbloquear()}
+            placeholder="Sua senha"
+          />
+        </div>
+        <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={desbloquear} disabled={loading}>
+          {loading ? "Verificando..." : "Entrar"}
+        </button>
+        <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"var(--gr4)"}}>
+          <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={async () => {
+            try {
+              await supabase.auth.signOut();
+            } catch(_){}
+          }}>
+            Entrar com outra conta
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Google Analytics ─────────────────────────────────────────────────────
 const GA_ID = "G-9NN9QMWW4K";
 function initGA() {
@@ -1373,6 +1438,12 @@ export default function App() {
   const [inactivityWarning, setInactivityWarning] = useState(false);
   const logoutInProgress = useRef(false);
   const resetInactivityRef = useRef(null);
+  // locked: true sempre que app é aberto (sessionStorage limpo ao fechar)
+  // ou após 30min inativo. Exige senha antes de mostrar dados.
+  const [locked, setLocked] = useState(() => {
+    try { return sessionStorage.getItem("app_unlocked") !== "1"; }
+    catch { return false; }
+  });
 
   // Iniciar Google Analytics
   useEffect(() => { initGA(); }, []);
@@ -1446,105 +1517,50 @@ export default function App() {
       window.history.replaceState({}, "", "/app");
     }
 
-    const timeout = setTimeout(() => setLoading(false), 2000);
+    // Fallback de segurança: 4s máximo de loading em qualquer situação
+    const safetyTimeout = setTimeout(() => setLoading(false), 4000);
 
-    const carregarDados = async (uid, tentativa = 1, authUser = null) => {
-      const [perfilRes, fz, pr, an, sm] = await Promise.all([
-        supabase.from("perfis").select("*").eq("id", uid).single(),
-        supabase.from("fazendas").select("*").eq("user_id", uid).order("at",{ascending:false}),
-        supabase.from("protocolos").select("*").eq("user_id", uid).order("at",{ascending:false}),
-        supabase.from("animais").select("*").eq("user_id", uid).order("at",{ascending:false}),
-        supabase.from("semen_bank").select("*").eq("user_id", uid).order("at",{ascending:false}),
-      ]);
-      // Se token expirou, aguarda refresh e retenta
-      const erroJWT = fz.error?.code === "PGRST301" || fz.error?.message?.includes("JWT") || (fz.data === null && fz.error);
-      if (erroJWT && tentativa < 3) {
-        await new Promise(r => setTimeout(r, 800 * tentativa));
-        try { await supabase.auth.refreshSession(); } catch(_) {}
-        return carregarDados(uid, tentativa + 1, authUser);
-      }
-      if (perfilRes.data) {
-        setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
-      } else {
-        // Perfil não encontrado no banco — cria a partir de user_metadata do Auth.
-        // Isso ocorre quando o upsert no cadastro falhou (sem sessão ativa no momento do signup).
-        const meta = authUser?.user_metadata || {};
-        const email = authUser?.email || "";
-        if (meta.nome || email) {
-          const novoPerfil = { id: uid, nome: meta.nome||"", sobrenome: meta.sobrenome||"", cidade: meta.cidade||"", whatsapp: meta.whatsapp||"", email, plano: "individual" };
-          await supabase.from("perfis").upsert(novoPerfil);
-          setPerfil(novoPerfil);
-        }
-      }
-      setPerfilCarregado(true);
-      if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
-      if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
-      const mappedAn1 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
-      if (mappedAn1.length > 0) { setAnimais(mappedAn1); DB.set(`animais_${uid}`, mappedAn1); }
-      else { const loc = DB.get(`animais_${uid}`) || []; if (loc.length > 0) setAnimais(loc); }
-      if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
-    };
-
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      clearTimeout(timeout);
+    // getSession() verifica/renova o token. setLoading(false) é chamado
+    // IMEDIATAMENTE após saber se há sessão — dados carregam em background
+    // via o effect [user, dataKey]. Isso evita o "Carregando..." travado.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(safetyTimeout);
       if (session?.user) {
         localStorage.setItem("sessao_ativa", "1");
-        sessionStorage.setItem("sessao_ativa", "1");
         setPage("app");
         setUser(session.user);
-        await carregarDados(session.user.id, 1, session.user);
-        setLoading(false);
-      } else if (error) {
-        // Erro explícito: limpa storage e encerra loading imediatamente
-        const keys = Object.keys(localStorage).filter(k => k.includes("supabase"));
-        keys.forEach(k => localStorage.removeItem(k));
-        const skeys = Object.keys(sessionStorage).filter(k => k.includes("supabase"));
-        skeys.forEach(k => sessionStorage.removeItem(k));
-        localStorage.removeItem("sessao_ativa");
-        sessionStorage.removeItem("sessao_ativa");
-        setUser(null);
-        setLoading(false);
-      } else {
-        // null sem error: se havia sessão ativa, aguarda INITIAL_SESSION do onAuthStateChange
-        // para evitar piscar tela de login antes da sessão ser restaurada no Android Chrome
-        const tinha_sessao = localStorage.getItem("sessao_ativa") === "1" ||
-                             sessionStorage.getItem("sessao_ativa") === "1";
-        if (!tinha_sessao) setLoading(false);
-        // Se tinha sessão: onAuthStateChange INITIAL_SESSION finaliza o loading
-        // O timeout (definido acima) é o fallback de segurança
+        // dados carregados pelo effect [user, dataKey] — não bloqueia o loading aqui
       }
-    }).catch(() => { clearTimeout(timeout); setLoading(false); });
+      setLoading(false);
+    }).catch(() => {
+      clearTimeout(safetyTimeout);
+      setLoading(false);
+    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // Bloqueia apenas TOKEN_REFRESHED durante logout para evitar re-autenticação involuntária.
-      // SIGNED_IN de um novo login nunca deve ser bloqueado — senão dados nunca carregam após logout.
-      if (logoutInProgress.current && _event === "TOKEN_REFRESHED") {
-        setLoading(false);
-        return;
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (logoutInProgress.current && _event === "TOKEN_REFRESHED") return;
       if (session?.user) {
-        logoutInProgress.current = false; // novo SIGNED_IN reseta o flag de logout
+        logoutInProgress.current = false;
         localStorage.setItem("sessao_ativa", "1");
-        sessionStorage.setItem("sessao_ativa", "1");
-        // Na troca de conta, limpa dados do usuário anterior antes de carregar os novos
         setUser(prev => {
           if (prev && prev.id !== session.user.id) {
-            setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]); setPerfil(null); setPerfilCarregado(false);
+            setFazendas([]); setProtocolos([]); setAnimais([]); setSemenBank([]);
+            setPerfil(null); setPerfilCarregado(false);
           }
           return session.user;
         });
         setPage("app");
-        await carregarDados(session.user.id, 1, session.user);
       } else if (_event === "SIGNED_OUT") {
         logoutInProgress.current = false;
         localStorage.removeItem("sessao_ativa");
-        sessionStorage.removeItem("sessao_ativa");
         setUser(null);
         setPerfil(null);
+        try { sessionStorage.removeItem("app_unlocked"); } catch(_) {}
+        setLocked(true);
       }
       setLoading(false);
     });
-    return () => { clearTimeout(timeout); subscription.unsubscribe(); };
+    return () => { clearTimeout(safetyTimeout); subscription.unsubscribe(); };
   }, []);
 
   // Fallback removido — causava race condition com o effect principal de carregamento de dados
@@ -1557,20 +1573,24 @@ export default function App() {
     agendaNotificacoes(protocolos);
   }, [user, protocolos]);
 
-  // Timer de inatividade — logout automático após 30 min sem interação
+  // Timer de inatividade — bloqueia o app após 30 min sem interação (exige senha)
   useEffect(() => {
-    if (!user) return;
+    if (!user || locked) return;
     const TIMEOUT_MS = 30 * 60 * 1000;   // 30 minutos
     const WARN_MS    = 28 * 60 * 1000;   // aviso aos 28 min
 
-    let warnTimer, logoutTimer;
+    let warnTimer, lockTimer;
 
     const resetTimers = () => {
       clearTimeout(warnTimer);
-      clearTimeout(logoutTimer);
+      clearTimeout(lockTimer);
       setInactivityWarning(false);
-      warnTimer   = setTimeout(() => setInactivityWarning(true), WARN_MS);
-      logoutTimer = setTimeout(() => { setInactivityWarning(false); logout(); }, TIMEOUT_MS);
+      warnTimer = setTimeout(() => setInactivityWarning(true), WARN_MS);
+      lockTimer = setTimeout(() => {
+        setInactivityWarning(false);
+        try { sessionStorage.removeItem("app_unlocked"); } catch(_) {}
+        setLocked(true);
+      }, TIMEOUT_MS);
     };
     resetInactivityRef.current = resetTimers;
 
@@ -1580,10 +1600,10 @@ export default function App() {
 
     return () => {
       clearTimeout(warnTimer);
-      clearTimeout(logoutTimer);
+      clearTimeout(lockTimer);
       EVENTS.forEach(e => document.removeEventListener(e, resetTimers));
     };
-  }, [user]);
+  }, [user, locked]);
 
   // ── Carregar dados do Supabase quando usuário logar ──────────────────
   useEffect(() => {
@@ -1607,7 +1627,8 @@ export default function App() {
         setOwnerIdRef(null);
       }
 
-      const [fz, pr, an, sm] = await Promise.all([
+      const [perfilRes, fz, pr, an, sm] = await Promise.all([
+        supabase.from("perfis").select("*").eq("id", user.id).single(),
         supabase.from("fazendas").select("*").eq("user_id", targetId).order("at", {ascending:false}),
         supabase.from("protocolos").select("*").eq("user_id", targetId).order("at", {ascending:false}),
         supabase.from("animais").select("*").eq("user_id", targetId).order("at", {ascending:false}),
@@ -1615,7 +1636,7 @@ export default function App() {
       ]);
 
       // Se erro de JWT/auth e ainda tem tentativas, retry após 1s
-      const temErroAuth = fz.error?.code === "PGRST301" || 
+      const temErroAuth = fz.error?.code === "PGRST301" ||
                           fz.error?.message?.includes("JWT") ||
                           (fz.data === null && fz.error);
       if (temErroAuth && tentativa < 4) {
@@ -1623,6 +1644,18 @@ export default function App() {
         return;
       }
 
+      if (perfilRes.data) {
+        setPerfil({...perfilRes.data, plano: perfilRes.data.plano||"individual"});
+      } else if (!perfilRes.error) {
+        // Perfil não encontrado: cria a partir dos metadados do Auth
+        const meta = user?.user_metadata || {};
+        if (meta.nome || user?.email) {
+          const novoPerfil = { id: user.id, nome: meta.nome||"", sobrenome: meta.sobrenome||"", cidade: meta.cidade||"", whatsapp: meta.whatsapp||"", email: user.email||"", plano: "individual" };
+          await supabase.from("perfis").upsert(novoPerfil);
+          setPerfil(novoPerfil);
+        }
+      }
+      setPerfilCarregado(true);
       if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
       if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
       const mappedAn3 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
@@ -1652,9 +1685,10 @@ export default function App() {
     try {
       const sbKeys = Object.keys(localStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
       sbKeys.forEach(k => localStorage.removeItem(k));
-      const sbSKeys = Object.keys(sessionStorage).filter(k => k.includes("supabase") || k === "sessao_ativa");
+      const sbSKeys = Object.keys(sessionStorage).filter(k => k.includes("supabase") || k === "sessao_ativa" || k === "app_unlocked");
       sbSKeys.forEach(k => sessionStorage.removeItem(k));
     } catch(_) {}
+    setLocked(true);
     // Revoga o token no servidor em background — não bloqueia a UI
     supabase.auth.signOut().catch(() => {}).finally(() => {
       logoutInProgress.current = false;
@@ -1943,7 +1977,10 @@ _Controle IATF — controleiatf.com.br_`;
   // Mostra landing page se não está na rota /app
   if (page === "landing") return <LandingPage onEnterApp={() => { localStorage.setItem("sessao_ativa","1"); sessionStorage.setItem("sessao_ativa","1"); setPage("app"); }} />;
 
-  if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={setUser}/></div>;
+  if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={u => { try { sessionStorage.setItem("app_unlocked","1"); } catch(_){} setLocked(false); setUser(u); }}/></div>;
+
+  // Tela de bloqueio: sessão válida mas app foi fechado/reaberto ou ficou 30min inativo
+  if (locked) return <div className="app"><style>{CSS}</style><LockScreen user={user} onUnlock={() => { try { sessionStorage.setItem("app_unlocked","1"); } catch(_){} setLocked(false); }}/></div>;
 
   // Verificar trial — usa created_at do perfil (mais confiável) ou do auth
   // Só verifica DEPOIS que o perfil foi carregado do Supabase para evitar
