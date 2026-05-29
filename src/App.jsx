@@ -375,10 +375,12 @@ function LandingPage({ onEnterApp }) {
 
 // ── Trial helpers ─────────────────────────────────────────────────────────
 const TRIAL_DIAS = 7;
-const PRECO_MENSAL = "R$ 73,90";
-const PRECO_ANUAL_MES = "R$ 699,90";
-const PRECO_ANUAL_ANO = "R$ 699,90";
-const ECONOMIA_ANUAL = "R$ 186,90";
+const PRECO_MENSAL      = "R$ 68,90";   // mensal no cartão (renovação automática)
+const PRECO_ANUAL_PIX   = "R$ 589,00";  // anual à vista no PIX
+const PRECO_ANUAL_ANO   = "R$ 589,00";  // alias PIX — usado nos displays gerais
+const PRECO_ANUAL_CARTAO= "R$ 689,00";  // anual no cartão (10x de R$ 68,90 sem juros)
+const PRECO_ANUAL_PARCELA="R$ 68,90";   // valor de cada parcela (10x)
+const ECONOMIA_ANUAL    = "R$ 237,80";  // 68,90×12 − 589,00
 const MP_PUBLIC_KEY = "APP_USR-a18e7639-8d8e-4631-af31-d214b0c38cc8";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 const EDGE_PAGAMENTO_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
@@ -531,7 +533,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   };
 
   const msgWA = plano === "anual"
-    ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_ANO}.`
+    ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
     : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
 
   // Gera PIX
@@ -613,7 +615,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       // Cria nova instância do MercadoPago a cada vez para evitar estado corrompido
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
-      const valor = plano === "anual" ? 699.90 : 73.90;
+      // Anual no cartão: R$ 689,00 em 10x de R$ 68,90 sem juros
+      const valor = plano === "anual" ? 689.00 : 68.90;
 
       const _telDig = payerData.telefone.replace(/\D/g, "");
       const _phoneInit = _telDig.length >= 10 ? { areaCode: _telDig.slice(0, 2), number: _telDig.slice(2) } : undefined;
@@ -630,7 +633,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           },
         },
         customization: {
-          paymentMethods: { minInstallments: 1, maxInstallments: plano === "anual" ? 12 : 1 },
+          paymentMethods: { minInstallments: 1, maxInstallments: plano === "anual" ? 10 : 1 },
           visual: { style: { theme: "default" }, hidePaymentButton: false, hideFormTitle: false },
         },
         callbacks: {
@@ -994,18 +997,22 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:.4}}>Resumo do pedido</div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>Controle IATF · {plano==="anual"?"Plano Anual":"Plano Mensal"}</span>
-            <span style={{fontWeight:800,fontSize:17,color:"#16a34a"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}</span>
+            <span style={{fontWeight:800,fontSize:17,color:"#16a34a"}}>{plano==="anual"?PRECO_ANUAL_PIX:PRECO_MENSAL}</span>
           </div>
-          <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{plano==="anual"?"cobrado à vista · parcele em até 12x":"renovação mensal automática"}</div>
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>
+            {plano==="anual"
+              ?`${PRECO_ANUAL_PIX} à vista no PIX · ou ${PRECO_ANUAL_CARTAO} em 10x no cartão`
+              :"renovação mensal automática no cartão"}
+          </div>
         </div>
 
         <button onClick={()=>prosseguirParaPagamento("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:12,padding:"16px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10,boxShadow:"0 4px 12px rgba(0,158,227,0.35)"}}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-          Pagar com cartão · {plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}
+          {plano==="anual"?`Cartão · ${PRECO_ANUAL_CARTAO} em 10x`:`Pagar com cartão · ${PRECO_MENSAL}`}
         </button>
         <button onClick={()=>prosseguirParaPagamento("pix")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,padding:"13px",background:"rgba(0,137,123,.07)",borderRadius:12,border:"1px solid rgba(0,137,123,.25)",width:"100%",cursor:"pointer",marginBottom:14}}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00897B" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          Pagar com PIX
+          {plano==="anual"?`PIX à vista · ${PRECO_ANUAL_PIX}`:"Pagar com PIX"}
         </button>
         <MPBadge/>
       </div>
@@ -1048,8 +1055,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span style={{fontSize:13,fontWeight:700,color:"#15803d"}}>Total a pagar</span>
-              <span style={{fontSize:18,fontWeight:800,color:"#15803d"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}</span>
+              <span style={{fontSize:18,fontWeight:800,color:"#15803d"}}>{plano==="anual"?PRECO_ANUAL_PIX:PRECO_MENSAL}</span>
             </div>
+            {plano==="anual"&&<div style={{fontSize:11,color:"#059669",marginTop:2}}>à vista no PIX — valor exato cobrado pelo QR Code</div>}
           </div>
 
           {erro && <div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:12}}>⚠️ {erro}</div>}
@@ -1086,7 +1094,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   if (step === "pagamento") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
       <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
-      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
+      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_CARTAO} (10x)`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
       <StepBar current="pagamento"/>
       <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420,marginBottom:24}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
@@ -1098,9 +1106,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
         <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:13,fontWeight:700,color:"#15803d"}}>Total a pagar</span>
-            <span style={{fontSize:18,fontWeight:800,color:"#15803d"}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}</span>
+            <span style={{fontSize:18,fontWeight:800,color:"#15803d"}}>{plano==="anual"?PRECO_ANUAL_CARTAO:PRECO_MENSAL}</span>
           </div>
-          {plano==="anual"&&<div style={{fontSize:11,color:"#4ade80",marginTop:2}}>Parcele em até 12x com juros</div>}
+          {plano==="anual"&&<div style={{fontSize:11,color:"#059669",marginTop:2}}>10x de {PRECO_ANUAL_PARCELA} sem juros no cartão</div>}
         </div>
 
         {/* Logos das bandeiras */}
@@ -1158,13 +1166,21 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
           <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"#1b6b3a":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
             Anual
-            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-21%</span>}
+            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-29%</span>}
           </button>
         </div>
         <div style={{background:plano==="anual"?"var(--gp)":"var(--gr1)",border:`2px solid ${plano==="anual"?"var(--gm)":"var(--gr2)"}`,borderRadius:16,padding:"20px 16px",marginBottom:16,textAlign:"center"}}>
           {plano==="anual"&&<div style={{fontSize:11,fontWeight:800,color:"#1b6b3a",textTransform:"uppercase",letterSpacing:.5,marginBottom:4}}>⭐ Mais popular</div>}
-          <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{plano==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}<span style={{fontSize:16,fontWeight:500,color:"#5a8a6a"}}>{plano==="anual"?"/ano":"/mês"}</span></div>
-          <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>{plano==="anual"?"cobrado à vista · parcele em até 12x com juros":"por mês · renovação automática"}</div>
+          {plano==="anual"
+            ?<>
+              <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{PRECO_ANUAL_PIX}<span style={{fontSize:16,fontWeight:500,color:"#5a8a6a"}}>/ano no PIX</span></div>
+              <div style={{fontSize:13,color:"#059669",marginTop:4,fontWeight:600}}>ou {PRECO_ANUAL_CARTAO} em 10x de {PRECO_ANUAL_PARCELA} sem juros no cartão</div>
+            </>
+            :<>
+              <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{PRECO_MENSAL}<span style={{fontSize:16,fontWeight:500,color:"#5a8a6a"}}>/mês</span></div>
+              <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>renovação automática no cartão · cancele quando quiser</div>
+            </>
+          }
           {plano==="anual"&&<div style={{marginTop:8,background:"#1b6b3a",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>Você economiza {ECONOMIA_ANUAL} por ano</div>}
         </div>
         <div style={{marginBottom:16}}>
@@ -1173,17 +1189,17 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           ))}
         </div>
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
-          💡 {plano==="anual" ? <><strong>Menos de R$ 1,92 por dia</strong> — menos que um café.</> : <><strong>Diluído no seu protocolo custa menos que os hormônios 💉</strong></>}
+          💡 {plano==="anual" ? <><strong>Menos de R$ 1,62 por dia</strong> — menos que um café ☕</> : <><strong>Diluído no seu protocolo custa menos que os hormônios 💉</strong></>}
         </div>
         <button onClick={()=>setStep("dados")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
           <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#fff3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-          {plano==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
+          {plano==="anual"?`Assinar por ${PRECO_ANUAL_PIX} (PIX) ou 10x de ${PRECO_ANUAL_PARCELA}`:`Assinar por ${PRECO_MENSAL}/mês`}
         </button>
         <button onClick={()=>setStep("dados")}
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,marginBottom:16,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>
-          Pagar com PIX
+          {plano==="anual"?`PIX à vista · ${PRECO_ANUAL_PIX}`:"Pagar com PIX"}
         </button>
-        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>🔒 Pagamento seguro · PIX, cartão de crédito ou débito</div>
+        <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>🔒 Pagamento seguro · PIX ou cartão de crédito</div>
         <button onClick={onLogout} style={{background:"none",border:"none",color:"var(--gr4)",fontSize:13,cursor:"pointer",fontFamily:"var(--f)",width:"100%",textAlign:"center"}}>Sair da conta</button>
       </div>
     </div>
@@ -1276,7 +1292,7 @@ function AuthScreen({ onAuth }) {
 
         {tab === "cadastro" && (
           <div style={{background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:14,fontSize:13,color:"var(--g)",fontWeight:600,textAlign:"center"}}>
-            🎉 7 dias grátis · sem cartão de crédito · depois a partir de {PRECO_MENSAL}/mês ou {PRECO_ANUAL_ANO}/ano
+            🎉 7 dias grátis · sem cartão de crédito · depois {PRECO_MENSAL}/mês ou {PRECO_ANUAL_PIX}/ano no PIX
           </div>
         )}
 
@@ -2978,7 +2994,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     const containerPerfil = document.getElementById("cardPayment-perfil");
     if (containerPerfil) containerPerfil.innerHTML = "";
 
-    const valor = planoPerfilSel === "anual" ? 699.90 : 73.90;
+    const valor = planoPerfilSel === "anual" ? 689.00 : 68.90;
     const initBrick = async () => {
       await new Promise(r => setTimeout(r, 300));
       if (destroyed) return;
@@ -2999,7 +3015,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           },
         },
         customization: {
-          paymentMethods: { minInstallments: 1, maxInstallments: planoPerfilSel === "anual" ? 12 : 1 },
+          paymentMethods: { minInstallments: 1, maxInstallments: planoPerfilSel === "anual" ? 10 : 1 },
           visual: { style: { theme: "default" }, hidePaymentButton: false, hideFormTitle: false },
         },
         callbacks: {
@@ -3220,7 +3236,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         <div>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
             <button onClick={()=>setStepPerfil("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontFamily:"var(--f)",fontSize:12,fontWeight:600}}>← Voltar</button>
-            <div style={{fontSize:13,fontWeight:700,color:"var(--g)"}}>{planoPerfilSel==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--g)"}}>{planoPerfilSel==="anual"?`Anual · ${PRECO_ANUAL_CARTAO} em 10x`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
           </div>
           {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
           {processandoPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Processando...</div>}
@@ -3232,7 +3248,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         <div style={{padding:"8px 0"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
             <button onClick={()=>{setStepPerfil("planos");setPixDataPerfil(null);setPixPollingPerfil(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontFamily:"var(--f)",fontSize:12,fontWeight:600}}>← Voltar</button>
-            <div style={{fontSize:13,fontWeight:700,color:"var(--g)"}}>{planoPerfilSel==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--g)"}}>{planoPerfilSel==="anual"?`Anual · ${PRECO_ANUAL_PIX} (PIX)`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
           </div>
           {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>⚠️ {pagErro}</div>}
           {processandoPerfil&&!pixDataPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Gerando QR Code PIX...</div>}
@@ -3252,20 +3268,28 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
             <button onClick={()=>setPlanoPerfilSel("mensal")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="mensal"?"#fff":"transparent",color:planoPerfilSel==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
             <button onClick={()=>setPlanoPerfilSel("anual")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="anual"?"var(--g)":"transparent",color:planoPerfilSel==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
               Anual
-              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-21%</span>}
+              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-29%</span>}
             </button>
           </div>
           <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
             {planoPerfilSel==="anual"&&<div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>}
-            <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_ANO:PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>{planoPerfilSel==="anual"?"/ano":"/mês"}</span></div>
-            <div style={{fontSize:11,color:"var(--gr4)"}}>{planoPerfilSel==="anual"?`cobrado à vista · parcele em até 12x com juros · economize ${ECONOMIA_ANUAL}`:"cobrança mensal automática · cancele quando quiser"}</div>
+            {planoPerfilSel==="anual"
+              ?<>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{PRECO_ANUAL_PIX}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/ano no PIX</span></div>
+                <div style={{fontSize:11,color:"#059669",marginTop:2,fontWeight:600}}>ou {PRECO_ANUAL_CARTAO} em 10x de {PRECO_ANUAL_PARCELA} sem juros · economize {ECONOMIA_ANUAL}</div>
+              </>
+              :<>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
+                <div style={{fontSize:11,color:"var(--gr4)",marginTop:2}}>cobrança mensal automática · cancele quando quiser</div>
+              </>
+            }
           </div>
           {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:"var(--r8)",padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
           <button onClick={()=>setStepPerfil("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:"var(--r8)",padding:"12px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:8}}>
             <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#009ee3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-            {planoPerfilSel==="anual"?`Assinar por ${PRECO_ANUAL_ANO}/ano`:`Assinar por ${PRECO_MENSAL}/mês`}
+            {planoPerfilSel==="anual"?`Cartão · ${PRECO_ANUAL_CARTAO} em 10x`:`Assinar por ${PRECO_MENSAL}/mês`}
           </button>
-          <button onClick={()=>{setPixDataPerfil(null);setPixPollingPerfil(false);setStepPerfil("pix");}} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
+          <button onClick={()=>{setPixDataPerfil(null);setPixPollingPerfil(false);setStepPerfil("pix");}} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>{planoPerfilSel==="anual"?`PIX à vista · ${PRECO_ANUAL_PIX}`:"Pagar com PIX"}</button>
         </>
       )}
     </div>}
