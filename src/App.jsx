@@ -1628,6 +1628,7 @@ export default function App() {
       const mappedAn3 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
       if (mappedAn3.length > 0) { setAnimais(mappedAn3); DB.set(`animais_${targetId}`, mappedAn3); }
       else { const loc = DB.get(`animais_${targetId}`) || []; if (loc.length > 0) setAnimais(loc); }
+      if (sm.error) console.error("load semen_bank erro — code:", sm.error.code, "| message:", sm.error.message);
       if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
     };
     load();
@@ -1765,17 +1766,24 @@ export default function App() {
   const addSemenDB = async (s) => {
     const n = {...s, id: uid(), at: Date.now()};
     setSemenBank(x => [...x, n]);
+    const targetUserId = ownerIdRef || user.id;
     const {error} = await supabase.from("semen_bank").insert({
-      id: n.id, user_id: user.id,
+      id: n.id, user_id: targetUserId,
       touro: s.touro || "", raca: s.raca || "",
       partida: s.partida || "", quantidade: s.quantidade || 0,
       at: n.at,
     });
-    if (error) console.error("addSemen erro:", error);
-    ping("Sêmen cadastrado!");
+    if (error) {
+      console.error("addSemen erro — code:", error.code, "| message:", error.message, "| details:", error.details, "| hint:", error.hint);
+      setSemenBank(x => x.filter(item => item.id !== n.id));
+      ping("⚠️ Erro ao salvar sêmen: " + (error.message || error.code || "verifique conexão"));
+    } else {
+      ping("Sêmen cadastrado!");
+    }
   };
   const updSemenDB = async (id, ch) => {
-    await supabase.from("semen_bank").update(ch).eq("id", id);
+    const {error} = await supabase.from("semen_bank").update(ch).eq("id", id);
+    if (error) console.error("updSemen erro:", error);
   };
   const delSemenDB = async (id) => {
     setSemenBank(x => x.filter(s => s.id !== id));
