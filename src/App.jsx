@@ -375,12 +375,12 @@ function LandingPage({ onEnterApp }) {
 
 // ── Trial helpers ─────────────────────────────────────────────────────────
 const TRIAL_DIAS = 7;
-const PRECO_MENSAL      = "R$ 68,90";   // mensal no cartão (renovação automática)
-const PRECO_ANUAL_PIX   = "R$ 589,00";  // anual à vista no PIX
-const PRECO_ANUAL_ANO   = "R$ 589,00";  // alias PIX — usado nos displays gerais
-const PRECO_ANUAL_CARTAO= "R$ 689,00";  // anual no cartão (10x de R$ 68,90 sem juros)
-const PRECO_ANUAL_PARCELA="R$ 68,90";   // valor de cada parcela (10x)
-const ECONOMIA_ANUAL    = "R$ 237,80";  // 68,90×12 − 589,00
+const PRECO_MENSAL      = "R$ 97,00";   // mensal no cartão (renovação automática)
+const PRECO_ANUAL_PIX   = "R$ 790,00";  // anual à vista no PIX
+const PRECO_ANUAL_ANO   = "R$ 790,00";  // preço único anual (PIX e cartão)
+const PRECO_ANUAL_CARTAO= "R$ 790,00";  // anual no cartão (10x de R$ 79,00 sem juros)
+const PRECO_ANUAL_PARCELA="R$ 79,00";   // valor de cada parcela (10x)
+const ECONOMIA_ANUAL    = "R$ 374,00";  // 97×12 − 790
 const MP_PUBLIC_KEY = "APP_USR-a18e7639-8d8e-4631-af31-d214b0c38cc8";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 const EDGE_PAGAMENTO_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
@@ -615,8 +615,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       // Cria nova instância do MercadoPago a cada vez para evitar estado corrompido
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
-      // Anual no cartão: R$ 689,00 em 10x de R$ 68,90 sem juros
-      const valor = plano === "anual" ? 689.00 : 68.90;
+      // Anual: R$ 790,00 (mesmo valor PIX e cartão) — 10x de R$ 79,00 sem juros
+      const valor = plano === "anual" ? 790.00 : 97.00;
 
       const _telDig = payerData.telefone.replace(/\D/g, "");
       const _phoneInit = _telDig.length >= 10 ? { areaCode: _telDig.slice(0, 2), number: _telDig.slice(2) } : undefined;
@@ -1166,22 +1166,22 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
           <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"#1b6b3a":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
             Anual
-            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-29%</span>}
+            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-32%</span>}
           </button>
         </div>
         <div style={{background:plano==="anual"?"var(--gp)":"var(--gr1)",border:`2px solid ${plano==="anual"?"var(--gm)":"var(--gr2)"}`,borderRadius:16,padding:"20px 16px",marginBottom:16,textAlign:"center"}}>
           {plano==="anual"&&<div style={{fontSize:11,fontWeight:800,color:"#1b6b3a",textTransform:"uppercase",letterSpacing:.5,marginBottom:4}}>⭐ Mais popular</div>}
           {plano==="anual"
             ?<>
-              <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{PRECO_ANUAL_PIX}<span style={{fontSize:16,fontWeight:500,color:"#5a8a6a"}}>/ano no PIX</span></div>
-              <div style={{fontSize:13,color:"#059669",marginTop:4,fontWeight:600}}>ou {PRECO_ANUAL_CARTAO} em 10x de {PRECO_ANUAL_PARCELA} sem juros no cartão</div>
+              <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{PRECO_ANUAL_ANO}<span style={{fontSize:16,fontWeight:500,color:"#5a8a6a"}}>/ano</span></div>
+              <div style={{fontSize:13,color:"#059669",marginTop:4,fontWeight:600}}>PIX à vista · ou 10x de {PRECO_ANUAL_PARCELA} sem juros no cartão</div>
             </>
             :<>
               <div style={{fontSize:38,fontWeight:800,color:"#1b6b3a",lineHeight:1}}>{PRECO_MENSAL}<span style={{fontSize:16,fontWeight:500,color:"#5a8a6a"}}>/mês</span></div>
               <div style={{fontSize:13,color:"var(--gr4)",marginTop:4}}>renovação automática no cartão · cancele quando quiser</div>
             </>
           }
-          {plano==="anual"&&<div style={{marginTop:8,background:"#1b6b3a",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>Você economiza {ECONOMIA_ANUAL} por ano</div>}
+          {plano==="anual"&&<div style={{marginTop:8,background:"#1b6b3a",color:"#fff",borderRadius:99,padding:"4px 14px",fontSize:12,fontWeight:700,display:"inline-block"}}>Você economiza {ECONOMIA_ANUAL} por ano vs mensal</div>}
         </div>
         <div style={{marginBottom:16}}>
           {["✅ Protocolos e fazendas ilimitados","✅ Relatório profissional via WhatsApp","✅ Diagnóstico de gestação (DG)","✅ Controle de banco de sêmen","✅ Funciona offline no celular","✅ Cancele quando quiser"].map(item=>(
@@ -1189,7 +1189,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           ))}
         </div>
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
-          💡 {plano==="anual" ? <><strong>Menos de R$ 1,62 por dia</strong> — menos que um café ☕</> : <><strong>Diluído no seu protocolo custa menos que os hormônios 💉</strong></>}
+          💡 {plano==="anual" ? <><strong>R$ 65,83 por protocolo</strong> — diluído no honorário, menos que os hormônios de uma vaca 💉</> : <><strong>Diluído no protocolo</strong> — menos de R$ 8,09 por atendimento 🐄</>}
         </div>
         <button onClick={()=>setStep("dados")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
           <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#fff3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
@@ -2994,7 +2994,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     const containerPerfil = document.getElementById("cardPayment-perfil");
     if (containerPerfil) containerPerfil.innerHTML = "";
 
-    const valor = planoPerfilSel === "anual" ? 689.00 : 68.90;
+    const valor = planoPerfilSel === "anual" ? 790.00 : 97.00;
     const initBrick = async () => {
       await new Promise(r => setTimeout(r, 300));
       if (destroyed) return;
@@ -3268,15 +3268,15 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
             <button onClick={()=>setPlanoPerfilSel("mensal")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="mensal"?"#fff":"transparent",color:planoPerfilSel==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
             <button onClick={()=>setPlanoPerfilSel("anual")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="anual"?"var(--g)":"transparent",color:planoPerfilSel==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
               Anual
-              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-29%</span>}
+              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-32%</span>}
             </button>
           </div>
           <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
             {planoPerfilSel==="anual"&&<div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:2}}>⭐ PLANO ANUAL · MAIS POPULAR</div>}
             {planoPerfilSel==="anual"
               ?<>
-                <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{PRECO_ANUAL_PIX}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/ano no PIX</span></div>
-                <div style={{fontSize:11,color:"#059669",marginTop:2,fontWeight:600}}>ou {PRECO_ANUAL_CARTAO} em 10x de {PRECO_ANUAL_PARCELA} sem juros · economize {ECONOMIA_ANUAL}</div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{PRECO_ANUAL_ANO}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/ano</span></div>
+                <div style={{fontSize:11,color:"#059669",marginTop:2,fontWeight:600}}>PIX à vista · ou 10x de {PRECO_ANUAL_PARCELA} sem juros · economize {ECONOMIA_ANUAL}</div>
               </>
               :<>
                 <div style={{fontSize:22,fontWeight:800,color:"var(--g)"}}>{PRECO_MENSAL}<span style={{fontSize:12,fontWeight:500,color:"var(--gr4)"}}>/mês</span></div>
