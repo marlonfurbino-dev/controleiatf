@@ -1787,7 +1787,22 @@ export default function App() {
       at:n.at
     });
     if(error){ console.error("addAnimal erro:",error); ping("⚠️ Salvo localmente — sem conexão"); }
-    else ping("Animal adicionado!");
+    else {
+      ping("Animal adicionado!");
+      // Decrementa estoque de sêmen quando touro é informado
+      if (a.touro) {
+        const item = semenBank.find(s =>
+          s.touro.toLowerCase() === a.touro.toLowerCase() &&
+          (!a.partida || s.partida === a.partida) &&
+          (s.quantidade || 0) > 0
+        );
+        if (item) {
+          const novaQty = (item.quantidade || 0) - 1;
+          setSemenBank(x => x.map(s => s.id === item.id ? {...s, quantidade: novaQty} : s));
+          await supabase.from("semen_bank").update({quantidade: novaQty}).eq("id", item.id);
+        }
+      }
+    }
   };
   const updAnimal = async (id,ch) => {
     setAnimais(x=>{const l=x.map(a=>a.id===id?{...a,...ch}:a);cacheAnimais(l);return l;});
@@ -2031,6 +2046,7 @@ _Controle IATF — controleiatf.com.br_`;
     if(!p){setScreen(null);return null;}
     return <div className="app"><style>{CSS}</style>
       <ProtocoloScreen protocolo={p} fazenda={f} animais={animais.filter(a=>a.protocoloId===p.id)}
+        semenBank={semenBank}
         onBack={()=>setScreen({type:"fazenda",id:p.fazendaId})}
         onAddAnimal={(a)=>addAnimal({...a,protocoloId:p.id})}
         onUpdAnimal={updAnimal} onDelAnimal={delAnimal}
@@ -2336,7 +2352,7 @@ function ProtocoloForm({initial,onSave,onCancel}){
   </div>;
 }
 
-function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
+function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
   const[showForm,setShowForm]=useState(false);
   const[editA,setEditA]=useState(null);
   const[editProt,setEditProt]=useState(false);
@@ -2423,7 +2439,7 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,onBack,onAddAnimal,onUpd
       {animais.length===0&&!showForm&&!editA&&<div className="empty"><Icon name="cow" size={44}/><div className="empty-t">Nenhum animal cadastrado</div><div className="empty-s">Adicione as vacas do protocolo</div></div>}
 
       {(showForm||editA)
-        ?<AnimalForm initial={editA}
+        ?<AnimalForm initial={editA} semenBank={semenBank}
             onSave={(a)=>{if(editA){onUpdAnimal(editA.id,a);setEditA(null);ping("Animal atualizado!");}else{onAddAnimal(a);setShowForm(false);}}}
             onCancel={()=>{setShowForm(false);setEditA(null);}}/>
         :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
