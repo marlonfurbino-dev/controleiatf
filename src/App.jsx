@@ -2774,9 +2774,8 @@ function BibliotecaTab({protocolos=[],fazendas=[],animais=[],onOpen,onWA,sendWAP
 }
 
 function SemenTab({semenBank,setSemenBank,onUpdQty,onDel,ping}){
-  const racas=[...new Set(semenBank.map(s=>s.raca||"Sem raça"))].sort();
   const[q,setQ]=useState("");
-  const filtered=semenBank.filter(s=>(s.touro+s.raca).toLowerCase().includes(q.toLowerCase()));
+  const filtered=semenBank.filter(s=>(s.touro+(s.raca||"")).toLowerCase().includes(q.toLowerCase()));
   const updQty=(id,delta)=>{
     const item=semenBank.find(s=>s.id===id);
     const novaQty=Math.max(0,(item?.quantidade||0)+delta);
@@ -2787,7 +2786,18 @@ function SemenTab({semenBank,setSemenBank,onUpdQty,onDel,ping}){
     if(onDel) onDel(id);
     else setSemenBank(x=>x.filter(s=>s.id!==id));
   };
-  const grouped=racas.reduce((acc,r)=>{acc[r]=filtered.filter(s=>(s.raca||"Sem raça")===r);return acc;},{});
+  // Agrupamento case-insensitive: "Nelore", "NELORE" e "nelore" ficam no mesmo grupo.
+  // Usa a primeira grafia encontrada como nome de exibição.
+  const gruposMap={};
+  filtered.forEach(s=>{
+    const key=(s.raca||"Sem raça").trim().toLowerCase();
+    if(!gruposMap[key]) gruposMap[key]={nome:(s.raca||"Sem raça").trim(),items:[]};
+    gruposMap[key].items.push(s);
+  });
+  // Ordena raças alfabeticamente, e touros dentro de cada raça também
+  const grupos=Object.values(gruposMap)
+    .sort((a,b)=>a.nome.localeCompare(b.nome,"pt-BR",{sensitivity:"base"}))
+    .map(g=>({...g,items:[...g.items].sort((a,b)=>(a.touro||"").localeCompare(b.touro||"","pt-BR",{sensitivity:"base"}))}));
   const total=semenBank.reduce((a,s)=>(a+(s.quantidade||0)),0);
   return <div className="scr">
     <div style={{fontSize:18,fontWeight:800,marginBottom:2}}>Banco de Sêmen 🧪</div>
@@ -2797,9 +2807,9 @@ function SemenTab({semenBank,setSemenBank,onUpdQty,onDel,ping}){
       <input className="fi" style={{paddingLeft:34}} placeholder="Buscar touro ou raça..." value={q} onChange={e=>setQ(e.target.value)}/>
     </div>
     {semenBank.length===0&&<div className="empty"><Icon name="semen" size={44}/><div className="empty-t">Banco vazio</div><div className="empty-s">Toque no + para cadastrar o sêmen do botijão</div></div>}
-    {racas.filter(r=>grouped[r]?.length>0).map(raca=><div key={raca} className="semen-card">
-      <div className="semen-raca">🐂 {raca}</div>
-      {grouped[raca].map(s=><div key={s.id} className="semen-item">
+    {grupos.map(g=><div key={g.nome} className="semen-card">
+      <div className="semen-raca">🐂 {g.nome}</div>
+      {g.items.map(s=><div key={s.id} className="semen-item">
         <div>
           <div className="semen-nome">{s.touro}</div>
           {s.partida&&<div style={{fontSize:11,color:"var(--gr4)"}}>Partida: {s.partida}</div>}
