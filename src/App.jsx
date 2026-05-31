@@ -493,15 +493,25 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
     : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
 
-  // Gera PIX — usa supabase.functions.invoke para evitar "load failed" por CORS/JWT
+  // Gera PIX
   const handlePix = async () => {
     setProcessando(true);
     setErro("");
     try {
-      const { data, error } = await supabase.functions.invoke("criar-pix", {
-        body: { plano, email: user?.email, userId: user?.id },
+      // Força refresh do token antes de chamar a função
+      const { data: { session } } = await supabase.auth.getSession();
+      let token = session?.access_token || "";
+      if (!token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token || "";
+      }
+      const res = await fetch(EDGE_PIX_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ plano, email: user?.email, userId: user?.id }),
       });
-      if (error) { setErro("Erro ao gerar PIX: " + (error.message || "tente novamente")); return; }
+      const data = await res.json();
+      if (!res.ok) { setErro("Erro ao gerar PIX: " + (data.error || "tente novamente")); return; }
       if (!data?.qr_code) { setErro("QR Code não retornado. Tente novamente."); return; }
       setPixData(data);
       setPixPolling(true);
@@ -2755,10 +2765,20 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     setProcessandoPerfil(true);
     setPagErro("");
     try {
-      const { data, error } = await supabase.functions.invoke("criar-pix", {
-        body: { plano: planoPerfilSel, email: user?.email, userId: user?.id },
+      // Força refresh do token antes de chamar a função
+      const { data: { session } } = await supabase.auth.getSession();
+      let token = session?.access_token || "";
+      if (!token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token || "";
+      }
+      const res = await fetch(EDGE_PIX_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ plano: planoPerfilSel, email: user?.email, userId: user?.id }),
       });
-      if (error) { setPagErro("Erro ao gerar PIX: " + (error.message || "tente novamente")); return; }
+      const data = await res.json();
+      if (!res.ok) { setPagErro("Erro ao gerar PIX: " + (data.error || "tente novamente")); return; }
       if (!data?.qr_code) { setPagErro("QR Code não retornado. Tente novamente."); return; }
       setPixDataPerfil(data);
       setPixPollingPerfil(true);
