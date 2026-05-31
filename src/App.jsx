@@ -483,9 +483,10 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   const [pixPolling, setPixPolling] = useState(false);
   const [brickKey, setBrickKey] = useState(0);
   const brickRef = useRef(null);
-  // Apenas CPF e nascimento — o restante vem da conta do usuário ou do Brick
   const [cpf, setCpf] = useState("");
   const [nascimento, setNascimento] = useState("");
+  const [cep, setCep] = useState("");
+  const [numero, setNumero] = useState("");
   const [cpfErro, setCpfErro] = useState("");
   const [pixTriggerPaywall, setPixTriggerPaywall] = useState(0);
 
@@ -621,6 +622,15 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 setErro("Cartão não tokenizado. Preencha todos os dados do cartão e tente novamente.");
                 throw new Error("token ausente");
               }
+              // Valida dados do titular (antifraude MP)
+              if (!validarCPF(cpf)) {
+                setErro("CPF do titular inválido. Preencha o CPF corretamente acima.");
+                throw new Error("cpf inválido");
+              }
+              if (cep.replace(/\D/g,"").length !== 8 || !numero.trim()) {
+                setErro("Preencha CEP e número do titular acima.");
+                throw new Error("endereço incompleto");
+              }
 
               // getSession com timeout — evita travar em rede ruim
               let authToken = "";
@@ -661,6 +671,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                   identification: { type: "CPF", number: _cpfNum || (fd.payer?.identification?.number || "") },
                   date_of_birth: nascimento || undefined,
                   phone: telDig.length >= 10 ? { area_code: telDig.slice(0,2), number: telDig.slice(2) } : undefined,
+                  ...(cep ? { address: { zip_code: cep.replace(/\D/g,""), street_number: numero || "S/N" } } : {}),
                 },
               };
 
@@ -919,16 +930,27 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           {plano==="anual"&&<div style={{fontSize:11,color:"#059669",marginTop:2}}>10x de {PRECO_ANUAL_PARCELA} sem juros · sem cobrança adicional</div>}
         </div>
 
-        {/* CPF e nascimento — necessários para antifraude do Mercado Pago */}
-        <div className="frow" style={{marginBottom:4}}>
+        {/* Dados do titular — antifraude Mercado Pago */}
+        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Dados do titular</div>
+        <div className="frow" style={{marginBottom:8}}>
           <div className="fg">
-            <label className="fl">CPF do titular</label>
+            <label className="fl">CPF *</label>
             <input className="fi" value={cpf} onChange={e=>{setCpf(formatCPF(e.target.value));setCpfErro("");}} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
             {cpfErro&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{cpfErro}</div>}
           </div>
           <div className="fg">
-            <label className="fl">Data de nascimento</label>
+            <label className="fl">Nascimento *</label>
             <input className="fi" type="date" value={nascimento} onChange={e=>setNascimento(e.target.value)}/>
+          </div>
+        </div>
+        <div className="frow" style={{marginBottom:10}}>
+          <div className="fg" style={{flex:"0 0 150px"}}>
+            <label className="fl">CEP *</label>
+            <input className="fi" value={cep} onChange={e=>setCep(formatCEP(e.target.value))} placeholder="00000-000" inputMode="numeric" maxLength={9}/>
+          </div>
+          <div className="fg">
+            <label className="fl">Número *</label>
+            <input className="fi" value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Ex: 142"/>
           </div>
         </div>
 
@@ -2752,7 +2774,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const [processandoPerfil, setProcessandoPerfil] = useState(false);
   const [pixDataPerfil, setPixDataPerfil] = useState(null);
   const [pixPollingPerfil, setPixPollingPerfil] = useState(false);
-  const [pixTrigger, setPixTrigger] = useState(0); // contador — força re-disparo mesmo se stepPerfil já era "pix"
+  const [pixTrigger, setPixTrigger] = useState(0);
+  const [cpfPerfil, setCpfPerfil] = useState("");
+  const [nascimentoPerfil, setNascimentoPerfil] = useState("");
+  const [cepPerfil, setCepPerfil] = useState("");
+  const [numeroPerfil, setNumeroPerfil] = useState(""); // contador — força re-disparo mesmo se stepPerfil já era "pix"
   const [brickKeyPerfil, setBrickKeyPerfil] = useState(0);
   const brickRefPerfil = useRef(null); // ref para destruir instância anterior do Brick no perfil
 
@@ -2867,6 +2893,15 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 setPagErro("Cartão não tokenizado. Preencha todos os dados do cartão e tente novamente.");
                 throw new Error("token ausente");
               }
+              // Valida dados do titular (antifraude MP)
+              if (!validarCPF(cpfPerfil)) {
+                setPagErro("CPF do titular inválido. Preencha o CPF corretamente acima.");
+                throw new Error("cpf inválido");
+              }
+              if (cepPerfil.replace(/\D/g,"").length !== 8 || !numeroPerfil.trim()) {
+                setPagErro("Preencha CEP e número do titular acima.");
+                throw new Error("endereço incompleto");
+              }
 
               let authToken = "";
               try {
@@ -2889,6 +2924,8 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               const cardFirstP = namePartsP[0] || "";
               const cardLastP  = namePartsP.slice(1).join(" ") || "";
 
+              const _cpfNumP = cpfPerfil.replace(/\D/g, "");
+              const _telDigP = (perfil?.whatsapp || "").replace(/\D/g, "");
               const bodyPayload = {
                 token: fd.token,
                 plano: planoPerfilSel,
@@ -2901,7 +2938,10 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                   email:      user?.email || fd.payer?.email || "",
                   first_name: cardFirstP || user?.user_metadata?.nome      || perfil?.nome      || fd.payer?.firstName || fd.payer?.first_name || "",
                   last_name:  cardLastP  || user?.user_metadata?.sobrenome  || perfil?.sobrenome  || fd.payer?.lastName  || fd.payer?.last_name  || "",
-                  identification: fd.payer?.identification || {},
+                  identification: { type: "CPF", number: _cpfNumP || (fd.payer?.identification?.number || "") },
+                  date_of_birth: nascimentoPerfil || undefined,
+                  phone: _telDigP.length >= 10 ? { area_code: _telDigP.slice(0,2), number: _telDigP.slice(2) } : undefined,
+                  ...(cepPerfil ? { address: { zip_code: cepPerfil.replace(/\D/g,""), street_number: numeroPerfil || "S/N" } } : {}),
                 },
               };
 
@@ -3064,12 +3104,42 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
         <div>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
             <button onClick={()=>setStepPerfil("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontFamily:"var(--f)",fontSize:12,fontWeight:600}}>← Voltar</button>
-            <div style={{fontSize:13,fontWeight:700,color:"var(--g)"}}>{planoPerfilSel==="anual"?`Anual · ${PRECO_ANUAL_CARTAO} em 10x`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
+            <div style={{flex:1,textAlign:"center",fontSize:13,fontWeight:800,color:"var(--gr5)"}}>Pagamento com cartão</div>
+          </div>
+          {/* Resumo */}
+          <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:13,fontWeight:700,color:"#15803d"}}>{planoPerfilSel==="anual"?"Plano Anual":"Plano Mensal"}</span>
+              <span style={{fontSize:16,fontWeight:800,color:"#15803d"}}>{planoPerfilSel==="anual"?PRECO_ANUAL_CARTAO:PRECO_MENSAL}</span>
+            </div>
+            {planoPerfilSel==="anual"&&<div style={{fontSize:11,color:"#059669",marginTop:2}}>10x de {PRECO_ANUAL_PARCELA} sem juros</div>}
+          </div>
+          {/* Dados antifraude */}
+          <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Dados do titular</div>
+          <div className="frow" style={{marginBottom:8}}>
+            <div className="fg">
+              <label className="fl">CPF *</label>
+              <input className="fi" value={cpfPerfil} onChange={e=>setCpfPerfil(formatCPF(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
+            </div>
+            <div className="fg">
+              <label className="fl">Nascimento *</label>
+              <input className="fi" type="date" value={nascimentoPerfil} onChange={e=>setNascimentoPerfil(e.target.value)}/>
+            </div>
+          </div>
+          <div className="frow" style={{marginBottom:12}}>
+            <div className="fg" style={{flex:"0 0 150px"}}>
+              <label className="fl">CEP *</label>
+              <input className="fi" value={cepPerfil} onChange={e=>setCepPerfil(formatCEP(e.target.value))} placeholder="00000-000" inputMode="numeric" maxLength={9}/>
+            </div>
+            <div className="fg">
+              <label className="fl">Número *</label>
+              <input className="fi" value={numeroPerfil} onChange={e=>setNumeroPerfil(e.target.value)} placeholder="Ex: 142"/>
+            </div>
           </div>
           {pagErro&&<div style={{background:"var(--rl)",color:"var(--r)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:10}}>⚠️ {pagErro}</div>}
           {processandoPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Processando...</div>}
           <div id="cardPayment-perfil"/>
-          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>Pagamento seguro via Mercado Pago</div>
+          <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>🔒 Pagamento seguro via Mercado Pago</div>
           <button onClick={()=>{setPixDataPerfil(null);setPixPollingPerfil(false);setPixTrigger(t=>t+1);setStepPerfil("pix");}} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",marginTop:8,width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
         </div>
       ) : stepPerfil === "pix" ? (
