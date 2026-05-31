@@ -57,7 +57,8 @@ serve(async (req) => {
     } catch (_) { /* não crítico */ }
 
     // ── 4. Valor de acordo com o plano ─────────────────────────────────────
-    const valor = String(plano) === "anual" ? 699.90 : 73.90;
+    // Anual: R$ 790,00 (cartão 10x R$ 79,00 sem juros) | Mensal: R$ 97,00
+    const valor = String(plano) === "anual" ? 790.00 : 97.00;
 
     // ── 5. Extrai dados do pagador ─────────────────────────────────────────
     const payerObj  = (payer && typeof payer === "object") ? payer as Record<string, unknown> : {};
