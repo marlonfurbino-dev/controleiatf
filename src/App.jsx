@@ -1189,7 +1189,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           ))}
         </div>
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
-          💡 {plano==="anual" ? <><strong>R$ 65,83 por protocolo</strong> — diluído no honorário, menos que os hormônios de uma vaca 💉</> : <><strong>Diluído no protocolo</strong> — menos de R$ 8,09 por atendimento 🐄</>}
+          💡 <strong>Se diluir o valor por animal, em todos os protocolos que você faz no ano, é mais barato do que qualquer hormônio.</strong> 💉
         </div>
         <button onClick={()=>setStep("dados")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
           <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#fff3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
