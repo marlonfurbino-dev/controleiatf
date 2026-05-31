@@ -477,60 +477,16 @@ function formatCEP(v) {
 function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setPerfil }) {
   const [erro, setErro] = useState("");
   const [plano, setPlano] = useState("anual");
-  const [step, setStep] = useState("planos"); // "planos" | "dados" | "pagamento" | "pix" | "pago"
+  const [step, setStep] = useState("planos"); // "planos" | "pagamento" | "pix" | "pago"
   const [processando, setProcessando] = useState(false);
   const [pixData, setPixData] = useState(null);
   const [pixPolling, setPixPolling] = useState(false);
   const [brickKey, setBrickKey] = useState(0);
   const brickRef = useRef(null);
-  const [payerData, setPayerData] = useState({
-    nome: perfil?.nome || "", sobrenome: perfil?.sobrenome || "",
-    cpf: "", nascimento: "",
-    email: user?.email || "",
-    telefone: perfil?.whatsapp || "",
-    cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "",
-  });
-  const [payerErrors, setPayerErrors] = useState({});
-  const [cepLoading, setCepLoading] = useState(false);
-  const setPD = (k, v) => setPayerData(x => ({...x, [k]: v}));
-
-  const buscarCEP = async (cep) => {
-    const digits = cep.replace(/\D/g, "");
-    if (digits.length !== 8) return;
-    setCepLoading(true);
-    try {
-      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      const d = await r.json();
-      if (!d.erro) {
-        setPayerData(x => ({...x, logradouro: d.logradouro||x.logradouro, bairro: d.bairro||x.bairro, cidade: d.localidade||x.cidade, uf: d.uf||x.uf}));
-      }
-    } catch(_) {} finally { setCepLoading(false); }
-  };
-
-  const validarDados = () => {
-    const errs = {};
-    if (!payerData.nome.trim()) errs.nome = "Campo obrigatório";
-    if (!payerData.sobrenome.trim()) errs.sobrenome = "Campo obrigatório";
-    const cpfDigits = payerData.cpf.replace(/\D/g, "");
-    if (!cpfDigits) errs.cpf = "Campo obrigatório";
-    else if (!validarCPF(payerData.cpf)) errs.cpf = "CPF inválido";
-    if (!payerData.nascimento) errs.nascimento = "Campo obrigatório";
-    if (!payerData.email.trim()) errs.email = "Campo obrigatório";
-    const telDigits = payerData.telefone.replace(/\D/g, "");
-    if (telDigits.length < 10) errs.telefone = "Telefone inválido";
-    const cepDigits = payerData.cep.replace(/\D/g, "");
-    if (cepDigits.length !== 8) errs.cep = "CEP inválido (8 dígitos)";
-    if (!payerData.logradouro.trim()) errs.logradouro = "Campo obrigatório";
-    if (!payerData.numero.trim()) errs.numero = "Campo obrigatório";
-    setPayerErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const prosseguirParaPagamento = (tipoPag) => {
-    if (!validarDados()) return;
-    setBrickKey(k => k + 1);
-    setStep(tipoPag || "pagamento");
-  };
+  // Apenas CPF e nascimento — o restante vem da conta do usuário ou do Brick
+  const [cpf, setCpf] = useState("");
+  const [nascimento, setNascimento] = useState("");
+  const [cpfErro, setCpfErro] = useState("");
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
@@ -618,18 +574,17 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       // Anual: R$ 790,00 (mesmo valor PIX e cartão) — 10x de R$ 79,00 sem juros
       const valor = plano === "anual" ? 790.00 : 97.00;
 
-      const _telDig = payerData.telefone.replace(/\D/g, "");
-      const _phoneInit = _telDig.length >= 10 ? { areaCode: _telDig.slice(0, 2), number: _telDig.slice(2) } : undefined;
-      const _cpfDigits = payerData.cpf.replace(/\D/g, "");
+      const _cpfDigits = cpf.replace(/\D/g, "");
+      const _waDig = (perfil?.whatsapp || "").replace(/\D/g, "");
       try { brickRef.current = await bricksBuilder.create("cardPayment", "cardPayment-container", {
         initialization: {
           amount: valor,
           payer: {
-            email: payerData.email || user?.email || "",
-            firstName: payerData.nome || "",
-            lastName: payerData.sobrenome || "",
-            identification: { type: "CPF", number: _cpfDigits },
-            ...(_phoneInit ? { phone: _phoneInit } : {}),
+            email: user?.email || "",
+            firstName: perfil?.nome || "",
+            lastName: perfil?.sobrenome || "",
+            ...(_cpfDigits ? { identification: { type: "CPF", number: _cpfDigits } } : {}),
+            ...(_waDig.length >= 10 ? { phone: { areaCode: _waDig.slice(0,2), number: _waDig.slice(2) } } : {}),
           },
         },
         customization: {
@@ -687,30 +642,23 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               const cardFirst = nameParts[0] || "";
               const cardLast  = nameParts.slice(1).join(" ") || "";
 
-              const _cpfNum = payerData.cpf.replace(/\D/g, "");
+              const _cpfNum = cpf.replace(/\D/g, "");
+              const telDig = (perfil?.whatsapp || "").replace(/\D/g, "");
               const payload = {
                 token: fd.token,
                 plano,
-                email:  payerData.email || user?.email,
+                email:  user?.email,
                 userId: user?.id,
                 installments:      Number(fd.installments) || 1,
                 payment_method_id: payMethodId,
                 issuer_id: issuerId != null ? String(issuerId) : undefined,
                 payer: {
-                  email:      payerData.email || user?.email || fd.payer?.email || "",
-                  first_name: cardFirst || payerData.nome || "",
-                  last_name:  cardLast  || payerData.sobrenome || "",
+                  email:      user?.email || fd.payer?.email || "",
+                  first_name: cardFirst || perfil?.nome || "",
+                  last_name:  cardLast  || perfil?.sobrenome || "",
                   identification: { type: "CPF", number: _cpfNum || (fd.payer?.identification?.number || "") },
-                  date_of_birth: payerData.nascimento || undefined,
-                  phone: (() => { const d = payerData.telefone.replace(/\D/g,""); return d.length >= 10 ? { area_code: d.slice(0,2), number: d.slice(2) } : undefined; })(),
-                  address: payerData.cep ? {
-                    zip_code:      payerData.cep.replace(/\D/g,""),
-                    street_name:   payerData.logradouro,
-                    street_number: payerData.numero,
-                    neighborhood:  payerData.bairro,
-                    city:          payerData.cidade,
-                    federal_unit:  payerData.uf,
-                  } : undefined,
+                  date_of_birth: nascimento || undefined,
+                  phone: telDig.length >= 10 ? { area_code: telDig.slice(0,2), number: telDig.slice(2) } : undefined,
                 },
               };
 
@@ -772,12 +720,18 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               }
 
               // ── Pagamento criado no MP — verifica se foi aprovado ──
-              const okStatus = ["approved", "authorized", "in_process", "pending"];
+              // Só libera acesso em pagamentos efetivamente aprovados/autorizados
+              // in_process/pending = análise — NÃO concede acesso ainda
+              const okStatus = ["approved", "authorized"];
+              const analiseStatus = ["in_process", "pending"];
               if (okStatus.includes(result?.status)) {
                 await supabase.from("perfis").update({ assinante: true, plano }).eq("id", user?.id);
                 if (setPerfil) setPerfil(x => ({ ...x, assinante: true, plano }));
                 setStep("pago");
-                // Sucesso: retorna sem lançar erro — o Brick resolve a Promise implicitamente
+              } else if (analiseStatus.includes(result?.status)) {
+                // Pagamento em análise: informa mas NÃO libera acesso
+                setErro("Pagamento em análise pelo Mercado Pago. Você receberá a confirmação em breve. Acesso liberado automaticamente após aprovação.");
+                throw new Error("em_analise");
               } else {
                 const msg = decodeMPPaymentStatus(result);
                 setErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
@@ -847,29 +801,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     return () => clearTimeout(wd);
   }, [processando]);
 
-  // Step indicator: 1.Dados → 2.Pagamento → 3.Confirmação
-  const StepBar = ({current}) => {
-    const steps = ["1. Dados","2. Pagamento","3. Confirmação"];
-    const idx = {dados:0, pagamento:1, pix:1, pago:2};
-    const cur = idx[current] ?? 0;
-    return (
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:0,marginBottom:20,width:"100%",maxWidth:320}}>
-        {steps.map((s,i) => (
-          <div key={s} style={{display:"flex",alignItems:"center",flex:i<steps.length-1?1:"none"}}>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-              <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,
-                background:i<cur?"#22c55e":i===cur?"#fff":"rgba(255,255,255,0.15)",
-                color:i<cur?"#fff":i===cur?"#15803d":"rgba(255,255,255,0.4)"}}>
-                {i<cur?"✓":i+1}
-              </div>
-              <span style={{fontSize:10,fontWeight:600,color:i<=cur?"rgba(255,255,255,0.85)":"rgba(255,255,255,0.35)",whiteSpace:"nowrap"}}>{s}</span>
-            </div>
-            {i<steps.length-1&&<div style={{height:2,flex:1,background:i<cur?"rgba(34,197,94,0.6)":"rgba(255,255,255,0.15)",margin:"0 4px",marginBottom:16}}/>}
-          </div>
-        ))}
-      </div>
-    );
-  };
+  // (StepBar removido — fluxo simplificado: planos → pagamento/pix → pago)
 
   // Logos de bandeiras aceitas
   const CardLogos = () => (
@@ -896,128 +828,6 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     </div>
   );
 
-  // Tela de coleta de dados do titular
-  if (step === "dados") return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
-      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
-      <StepBar current="dados"/>
-      <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:440,marginBottom:24}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
-          <button onClick={()=>setStep("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
-          <div style={{flex:1,textAlign:"center",fontSize:16,fontWeight:800,color:"var(--gr5)"}}>Dados do Titular</div>
-        </div>
-
-        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.6,marginBottom:10}}>Dados Pessoais</div>
-        <div className="frow">
-          <div className="fg">
-            <label className="fl">Nome *</label>
-            <input className="fi" value={payerData.nome} onChange={e=>setPD("nome",e.target.value)} placeholder="Nome"/>
-            {payerErrors.nome&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.nome}</div>}
-          </div>
-          <div className="fg">
-            <label className="fl">Sobrenome *</label>
-            <input className="fi" value={payerData.sobrenome} onChange={e=>setPD("sobrenome",e.target.value)} placeholder="Sobrenome"/>
-            {payerErrors.sobrenome&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.sobrenome}</div>}
-          </div>
-        </div>
-        <div className="frow">
-          <div className="fg">
-            <label className="fl">CPF *</label>
-            <input className="fi" value={payerData.cpf} onChange={e=>setPD("cpf",formatCPF(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
-            {payerErrors.cpf&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.cpf}</div>}
-          </div>
-          <div className="fg">
-            <label className="fl">Nascimento *</label>
-            <input className="fi" type="date" value={payerData.nascimento} onChange={e=>setPD("nascimento",e.target.value)}/>
-            {payerErrors.nascimento&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.nascimento}</div>}
-          </div>
-        </div>
-        <div className="fg">
-          <label className="fl">E-mail *</label>
-          <input className="fi" type="email" value={payerData.email} onChange={e=>setPD("email",e.target.value)} placeholder="seu@email.com"/>
-          {payerErrors.email&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.email}</div>}
-        </div>
-        <div className="fg">
-          <label className="fl">Telefone celular *</label>
-          <input className="fi" type="tel" inputMode="numeric" value={payerData.telefone} onChange={e=>setPD("telefone",formatPhone(e.target.value))} placeholder="(31) 99999-9999" maxLength={15}/>
-          {payerErrors.telefone&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.telefone}</div>}
-        </div>
-
-        <div style={{height:1,background:"var(--gr2)",margin:"16px 0"}}/>
-        <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.6,marginBottom:10}}>Endereço de Cobrança</div>
-
-        <div className="frow">
-          <div className="fg" style={{flex:"0 0 140px"}}>
-            <label className="fl">CEP *</label>
-            <div style={{position:"relative"}}>
-              <input className="fi" value={payerData.cep} onChange={e=>{const v=formatCEP(e.target.value);setPD("cep",v);if(v.replace(/\D/g,"").length===8)buscarCEP(v);}} placeholder="00000-000" inputMode="numeric" maxLength={9}/>
-              {cepLoading&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",color:"var(--g)",fontSize:11}}>...</span>}
-            </div>
-            {payerErrors.cep&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.cep}</div>}
-          </div>
-          <div className="fg">
-            <label className="fl">Número *</label>
-            <input className="fi" value={payerData.numero} onChange={e=>setPD("numero",e.target.value)} placeholder="Nº"/>
-            {payerErrors.numero&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.numero}</div>}
-          </div>
-        </div>
-        <div className="fg">
-          <label className="fl">Rua / Logradouro *</label>
-          <input className="fi" value={payerData.logradouro} onChange={e=>setPD("logradouro",e.target.value)} placeholder="Nome da rua"/>
-          {payerErrors.logradouro&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{payerErrors.logradouro}</div>}
-        </div>
-        <div className="frow">
-          <div className="fg">
-            <label className="fl">Bairro</label>
-            <input className="fi" value={payerData.bairro} onChange={e=>setPD("bairro",e.target.value)} placeholder="Bairro"/>
-          </div>
-          <div className="fg">
-            <label className="fl">Complemento</label>
-            <input className="fi" value={payerData.complemento} onChange={e=>setPD("complemento",e.target.value)} placeholder="Apto, sala..."/>
-          </div>
-        </div>
-        <div className="frow">
-          <div className="fg">
-            <label className="fl">Cidade</label>
-            <input className="fi" value={payerData.cidade} onChange={e=>setPD("cidade",e.target.value)} placeholder="Cidade"/>
-          </div>
-          <div className="fg" style={{flex:"0 0 80px"}}>
-            <label className="fl">UF</label>
-            <input className="fi" value={payerData.uf} onChange={e=>setPD("uf",e.target.value.toUpperCase().slice(0,2))} placeholder="MG" maxLength={2}/>
-          </div>
-        </div>
-
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,marginTop:8,marginBottom:14}}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span style={{fontSize:12,color:"#16a34a",fontWeight:600}}>Seus dados são criptografados e protegidos</span>
-        </div>
-
-        <div style={{background:"#f8fafb",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
-          <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:.4}}>Resumo do pedido</div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>Controle IATF · {plano==="anual"?"Plano Anual":"Plano Mensal"}</span>
-            <span style={{fontWeight:800,fontSize:17,color:"#16a34a"}}>{plano==="anual"?PRECO_ANUAL_PIX:PRECO_MENSAL}</span>
-          </div>
-          <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>
-            {plano==="anual"
-              ?`${PRECO_ANUAL_PIX} à vista no PIX · ou ${PRECO_ANUAL_CARTAO} em 10x no cartão`
-              :"renovação mensal automática no cartão"}
-          </div>
-        </div>
-
-        <button onClick={()=>prosseguirParaPagamento("pagamento")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#009ee3",color:"#fff",borderRadius:12,padding:"16px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10,boxShadow:"0 4px 12px rgba(0,158,227,0.35)"}}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-          {plano==="anual"?`Cartão · ${PRECO_ANUAL_CARTAO} em 10x`:`Pagar com cartão · ${PRECO_MENSAL}`}
-        </button>
-        <button onClick={()=>prosseguirParaPagamento("pix")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,padding:"13px",background:"rgba(0,137,123,.07)",borderRadius:12,border:"1px solid rgba(0,137,123,.25)",width:"100%",cursor:"pointer",marginBottom:14}}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00897B" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          {plano==="anual"?`PIX à vista · ${PRECO_ANUAL_PIX}`:"Pagar com PIX"}
-        </button>
-        <MPBadge/>
-      </div>
-    </div>
-  );
 
   // Tela de sucesso
   if (step === "pago") return (
@@ -1044,11 +854,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     return (
       <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
         <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
-        <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_ANO}`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
-        <StepBar current="pix"/>
         <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420,marginBottom:24}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-            <button onClick={()=>{setStep("dados");setPixData(null);setPixPolling(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
+            <button onClick={()=>{setStep("planos");setPixData(null);setPixPolling(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
             <div style={{flex:1,textAlign:"center",fontSize:15,fontWeight:800,color:"#1e293b"}}>Pagar com PIX</div>
           </div>
 
@@ -1094,21 +902,32 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   if (step === "pagamento") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
       <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
-      <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:16}}>Plano {plano==="anual"?`Anual · ${PRECO_ANUAL_CARTAO} (10x)`:`Mensal · ${PRECO_MENSAL}/mês`}</div>
-      <StepBar current="pagamento"/>
       <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420,marginBottom:24}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-          <button onClick={()=>setStep("dados")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
-          <div style={{flex:1,textAlign:"center",fontSize:15,fontWeight:800,color:"#1e293b"}}>Dados do Cartão</div>
+          <button onClick={()=>setStep("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
+          <div style={{flex:1,textAlign:"center",fontSize:15,fontWeight:800,color:"#1e293b"}}>Pagamento com cartão</div>
         </div>
 
         {/* Resumo do valor */}
         <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:13,fontWeight:700,color:"#15803d"}}>Total a pagar</span>
+            <span style={{fontSize:13,fontWeight:700,color:"#15803d"}}>{plano==="anual"?"Plano Anual":"Plano Mensal"}</span>
             <span style={{fontSize:18,fontWeight:800,color:"#15803d"}}>{plano==="anual"?PRECO_ANUAL_CARTAO:PRECO_MENSAL}</span>
           </div>
-          {plano==="anual"&&<div style={{fontSize:11,color:"#059669",marginTop:2}}>10x de {PRECO_ANUAL_PARCELA} sem juros no cartão</div>}
+          {plano==="anual"&&<div style={{fontSize:11,color:"#059669",marginTop:2}}>10x de {PRECO_ANUAL_PARCELA} sem juros · sem cobrança adicional</div>}
+        </div>
+
+        {/* CPF e nascimento — necessários para antifraude do Mercado Pago */}
+        <div className="frow" style={{marginBottom:4}}>
+          <div className="fg">
+            <label className="fl">CPF do titular</label>
+            <input className="fi" value={cpf} onChange={e=>{setCpf(formatCPF(e.target.value));setCpfErro("");}} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
+            {cpfErro&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{cpfErro}</div>}
+          </div>
+          <div className="fg">
+            <label className="fl">Data de nascimento</label>
+            <input className="fi" type="date" value={nascimento} onChange={e=>setNascimento(e.target.value)}/>
+          </div>
         </div>
 
         {/* Logos das bandeiras */}
@@ -1191,12 +1010,13 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
         <div style={{fontSize:12,color:"var(--gr4)",background:"var(--gr1)",borderRadius:8,padding:"8px 12px",marginBottom:16}}>
           💡 <strong>Se diluir o valor por animal, em todos os protocolos que você faz no ano, é mais barato do que qualquer hormônio.</strong> 💉
         </div>
-        <button onClick={()=>setStep("dados")} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
-          <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="8" fill="#fff3"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="22" fontWeight="bold">MP</text></svg>
-          {plano==="anual"?`Assinar por ${PRECO_ANUAL_PIX} (PIX) ou 10x de ${PRECO_ANUAL_PARCELA}`:`Assinar por ${PRECO_MENSAL}/mês`}
+        <button onClick={()=>{setBrickKey(k=>k+1);setStep("pagamento");}} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"#009ee3",color:"#fff",borderRadius:12,padding:"15px 20px",fontFamily:"var(--f)",fontSize:15,fontWeight:700,border:"none",cursor:"pointer",width:"100%",marginBottom:10}}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          {plano==="anual"?`Pagar com cartão · ${PRECO_ANUAL_CARTAO} em 10x`:`Pagar com cartão · ${PRECO_MENSAL}`}
         </button>
-        <button onClick={()=>setStep("dados")}
+        <button onClick={()=>setStep("pix")}
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,marginBottom:16,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00897B" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           {plano==="anual"?`PIX à vista · ${PRECO_ANUAL_PIX}`:"Pagar com PIX"}
         </button>
         <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginBottom:16}}>🔒 Pagamento seguro · PIX ou cartão de crédito</div>
@@ -3130,11 +2950,15 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 throw new Error(msg);
               }
 
-              const okStatus = ["approved", "authorized", "in_process", "pending"];
+              const okStatus = ["approved", "authorized"];
+              const analiseStatus = ["in_process", "pending"];
               if (okStatus.includes(result?.status)) {
                 await supabase.from("perfis").update({ assinante: true, plano: planoPerfilSel }).eq("id", user?.id);
                 setPerfil(x => ({ ...x, assinante: true, plano: planoPerfilSel }));
                 setStepPerfil("pago");
+              } else if (analiseStatus.includes(result?.status)) {
+                setPagErro("Pagamento em análise pelo Mercado Pago. Você receberá a confirmação em breve. Acesso liberado automaticamente após aprovação.");
+                throw new Error("em_analise");
               } else {
                 const msg = decodeMPPaymentStatus(result);
                 setPagErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));

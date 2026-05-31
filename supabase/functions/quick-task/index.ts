@@ -210,7 +210,7 @@ serve(async (req) => {
 
     // ── 8. Persiste aprovação no Supabase ──────────────────────────────────
     const statusStr = String(mpData?.status ?? "");
-    if (["approved", "authorized", "in_process", "pending"].includes(statusStr)) {
+    if (["approved", "authorized"].includes(statusStr)) {
       try {
         const supabase = createClient(
           Deno.env.get("SUPABASE_URL") ?? "",
