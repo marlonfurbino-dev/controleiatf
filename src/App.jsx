@@ -493,21 +493,19 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
     : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
 
-  // Gera PIX
+  // Gera PIX — usa anon key como Authorization (JWT do usuário pode estar expirado
+  // e o 401 sem CORS causaria "load failed"; anon key é sempre válida)
   const handlePix = async () => {
     setProcessando(true);
     setErro("");
     try {
-      // Força refresh do token antes de chamar a função
-      const { data: { session } } = await supabase.auth.getSession();
-      let token = session?.access_token || "";
-      if (!token) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        token = refreshed.session?.access_token || "";
-      }
       const res = await fetch(EDGE_PIX_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "apikey": SUPABASE_KEY,
+        },
         body: JSON.stringify({ plano, email: user?.email, userId: user?.id }),
       });
       const data = await res.json();
@@ -2765,16 +2763,13 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     setProcessandoPerfil(true);
     setPagErro("");
     try {
-      // Força refresh do token antes de chamar a função
-      const { data: { session } } = await supabase.auth.getSession();
-      let token = session?.access_token || "";
-      if (!token) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        token = refreshed.session?.access_token || "";
-      }
       const res = await fetch(EDGE_PIX_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "apikey": SUPABASE_KEY,
+        },
         body: JSON.stringify({ plano: planoPerfilSel, email: user?.email, userId: user?.id }),
       });
       const data = await res.json();
