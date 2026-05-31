@@ -487,6 +487,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   const [cpf, setCpf] = useState("");
   const [nascimento, setNascimento] = useState("");
   const [cpfErro, setCpfErro] = useState("");
+  const [pixTriggerPaywall, setPixTriggerPaywall] = useState(0);
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
@@ -541,10 +542,10 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     return () => clearInterval(interval);
   }, [pixPolling, pixData]);
 
-  // Auto-dispara PIX ao entrar no step "pix"
+  // Auto-dispara PIX — pixTriggerPaywall garante re-disparo mesmo se step já era "pix"
   useEffect(() => {
-    if (step === "pix" && !pixData && !processando) handlePix();
-  }, [step]);
+    if (step === "pix" && !processando) handlePix();
+  }, [step, pixTriggerPaywall]);
 
   // Inicializa o Brick de pagamento
   useEffect(() => {
@@ -1014,7 +1015,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
           {plano==="anual"?`Pagar com cartão · ${PRECO_ANUAL_CARTAO} em 10x`:`Pagar com cartão · ${PRECO_MENSAL}`}
         </button>
-        <button onClick={()=>setStep("pix")}
+        <button onClick={()=>{setPixData(null);setPixPolling(false);setPixTriggerPaywall(t=>t+1);setStep("pix");}}
           style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:13,color:"#00897B",fontWeight:700,marginBottom:16,padding:"12px",background:"rgba(0,137,123,.08)",borderRadius:12,border:"1px solid rgba(0,137,123,.2)",width:"100%",cursor:"pointer"}}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00897B" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           {plano==="anual"?`PIX à vista · ${PRECO_ANUAL_PIX}`:"Pagar com PIX"}
@@ -2750,6 +2751,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const [processandoPerfil, setProcessandoPerfil] = useState(false);
   const [pixDataPerfil, setPixDataPerfil] = useState(null);
   const [pixPollingPerfil, setPixPollingPerfil] = useState(false);
+  const [pixTrigger, setPixTrigger] = useState(0); // contador — força re-disparo mesmo se stepPerfil já era "pix"
   const [brickKeyPerfil, setBrickKeyPerfil] = useState(0);
   const brickRefPerfil = useRef(null); // ref para destruir instância anterior do Brick no perfil
 
@@ -2776,8 +2778,8 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   };
 
   useEffect(() => {
-    if (stepPerfil === "pix" && !pixDataPerfil && !processandoPerfil) handlePerfilPix();
-  }, [stepPerfil]);
+    if (stepPerfil === "pix" && !processandoPerfil) handlePerfilPix();
+  }, [stepPerfil, pixTrigger]);
 
   useEffect(() => {
     if (!pixPollingPerfil || !pixDataPerfil?.payment_id) return;
@@ -3066,7 +3068,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           {processandoPerfil&&<div style={{textAlign:"center",padding:"12px",color:"var(--g)",fontWeight:600,fontSize:13}}>Processando...</div>}
           <div id="cardPayment-perfil"/>
           <div style={{textAlign:"center",fontSize:11,color:"var(--gr4)",marginTop:8}}>Pagamento seguro via Mercado Pago</div>
-          <button onClick={()=>{setPixDataPerfil(null);setPixPollingPerfil(false);setStepPerfil("pix");}} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",marginTop:8,width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
+          <button onClick={()=>{setPixDataPerfil(null);setPixPollingPerfil(false);setPixTrigger(t=>t+1);setStepPerfil("pix");}} style={{display:"block",textAlign:"center",fontSize:12,color:"#00897B",fontWeight:700,padding:"10px",background:"rgba(0,137,123,.08)",borderRadius:8,border:"1px solid rgba(0,137,123,.2)",marginTop:8,width:"100%",cursor:"pointer"}}>Pagar com PIX</button>
         </div>
       ) : stepPerfil === "pix" ? (
         <div style={{padding:"8px 0"}}>
