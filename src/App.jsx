@@ -493,20 +493,16 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
     : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
 
-  // Gera PIX
+  // Gera PIX — usa supabase.functions.invoke para evitar "load failed" por CORS/JWT
   const handlePix = async () => {
     setProcessando(true);
     setErro("");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const authToken = session?.access_token || "";
-      const res = await fetch(EDGE_PIX_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
-        body: JSON.stringify({ plano, email: user?.email, userId: user?.id }),
+      const { data, error } = await supabase.functions.invoke("criar-pix", {
+        body: { plano, email: user?.email, userId: user?.id },
       });
-      const data = await res.json();
-      if (!res.ok) { setErro("Erro ao gerar PIX: " + (data.error || "tente novamente")); return; }
+      if (error) { setErro("Erro ao gerar PIX: " + (error.message || "tente novamente")); return; }
+      if (!data?.qr_code) { setErro("QR Code não retornado. Tente novamente."); return; }
       setPixData(data);
       setPixPolling(true);
     } catch(e) {
@@ -2759,15 +2755,11 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     setProcessandoPerfil(true);
     setPagErro("");
     try {
-      const {data:{session}} = await supabase.auth.getSession();
-      const authToken = session?.access_token || "";
-      const res = await fetch(EDGE_PIX_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
-        body: JSON.stringify({ plano: planoPerfilSel, email: user?.email, userId: user?.id }),
+      const { data, error } = await supabase.functions.invoke("criar-pix", {
+        body: { plano: planoPerfilSel, email: user?.email, userId: user?.id },
       });
-      const data = await res.json();
-      if (!res.ok) { setPagErro("Erro ao gerar PIX: " + (data.error || "tente novamente")); return; }
+      if (error) { setPagErro("Erro ao gerar PIX: " + (error.message || "tente novamente")); return; }
+      if (!data?.qr_code) { setPagErro("QR Code não retornado. Tente novamente."); return; }
       setPixDataPerfil(data);
       setPixPollingPerfil(true);
     } catch(e) {
