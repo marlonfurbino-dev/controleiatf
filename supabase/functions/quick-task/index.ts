@@ -27,9 +27,42 @@ serve(async (req) => {
 
     const { token, plano, email, userId, installments, payment_method_id, issuer_id, payer } = body as Record<string, unknown>;
 
-    // ── 2. Validação de entradas ───────────────────────────────────────────
+    if (!userId) return resp({ error: "Campo obrigatório ausente: userId." }, 400);
+
+    // ── PIX: rota separada quando payment_method_id === "pix" ──────────────
+    if (String(payment_method_id) === "pix") {
+      const mpToken = Deno.env.get("MP_ACCESS_TOKEN");
+      if (!mpToken) return resp({ error: "MP_ACCESS_TOKEN não configurado." }, 500);
+      const valor = String(plano) === "anual" ? 790.00 : 97.00;
+      const pixPayload = {
+        transaction_amount: valor,
+        description: String(plano) === "anual" ? "Controle IATF – Plano Anual" : "Controle IATF – Plano Mensal",
+        payment_method_id: "pix",
+        payer: { email: String(email || "") },
+        external_reference: String(userId),
+      };
+      console.log("[quick-task] PIX plano=%s valor=%s userId=%s", plano, valor, userId);
+      const pixRes = await fetch("https://api.mercadopago.com/v1/payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${mpToken}`,
+          "X-Idempotency-Key": `pix-${userId}-${Date.now()}`,
+        },
+        body: JSON.stringify(pixPayload),
+      });
+      const pixData = await pixRes.json().catch(() => ({}));
+      console.log("[quick-task] PIX MP http=%s status=%s id=%s", pixRes.status, pixData?.status, pixData?.id);
+      if (!pixRes.ok) return resp({ error: "Erro ao criar PIX: " + (pixData?.message || pixRes.status) }, 400);
+      const txData = pixData?.point_of_interaction?.transaction_data;
+      const qr_code = txData?.qr_code || "";
+      const qr_code_base64 = txData?.qr_code_base64 || "";
+      if (!qr_code) return resp({ error: "QR Code não retornado pelo Mercado Pago." }, 500);
+      return resp({ payment_id: pixData.id, qr_code, qr_code_base64, status: pixData.status });
+    }
+
+    // ── 2. Validação cartão ────────────────────────────────────────────────
     if (!token)             return resp({ error: "Campo obrigatório ausente: token. O cartão não foi tokenizado." }, 400);
-    if (!userId)            return resp({ error: "Campo obrigatório ausente: userId." }, 400);
     if (!payment_method_id) return resp({ error: "Campo obrigatório ausente: payment_method_id." }, 400);
 
     // ── 3. Credencial do MP ────────────────────────────────────────────────

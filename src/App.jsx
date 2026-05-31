@@ -385,7 +385,7 @@ const MP_PUBLIC_KEY = "APP_USR-a18e7639-8d8e-4631-af31-d214b0c38cc8";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 const EDGE_PAGAMENTO_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
 const EDGE_ASSINATURA_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-assinatura";
-const EDGE_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-pix";
+const EDGE_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
 const EDGE_CHECK_PIX_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/check-pix";
 
 function diasRestantesTrial(createdAt) {
@@ -493,20 +493,17 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
     : `Olá! Quero assinar o Controle IATF no plano Mensal por ${PRECO_MENSAL}/mês.`;
 
-  // Gera PIX — usa anon key como Authorization (JWT do usuário pode estar expirado
-  // e o 401 sem CORS causaria "load failed"; anon key é sempre válida)
+  // Gera PIX via quick-task (mesma função do cartão, rota PIX interna)
   const handlePix = async () => {
     setProcessando(true);
     setErro("");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || "";
       const res = await fetch(EDGE_PIX_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SUPABASE_KEY}`,
-          "apikey": SUPABASE_KEY,
-        },
-        body: JSON.stringify({ plano, email: user?.email, userId: user?.id }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body: JSON.stringify({ payment_method_id: "pix", plano, email: user?.email, userId: user?.id }),
       });
       const data = await res.json();
       if (!res.ok) { setErro("Erro ao gerar PIX: " + (data.error || "tente novamente")); return; }
@@ -2763,14 +2760,12 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     setProcessandoPerfil(true);
     setPagErro("");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || "";
       const res = await fetch(EDGE_PIX_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SUPABASE_KEY}`,
-          "apikey": SUPABASE_KEY,
-        },
-        body: JSON.stringify({ plano: planoPerfilSel, email: user?.email, userId: user?.id }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body: JSON.stringify({ payment_method_id: "pix", plano: planoPerfilSel, email: user?.email, userId: user?.id }),
       });
       const data = await res.json();
       if (!res.ok) { setPagErro("Erro ao gerar PIX: " + (data.error || "tente novamente")); return; }
