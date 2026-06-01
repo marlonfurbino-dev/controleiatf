@@ -35,10 +35,11 @@ quick-task.txt
 criar-assinatura.txt
 mp diagnostico.txt
 
-# Assets de logo soltos na raiz (origem para gerar ícones)
-logo_full_1024.png
-logo_symbol_1024.png
-logo login.jpeg
+# Assets de logo soltos na raiz (origem para gerar ícones) — só na raiz, não em public/
+/logo_full_1024.png
+/logo_symbol_1024.png
+/logo login.jpeg
+/logo_sem_fundo.png
 
 # Arquivo de config sem extensão (lixo)
 vite.config
