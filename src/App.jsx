@@ -1122,7 +1122,7 @@ function AuthScreen({ onAuth }) {
 
   return (
     <div className="auth-screen">
-      <img src="/icon-512.png" alt="Controle IATF" className="auth-logo-img"/>
+      <img src="/logo-login.jpeg" alt="Controle IATF" className="auth-logo-img"/>
       <div className="auth-sub">controleiatf.com.br</div>
 
       <div className="auth-card">
@@ -1210,7 +1210,7 @@ function LockScreen({ user, onUnlock }) {
 
   return (
     <div className="auth-screen">
-      <img src="/icon-512.png" alt="Controle IATF" className="auth-logo-img"/>
+      <img src="/logo-login.jpeg" alt="Controle IATF" className="auth-logo-img"/>
       <div className="auth-sub">controleiatf.com.br</div>
       <div className="auth-card">
         <div className="auth-title">🔒 Sessão bloqueada</div>
