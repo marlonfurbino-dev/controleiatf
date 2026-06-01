@@ -1725,13 +1725,14 @@ export default function App() {
     const pr = as.filter(a=>a.diagnostico==="P").length;
     const di = as.filter(a=>a.diagnostico).length;
     const tx = di>0?Math.round(pr/di*100):0;
+    const temDG = di > 0; // já houve diagnóstico? Se não, é relatório pós-IA
     // Cabeçalho com todas as datas do protocolo
     const n=parseInt(p?.passagens||"3");
     let crono=`D0: ${fmtDH(p?.d0,p?.h0)}`;
     if(n>=3) crono+=` | D8: ${fmtDH(p?.d8,p?.h8)}`;
     if(n>=4) crono+=` | D10: ${fmtDH(p?.d10,p?.h10)}`;
     crono+=` | IA: ${fmtDH(p?.ia,p?.hia)}`;
-    let t=`🐄 *RELATÓRIO VETERINÁRIO — IATF*
+    let t=`🐄 *RELATÓRIO ${temDG?"VETERINÁRIO — IATF":"DE INSEMINAÇÃO — IATF"}*
 `;
     t+=`🏡 *${f?.nome||"—"}*
 `;
@@ -1745,7 +1746,8 @@ export default function App() {
 `;
     if(p?.medicamento) t+=`💊 Protocolo: ${p.medicamento}
 `;
-    if(p?.ia){
+    // DG e parto previstos só aparecem DEPOIS do diagnóstico
+    if(temDG && p?.ia){
       const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
       const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
       t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
@@ -1757,24 +1759,33 @@ export default function App() {
 ━━━━━━━━━
 📊 *RESUMO*
 `;
-    t+=`• Total: ${as.length} vacas
+    if(temDG){
+      t+=`• Total: ${as.length} vacas
 `;
-    t+=`• Prenhas (P+): ${pr}
+      t+=`• Prenhas (P+): ${pr}
 `;
-    t+=`• Vazias (V−): ${di-pr}
+      t+=`• Vazias (V−): ${di-pr}
 `;
-    t+=`• *Taxa de prenhez: ${tx}%*
+      t+=`• *Taxa de prenhez: ${tx}%*
 `;
+    } else {
+      t+=`• Total inseminadas: ${as.length} vacas
+`;
+    }
     if(as.length>0){
       t+=`
 ━━━━━━━━━
 📋 *INDIVIDUAL*
 `;
       as.forEach(a=>{
-        const st=a.diagnostico==="P"?"✅ Prenha":a.diagnostico==="V"?"❌ Vazia":"⏳ Pendente";
         const diasP=calcDiasParida(a.dataUltimoParto);
         const cat=a.novilha?"🌟 Novilha":(diasP!==null?`${diasP}d parida`:"");
-        t+=`• ${a.nome}${a.numero?" #"+a.numero:""} — ECC ${a.ecc||"—"}${cat?" — "+cat:""} — ${st}`;
+        t+=`• ${a.nome}${a.numero?" #"+a.numero:""} — ECC ${a.ecc||"—"}${cat?" — "+cat:""}`;
+        // Status (prenha/vazia) só no modo pós-DG; pós-IA não mostra "pendente"
+        if(temDG){
+          const st=a.diagnostico==="P"?"✅ Prenha":a.diagnostico==="V"?"❌ Vazia":"⏳ Pendente";
+          t+=` — ${st}`;
+        }
         if(a.touro) t+=`
   🐂 ${a.touro}${a.partida?" · Partida "+a.partida:""}`;
         if(a.raca) t+=`
@@ -1800,42 +1811,55 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
     const pr = as.filter(a=>a.diagnostico==="P").length;
     const di = as.filter(a=>a.diagnostico).length;
     const tx = di>0?Math.round(pr/di*100):0;
-    let t=`🐄 *RELATÓRIO IATF — ${f?.nome||"Fazenda"}*
+    const temDG = di > 0; // já houve diagnóstico? Se não, é relatório pós-IA
+    let t=`🐄 *RELATÓRIO ${temDG?"IATF":"DE INSEMINAÇÃO"} — ${f?.nome||"Fazenda"}*
 `;
     t+=`👤 Proprietário: ${f?.proprietario||"—"}
 `;
     t+=`📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}
 `;
-    if(p?.ia){
+    // DG e parto previstos só aparecem DEPOIS do diagnóstico
+    if(temDG && p?.ia){
       const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
       const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
       t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
 `;
       t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}
 `;
+    } else if(p?.ia){
+      t+=`📅 Inseminação: ${fmtDH(p?.ia,p?.hia)}
+`;
     }
     t+=`
 ━━━━━━━━━
 📊 *RESUMO*
 `;
-    t+=`• Total: ${as.length} vacas
+    if(temDG){
+      t+=`• Total: ${as.length} vacas
 `;
-    t+=`• Prenhas (P+): ${pr}
+      t+=`• Prenhas (P+): ${pr}
 `;
-    t+=`• Vazias (V−): ${di-pr}
+      t+=`• Vazias (V−): ${di-pr}
 `;
-    t+=`• *Taxa de prenhez: ${tx}%*
+      t+=`• *Taxa de prenhez: ${tx}%*
 `;
+    } else {
+      t+=`• Total inseminadas: ${as.length} vacas
+`;
+    }
     if(as.length>0){
       t+=`
 ━━━━━━━━━
 🐄 *ANIMAIS*
 `;
       as.forEach(a=>{
-        const st=a.diagnostico==="P"?"✅ Prenha":a.diagnostico==="V"?"❌ Vazia":"⏳ Pendente";
         t+=`• ${a.nome}${a.numero?" #"+a.numero:""}`;
         if(a.touro) t+=` — 🐂 ${a.touro}`;
-        t+=` — ${st}`;
+        // Status só no modo pós-DG; pós-IA não mostra "pendente"
+        if(temDG){
+          const st=a.diagnostico==="P"?"✅ Prenha":a.diagnostico==="V"?"❌ Vazia":"⏳ Pendente";
+          t+=` — ${st}`;
+        }
         if(a.obsProdutor) t+=`
   💬 ${a.obsProdutor}`;
         t+="\n";
