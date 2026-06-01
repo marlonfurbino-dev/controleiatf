@@ -43,3 +43,6 @@ mp diagnostico.txt
 
 # Arquivo de config sem extensão (lixo)
 vite.config
+
+# Pacote completo da fonte Horizon (origem) — só public/horizon.ttf vai pro repo
+public/horizon/
