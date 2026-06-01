@@ -76,7 +76,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
 // ── CSS ───────────────────────────────────────────────────────────────────
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&family=Quicksand:wght@500;600;700&display=swap');
-  @font-face { font-family:'Horizon'; src:url('/horizon.ttf') format('truetype'); font-weight:normal; font-style:normal; font-display:swap; }
+  @font-face { font-family:'Horizon'; src:url('/horizon-new.otf') format('opentype'); font-weight:normal; font-style:normal; font-display:swap; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --g:#1b6b3a; --gl:#2a8a4e; --gp:#eaf5ee; --gm:#c6e6d2;
