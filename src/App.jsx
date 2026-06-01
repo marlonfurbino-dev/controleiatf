@@ -2290,19 +2290,23 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],onBack,onAd
         <input className="fi" style={{paddingLeft:34}} placeholder="Buscar por nome ou brinco..." value={q} onChange={e=>setQ(e.target.value)}/>
       </div>
 
-      {list.map(a=><AnimalCard key={a.id} animal={a} protocolo={p}
-        onUpdDiag={(d)=>{onUpdAnimal(a.id,{diagnostico:d});ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
-        onEdit={()=>setEditA(a)}
-        onDel={()=>setModal({type:"confirm",msg:`Remover ${a.nome}?`,onOk:()=>onDelAnimal(a.id)})}
-      />)}
+      {list.map(a => editA && editA.id===a.id
+        ? <AnimalForm key={a.id} initial={editA} semenBank={semenBank}
+            onSave={(d)=>{onUpdAnimal(editA.id,d);setEditA(null);ping("Animal atualizado!");}}
+            onCancel={()=>setEditA(null)}/>
+        : <AnimalCard key={a.id} animal={a} protocolo={p}
+            onUpdDiag={(d)=>{onUpdAnimal(a.id,{diagnostico:d});ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
+            onEdit={()=>setEditA(a)}
+            onDel={()=>setModal({type:"confirm",msg:`Remover ${a.nome}?`,onOk:()=>onDelAnimal(a.id)})}
+          />)}
 
       {animais.length===0&&!showForm&&!editA&&<div className="empty"><Icon name="cow" size={44}/><div className="empty-t">Nenhum animal cadastrado</div><div className="empty-s">Adicione as vacas do protocolo</div></div>}
 
-      {(showForm||editA)
-        ?<AnimalForm initial={editA} semenBank={semenBank}
-            onSave={(a)=>{if(editA){onUpdAnimal(editA.id,a);setEditA(null);ping("Animal atualizado!");}else{onAddAnimal(a);setShowForm(false);}}}
-            onCancel={()=>{setShowForm(false);setEditA(null);}}/>
-        :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
+      {showForm
+        ? <AnimalForm initial={null} semenBank={semenBank}
+            onSave={(a)=>{onAddAnimal(a);setShowForm(false);}}
+            onCancel={()=>setShowForm(false)}/>
+        : !editA && <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
       }
 
       {animais.length>0&&!showForm&&!editA&&<>
