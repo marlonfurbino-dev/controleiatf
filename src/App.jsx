@@ -135,7 +135,7 @@ const CSS = `
 
   /* Header */
   .hdr { background:linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%); color:#fff; padding:0 16px 0 0; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.22); min-height:72px; overflow:hidden; }
-  .hdr-logo { height:46px; width:46px; object-fit:cover; flex-shrink:0; border-radius:12px; margin-left:14px; }
+  .hdr-logo { height:52px; width:52px; object-fit:contain; flex-shrink:0; margin-left:14px; }
   .hdr-title { flex:1; font-family:'Quicksand',sans-serif; font-size:21px; font-weight:700; font-style:normal; line-height:1.1; letter-spacing:0; }
   .hdr-title em { font-family:'Horizon',sans-serif; font-style:normal; font-weight:normal; font-size:22px; letter-spacing:2px; }
   .hdr-sub { font-family:'Inter',sans-serif; font-size:12px; opacity:.65; font-weight:400; font-style:normal; }
@@ -1924,7 +1924,7 @@ _Controle IATF — controleiatf.com.br_`;
 
   return <div className="app"><style>{CSS}</style>
     <div className="hdr">
-      <img src="/favicon-simbolo-180.png" alt="Controle IATF" className="hdr-logo"/>
+      <img src="/simbolo.png" alt="Controle IATF" className="hdr-logo"/>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center"}}>
         <div className="hdr-title">Controle<em style={{color:"#fff"}}> IATF</em></div>
         <div className="hdr-sub">{user.email}</div>
