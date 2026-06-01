@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude / agente local
+.claude/
+
+# Supabase CLI (temporários e config local)
+supabase/.temp/
+
+# Cópias auxiliares de Edge Functions (cole-no-Supabase)
+criar pix.txt
+quick-task.txt
+criar-assinatura.txt
+mp diagnostico.txt
+
+# Assets de logo soltos na raiz (origem para gerar ícones)
+logo_full_1024.png
+logo_symbol_1024.png
+
+# Arquivo de config sem extensão (lixo)
+vite.config
