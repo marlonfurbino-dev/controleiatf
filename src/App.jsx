@@ -1746,12 +1746,14 @@ export default function App() {
 `;
     if(p?.medicamento) t+=`💊 Protocolo: ${p.medicamento}
 `;
-    // DG e parto previstos só aparecem DEPOIS do diagnóstico
-    if(temDG && p?.ia){
-      const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
+    // Parto previsto sempre aparece; DG previsto só DEPOIS do diagnóstico
+    if(p?.ia){
       const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
-      t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
+      if(temDG){
+        const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
+        t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
 `;
+      }
       t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}
 `;
     }
@@ -1818,16 +1820,18 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
 `;
     t+=`📍 ${f?.municipio||""}${f?.uf?" - "+f.uf:""}
 `;
-    // DG e parto previstos só aparecem DEPOIS do diagnóstico
-    if(temDG && p?.ia){
-      const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
+    // Parto previsto sempre aparece; DG previsto só DEPOIS do diagnóstico
+    if(p?.ia){
       const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
-      t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
+      if(temDG){
+        const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
+        t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
 `;
+      } else {
+        t+=`📅 Inseminação: ${fmtDH(p?.ia,p?.hia)}
+`;
+      }
       t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}
-`;
-    } else if(p?.ia){
-      t+=`📅 Inseminação: ${fmtDH(p?.ia,p?.hia)}
 `;
     }
     t+=`
