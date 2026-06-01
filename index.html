@@ -23,10 +23,11 @@
   <meta property="og:image:height" content="630"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;0,800;1,400;1,500;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;0,800;1,400;1,500;1,700&family=Inter:wght@400;500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-9NN9QMWW4K"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-9NN9QMWW4K');</script>
   <style>
+    @font-face { font-family:'Horizon'; src:url('/horizon-new.otf') format('opentype'); font-weight:normal; font-style:normal; font-display:swap; }
     :root {
       --vd:  #0e1e12;
       --vm:  #1a4028;
@@ -56,8 +57,8 @@
     }
     .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .nav-logo img { height: 34px; width: 34px; object-fit: contain; }
-    .nav-logo-txt { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; color: #fff; letter-spacing: .2px; }
-    .nav-logo-txt em { font-style: normal; font-weight: 800; color: var(--dl); }
+    .nav-logo-txt { font-family: 'Quicksand', sans-serif; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .nav-logo-txt em { font-family: 'Horizon', sans-serif; font-style: normal; font-weight: normal; font-size: 21px; letter-spacing: 1.5px; color: var(--dl); }
     .nav-links { display: flex; align-items: center; gap: 32px; }
     .nav-links a { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.6); text-decoration: none; letter-spacing: .1px; transition: color .2s; }
     .nav-links a:hover { color: #fff; }
@@ -420,7 +421,7 @@
 <nav>
   <a href="/" class="nav-logo">
     <img src="/logo-transparent.png" alt="Controle IATF"/>
-    <span class="nav-logo-txt">Controle<em>IATF</em></span>
+    <span class="nav-logo-txt">Controle<em> IATF</em></span>
   </a>
   <div class="nav-links">
     <a href="#como-funciona">Como funciona</a>
