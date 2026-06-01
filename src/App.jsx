@@ -90,7 +90,7 @@ const CSS = `
 
   /* Auth screens */
   .auth-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%); }
-  .auth-logo-img { width:172px; height:172px; object-fit:cover; border-radius:36px; margin-bottom:14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .auth-logo-img { width:248px; height:248px; object-fit:contain; margin-bottom:20px; }
   .auth-logo { font-family:var(--f); font-size:32px; font-weight:800; color:#fff; margin-bottom:6px; }
   .auth-logo span { color:#6fcf8e; }
   .auth-sub { font-size:14px; color:rgba(255,255,255,.5); margin-bottom:36px; }
@@ -1122,8 +1122,7 @@ function AuthScreen({ onAuth }) {
 
   return (
     <div className="auth-screen">
-      <img src="/logo-login.jpeg" alt="Controle IATF" className="auth-logo-img"/>
-      <div className="auth-sub">controleiatf.com.br</div>
+      <img src="/logo-transparent.png" alt="Controle IATF" className="auth-logo-img"/>
 
       <div className="auth-card">
         <div className="auth-tabs">
@@ -1210,8 +1209,7 @@ function LockScreen({ user, onUnlock }) {
 
   return (
     <div className="auth-screen">
-      <img src="/logo-login.jpeg" alt="Controle IATF" className="auth-logo-img"/>
-      <div className="auth-sub">controleiatf.com.br</div>
+      <img src="/logo-transparent.png" alt="Controle IATF" className="auth-logo-img"/>
       <div className="auth-card">
         <div className="auth-title">🔒 Sessão bloqueada</div>
         <div className="auth-desc">Informe sua senha para continuar</div>
