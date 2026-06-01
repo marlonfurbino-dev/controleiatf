@@ -1,6 +1,6 @@
 {
   "name": "Controle IATF",
-  "short_name": "IATF",
+  "short_name": "Controle IATF",
   "description": "Gerenciamento de protocolos IATF para médicos veterinários",
   "start_url": "/app",
   "display": "standalone",
