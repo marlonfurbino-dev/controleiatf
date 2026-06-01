@@ -75,7 +75,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
 
 // ── CSS ───────────────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&family=Baloo+2:wght@500;600;700;800&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --g:#1b6b3a; --gl:#2a8a4e; --gp:#eaf5ee; --gm:#c6e6d2;
@@ -135,7 +135,8 @@ const CSS = `
   /* Header */
   .hdr { background:linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%); color:#fff; padding:0 16px 0 0; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50; box-shadow:0 2px 12px rgba(0,0,0,.22); min-height:72px; overflow:hidden; }
   .hdr-logo { height:46px; width:46px; object-fit:cover; flex-shrink:0; border-radius:12px; margin-left:14px; }
-  .hdr-title { flex:1; font-family:'DM Serif Display',serif; font-size:22px; font-weight:400; font-style:italic; line-height:1.2; letter-spacing:-.3px; }
+  .hdr-title { flex:1; font-family:'Baloo 2',sans-serif; font-size:21px; font-weight:600; font-style:normal; line-height:1.1; letter-spacing:0; }
+  .hdr-title em { font-style:normal; font-weight:800; letter-spacing:.5px; }
   .hdr-sub { font-family:'Inter',sans-serif; font-size:12px; opacity:.65; font-weight:400; font-style:normal; }
   .hdr-btn { width:38px; height:38px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:rgba(255,255,255,.18); color:#fff; flex-shrink:0; }
   .hdr-btn.danger { background:rgba(220,50,50,.28); }
