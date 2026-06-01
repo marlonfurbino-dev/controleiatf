@@ -90,7 +90,7 @@ const CSS = `
 
   /* Auth screens */
   .auth-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%); }
-  .auth-logo-img { width:260px; height:260px; object-fit:contain; margin-bottom:4px; filter:drop-shadow(0 4px 20px rgba(0,0,0,.35)); }
+  .auth-logo-img { width:172px; height:172px; object-fit:cover; border-radius:36px; margin-bottom:14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
   .auth-logo { font-family:var(--f); font-size:32px; font-weight:800; color:#fff; margin-bottom:6px; }
   .auth-logo span { color:#6fcf8e; }
   .auth-sub { font-size:14px; color:rgba(255,255,255,.5); margin-bottom:36px; }
@@ -332,7 +332,7 @@ function LandingPage({ onEnterApp }) {
     <div className="lp">
       <style>{LANDING_CSS}</style>
       <nav className="lp-nav">
-        <img src="/logo-transparent.png" alt="Controle IATF" style={{width:36,height:36,objectFit:"contain"}}/>
+        <img src="/favicon-simbolo-180.png" alt="Controle IATF" style={{width:36,height:36,objectFit:"cover",borderRadius:9}}/>
         <button className="lp-nav-btn" onClick={onEnterApp}>Entrar</button>
       </nav>
 
@@ -365,7 +365,7 @@ function LandingPage({ onEnterApp }) {
       </div>
 
       <footer className="lp-footer">
-        <img src="/logo-transparent.png" alt="Controle IATF" style={{width:52,height:52,objectFit:"contain",marginBottom:8}}/>
+        <img src="/favicon-simbolo-180.png" alt="Controle IATF" style={{width:52,height:52,objectFit:"cover",borderRadius:13,marginBottom:8}}/>
         <p>Desenvolvido para médicos veterinários · <a href="https://controleiatf.com.br">controleiatf.com.br</a></p>
         <p style={{marginTop:6}}>© 2026 Controle IATF · Todos os direitos reservados</p>
       </footer>
@@ -846,7 +846,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   // Tela de sucesso
   if (step === "pago") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:72,height:72,objectFit:"contain",marginBottom:20}}/>
+      <img src="/icon-512.png" alt="Controle IATF" style={{width:80,height:80,objectFit:"cover",borderRadius:18,marginBottom:20,boxShadow:"0 8px 24px rgba(0,0,0,.3)"}}/>
       <div style={{background:"#fff",borderRadius:24,padding:32,width:"100%",maxWidth:380,textAlign:"center"}}>
         <div style={{fontSize:56,marginBottom:12}}>🎉</div>
         <div style={{fontSize:22,fontWeight:800,color:"#15803d",marginBottom:8}}>Assinatura ativada com sucesso!</div>
@@ -867,7 +867,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   if (step === "pix") {
     return (
       <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
-        <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
+        <img src="/icon-512.png" alt="Controle IATF" style={{width:64,height:64,objectFit:"cover",borderRadius:15,marginTop:20,marginBottom:12,boxShadow:"0 8px 24px rgba(0,0,0,.3)"}}/>
         <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420,marginBottom:24}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
             <button onClick={()=>{setStep("planos");setPixData(null);setPixPolling(false);}} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
@@ -915,7 +915,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
 
   if (step === "pagamento") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:56,height:56,objectFit:"contain",marginTop:20,marginBottom:8}}/>
+      <img src="/icon-512.png" alt="Controle IATF" style={{width:64,height:64,objectFit:"cover",borderRadius:15,marginTop:20,marginBottom:12,boxShadow:"0 8px 24px rgba(0,0,0,.3)"}}/>
       <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:420,marginBottom:24}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
           <button onClick={()=>setStep("planos")} style={{background:"var(--gr1)",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:"var(--f)",fontSize:13,fontWeight:600}}>← Voltar</button>
@@ -999,7 +999,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   // Tela de seleção de plano
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0a1a0f 0%,#163020 50%,#1b3a22 100%)",overflowY:"auto"}}>
-      <img src="/logo-transparent.png" alt="Controle IATF" style={{width:90,height:90,objectFit:"contain",marginBottom:8}}/>
+      <img src="/icon-512.png" alt="Controle IATF" style={{width:96,height:96,objectFit:"cover",borderRadius:22,marginBottom:12,boxShadow:"0 10px 28px rgba(0,0,0,.32)"}}/>
       <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginBottom:24}}>controleiatf.com.br</div>
       <div style={{background:"#fff",borderRadius:24,padding:28,width:"100%",maxWidth:380}}>
         <div style={{textAlign:"center",marginBottom:20}}>
@@ -1122,7 +1122,7 @@ function AuthScreen({ onAuth }) {
 
   return (
     <div className="auth-screen">
-      <img src="/logo-transparent.png" alt="Controle IATF" className="auth-logo-img"/>
+      <img src="/icon-512.png" alt="Controle IATF" className="auth-logo-img"/>
       <div className="auth-sub">controleiatf.com.br</div>
 
       <div className="auth-card">
@@ -1210,7 +1210,7 @@ function LockScreen({ user, onUnlock }) {
 
   return (
     <div className="auth-screen">
-      <img src="/logo-transparent.png" alt="Controle IATF" className="auth-logo-img"/>
+      <img src="/icon-512.png" alt="Controle IATF" className="auth-logo-img"/>
       <div className="auth-sub">controleiatf.com.br</div>
       <div className="auth-card">
         <div className="auth-title">🔒 Sessão bloqueada</div>
