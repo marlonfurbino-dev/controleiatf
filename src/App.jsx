@@ -1954,7 +1954,7 @@ _Controle IATF — controleiatf.com.br_`;
     <div className="hdr">
       <img src="/simbolo.png" alt="Controle IATF" className="hdr-logo"/>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-        <div className="hdr-title">Controle<em style={{color:"#e8c880"}}> IATF</em></div>
+        <div className="hdr-title">Controle<em style={{color:"#fff"}}> IATF</em></div>
         <div className="hdr-sub">{user.email}</div>
       </div>
       <button className="hdr-btn" title="Recarregar" onClick={()=>window.location.reload()}><Icon name="reload" size={18}/></button>
