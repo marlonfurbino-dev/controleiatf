@@ -144,23 +144,13 @@ serve(async (req) => {
       installments: Number(installments) || 1,
       payment_method_id,
 
-      // Nó payer do topo: identificação + endereço de cobrança
+      // payer do /v1/payments aceita apenas: email, name, identification.
+      // date_of_birth e address NÃO são aceitos aqui (erro 'name of parameters wrong').
       payer: {
         email: payerEmail,
         ...(firstName ? { first_name: firstName } : {}),
         ...(lastName  ? { last_name:  lastName  } : {}),
         ...(identification ? { identification } : {}),
-        ...(payerDOB ? { date_of_birth: payerDOB } : {}),
-        ...(payerAddress ? {
-          address: {
-            zip_code:     String(payerAddress.zip_code     ?? ""),
-            street_name:  String(payerAddress.street_name  ?? ""),
-            street_number: String(payerAddress.street_number ?? ""),
-            ...(payerAddress.neighborhood ? { neighborhood: String(payerAddress.neighborhood) } : {}),
-            ...(payerAddress.city         ? { city:         String(payerAddress.city)         } : {}),
-            ...(payerAddress.federal_unit ? { federal_unit: String(payerAddress.federal_unit) } : {}),
-          }
-        } : {}),
       },
 
       additional_info: {
