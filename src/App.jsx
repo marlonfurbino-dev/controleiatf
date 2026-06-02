@@ -1053,7 +1053,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
 }
 
 // ── AUTH SCREEN ───────────────────────────────────────────────────────────
-function AuthScreen({ onAuth }) {
+function AuthScreen({ onAuth, onShowLegal }) {
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -1154,7 +1154,7 @@ function AuthScreen({ onAuth }) {
         {tab === "cadastro" && (
           <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:12,fontSize:12,color:"var(--gr4)"}}>
             <input type="checkbox" checked={termos} onChange={e=>setTermos(e.target.checked)} style={{marginTop:2,flexShrink:0}}/>
-            <span>Li e aceito os <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>window.open("https://controleiatf.com.br/termos","_blank")}>Termos de Uso</span> e a <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>window.open("https://controleiatf.com.br/privacidade","_blank")}>Política de Privacidade</span></span>
+            <span>Li e aceito os <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>onShowLegal&&onShowLegal("termos")}>Termos de Uso</span> e a <span style={{color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>onShowLegal&&onShowLegal("privacidade")}>Política de Privacidade</span></span>
           </div>
         )}
 
@@ -1898,7 +1898,10 @@ _Controle IATF — controleiatf.com.br_`;
   // Mostra landing page se não está na rota /app
   if (page === "landing") return <LandingPage onEnterApp={() => { localStorage.setItem("sessao_ativa","1"); sessionStorage.setItem("sessao_ativa","1"); setPage("app"); }} />;
 
-  if (!user) return <div className="app"><style>{CSS}</style><AuthScreen onAuth={u => { try { sessionStorage.setItem("app_unlocked","1"); } catch(_){} setLocked(false); setUser(u); }}/></div>;
+  if (!user) return <div className="app"><style>{CSS}</style>
+    <AuthScreen onAuth={u => { try { sessionStorage.setItem("app_unlocked","1"); } catch(_){} setLocked(false); setUser(u); }} onShowLegal={(tipo)=>setModal({type:tipo})}/>
+    {modal&&<Modal modal={modal} setModal={setModal}/>}
+  </div>;
 
   // Tela de bloqueio: sessão válida mas app foi fechado/reaberto ou ficou 30min inativo
   if (locked) return <div className="app"><style>{CSS}</style><LockScreen user={user} onUnlock={() => { try { sessionStorage.setItem("app_unlocked","1"); } catch(_){} setLocked(false); }}/></div>;
