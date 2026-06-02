@@ -486,14 +486,13 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   const [brickKey, setBrickKey] = useState(0);
   const brickRef = useRef(null);
   const [cpf, setCpf] = useState("");
-  const [nascimento, setNascimento] = useState("");
   const [cep, setCep] = useState("");
   const [numero, setNumero] = useState("");
   const [cpfErro, setCpfErro] = useState("");
   const [pixTriggerPaywall, setPixTriggerPaywall] = useState(0);
   // Refs sincronizadas — o onSubmit do Brick captura closure antiga; refs têm sempre o valor atual
-  const cpfRef = useRef(""), nascimentoRef = useRef(""), cepRef = useRef(""), numeroRef = useRef("");
-  cpfRef.current = cpf; nascimentoRef.current = nascimento; cepRef.current = cep; numeroRef.current = numero;
+  const cpfRef = useRef(""), cepRef = useRef(""), numeroRef = useRef("");
+  cpfRef.current = cpf; cepRef.current = cep; numeroRef.current = numero;
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
@@ -674,7 +673,6 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                   first_name: cardFirst || perfil?.nome || "",
                   last_name:  cardLast  || perfil?.sobrenome || "",
                   identification: { type: "CPF", number: _cpfNum || (fd.payer?.identification?.number || "") },
-                  date_of_birth: nascimentoRef.current || undefined,
                   phone: telDig.length >= 10 ? { area_code: telDig.slice(0,2), number: telDig.slice(2) } : undefined,
                   ...(cepRef.current ? { address: { zip_code: cepRef.current.replace(/\D/g,""), street_number: numeroRef.current || "S/N" } } : {}),
                 },
@@ -937,16 +935,10 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
 
         {/* Dados do titular — antifraude Mercado Pago */}
         <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Dados do titular</div>
-        <div className="frow" style={{marginBottom:8}}>
-          <div className="fg">
-            <label className="fl">CPF *</label>
-            <input className="fi" value={cpf} onChange={e=>{setCpf(formatCPF(e.target.value));setCpfErro("");}} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
-            {cpfErro&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{cpfErro}</div>}
-          </div>
-          <div className="fg">
-            <label className="fl">Nascimento *</label>
-            <input className="fi" type="date" value={nascimento} onChange={e=>setNascimento(e.target.value)}/>
-          </div>
+        <div className="fg" style={{marginBottom:8}}>
+          <label className="fl">CPF *</label>
+          <input className="fi" value={cpf} onChange={e=>{setCpf(formatCPF(e.target.value));setCpfErro("");}} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
+          {cpfErro&&<div style={{color:"var(--r)",fontSize:11,marginTop:2}}>{cpfErro}</div>}
         </div>
         <div className="frow" style={{marginBottom:10}}>
           <div className="fg" style={{flex:"0 0 150px"}}>
@@ -2814,14 +2806,13 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const [pixPollingPerfil, setPixPollingPerfil] = useState(false);
   const [pixTrigger, setPixTrigger] = useState(0);
   const [cpfPerfil, setCpfPerfil] = useState("");
-  const [nascimentoPerfil, setNascimentoPerfil] = useState("");
   const [cepPerfil, setCepPerfil] = useState("");
   const [numeroPerfil, setNumeroPerfil] = useState("");
   const [brickKeyPerfil, setBrickKeyPerfil] = useState(0);
   const brickRefPerfil = useRef(null); // ref para destruir instância anterior do Brick no perfil
   // Refs sincronizadas — o onSubmit do Brick captura closure antiga; refs têm sempre o valor atual
-  const cpfPerfilRef = useRef(""), nascimentoPerfilRef = useRef(""), cepPerfilRef = useRef(""), numeroPerfilRef = useRef("");
-  cpfPerfilRef.current = cpfPerfil; nascimentoPerfilRef.current = nascimentoPerfil; cepPerfilRef.current = cepPerfil; numeroPerfilRef.current = numeroPerfil;
+  const cpfPerfilRef = useRef(""), cepPerfilRef = useRef(""), numeroPerfilRef = useRef("");
+  cpfPerfilRef.current = cpfPerfil; cepPerfilRef.current = cepPerfil; numeroPerfilRef.current = numeroPerfil;
 
   const handlePerfilPix = async () => {
     setProcessandoPerfil(true);
@@ -2980,7 +2971,6 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                   first_name: cardFirstP || user?.user_metadata?.nome      || perfil?.nome      || fd.payer?.firstName || fd.payer?.first_name || "",
                   last_name:  cardLastP  || user?.user_metadata?.sobrenome  || perfil?.sobrenome  || fd.payer?.lastName  || fd.payer?.last_name  || "",
                   identification: { type: "CPF", number: _cpfNumP || (fd.payer?.identification?.number || "") },
-                  date_of_birth: nascimentoPerfilRef.current || undefined,
                   phone: _telDigP.length >= 10 ? { area_code: _telDigP.slice(0,2), number: _telDigP.slice(2) } : undefined,
                   ...(cepPerfilRef.current ? { address: { zip_code: cepPerfilRef.current.replace(/\D/g,""), street_number: numeroPerfilRef.current || "S/N" } } : {}),
                 },
@@ -3157,15 +3147,9 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
           </div>
           {/* Dados antifraude */}
           <div style={{fontSize:11,fontWeight:700,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Dados do titular</div>
-          <div className="frow" style={{marginBottom:8}}>
-            <div className="fg">
-              <label className="fl">CPF *</label>
-              <input className="fi" value={cpfPerfil} onChange={e=>setCpfPerfil(formatCPF(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
-            </div>
-            <div className="fg">
-              <label className="fl">Nascimento *</label>
-              <input className="fi" type="date" value={nascimentoPerfil} onChange={e=>setNascimentoPerfil(e.target.value)}/>
-            </div>
+          <div className="fg" style={{marginBottom:8}}>
+            <label className="fl">CPF *</label>
+            <input className="fi" value={cpfPerfil} onChange={e=>setCpfPerfil(formatCPF(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" maxLength={14}/>
           </div>
           <div className="frow" style={{marginBottom:12}}>
             <div className="fg" style={{flex:"0 0 150px"}}>
