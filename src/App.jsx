@@ -491,6 +491,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   const [numero, setNumero] = useState("");
   const [cpfErro, setCpfErro] = useState("");
   const [pixTriggerPaywall, setPixTriggerPaywall] = useState(0);
+  // Refs sincronizadas — o onSubmit do Brick captura closure antiga; refs têm sempre o valor atual
+  const cpfRef = useRef(""), nascimentoRef = useRef(""), cepRef = useRef(""), numeroRef = useRef("");
+  cpfRef.current = cpf; nascimentoRef.current = nascimento; cepRef.current = cep; numeroRef.current = numero;
 
   const msgWA = plano === "anual"
     ? `Olá! Quero assinar o Controle IATF no plano Anual por ${PRECO_ANUAL_PIX} (PIX) ou ${PRECO_ANUAL_CARTAO} em 10x no cartão.`
@@ -624,12 +627,12 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 setErro("Cartão não tokenizado. Preencha todos os dados do cartão e tente novamente.");
                 throw new Error("token ausente");
               }
-              // Valida dados do titular (antifraude MP)
-              if (!validarCPF(cpf)) {
+              // Valida dados do titular (antifraude MP) — lê das refs (valor atual)
+              if (!validarCPF(cpfRef.current)) {
                 setErro("CPF do titular inválido. Preencha o CPF corretamente acima.");
                 throw new Error("cpf inválido");
               }
-              if (cep.replace(/\D/g,"").length !== 8 || !numero.trim()) {
+              if (cepRef.current.replace(/\D/g,"").length !== 8 || !numeroRef.current.trim()) {
                 setErro("Preencha CEP e número do titular acima.");
                 throw new Error("endereço incompleto");
               }
@@ -656,7 +659,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
               const cardFirst = nameParts[0] || "";
               const cardLast  = nameParts.slice(1).join(" ") || "";
 
-              const _cpfNum = cpf.replace(/\D/g, "");
+              const _cpfNum = cpfRef.current.replace(/\D/g, "");
               const telDig = (perfil?.whatsapp || "").replace(/\D/g, "");
               const payload = {
                 token: fd.token,
@@ -671,9 +674,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                   first_name: cardFirst || perfil?.nome || "",
                   last_name:  cardLast  || perfil?.sobrenome || "",
                   identification: { type: "CPF", number: _cpfNum || (fd.payer?.identification?.number || "") },
-                  date_of_birth: nascimento || undefined,
+                  date_of_birth: nascimentoRef.current || undefined,
                   phone: telDig.length >= 10 ? { area_code: telDig.slice(0,2), number: telDig.slice(2) } : undefined,
-                  ...(cep ? { address: { zip_code: cep.replace(/\D/g,""), street_number: numero || "S/N" } } : {}),
+                  ...(cepRef.current ? { address: { zip_code: cepRef.current.replace(/\D/g,""), street_number: numeroRef.current || "S/N" } } : {}),
                 },
               };
 
@@ -2813,9 +2816,12 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const [cpfPerfil, setCpfPerfil] = useState("");
   const [nascimentoPerfil, setNascimentoPerfil] = useState("");
   const [cepPerfil, setCepPerfil] = useState("");
-  const [numeroPerfil, setNumeroPerfil] = useState(""); // contador — força re-disparo mesmo se stepPerfil já era "pix"
+  const [numeroPerfil, setNumeroPerfil] = useState("");
   const [brickKeyPerfil, setBrickKeyPerfil] = useState(0);
   const brickRefPerfil = useRef(null); // ref para destruir instância anterior do Brick no perfil
+  // Refs sincronizadas — o onSubmit do Brick captura closure antiga; refs têm sempre o valor atual
+  const cpfPerfilRef = useRef(""), nascimentoPerfilRef = useRef(""), cepPerfilRef = useRef(""), numeroPerfilRef = useRef("");
+  cpfPerfilRef.current = cpfPerfil; nascimentoPerfilRef.current = nascimentoPerfil; cepPerfilRef.current = cepPerfil; numeroPerfilRef.current = numeroPerfil;
 
   const handlePerfilPix = async () => {
     setProcessandoPerfil(true);
@@ -2928,12 +2934,12 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 setPagErro("Cartão não tokenizado. Preencha todos os dados do cartão e tente novamente.");
                 throw new Error("token ausente");
               }
-              // Valida dados do titular (antifraude MP)
-              if (!validarCPF(cpfPerfil)) {
+              // Valida dados do titular (antifraude MP) — lê das refs (valor atual)
+              if (!validarCPF(cpfPerfilRef.current)) {
                 setPagErro("CPF do titular inválido. Preencha o CPF corretamente acima.");
                 throw new Error("cpf inválido");
               }
-              if (cepPerfil.replace(/\D/g,"").length !== 8 || !numeroPerfil.trim()) {
+              if (cepPerfilRef.current.replace(/\D/g,"").length !== 8 || !numeroPerfilRef.current.trim()) {
                 setPagErro("Preencha CEP e número do titular acima.");
                 throw new Error("endereço incompleto");
               }
@@ -2959,7 +2965,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
               const cardFirstP = namePartsP[0] || "";
               const cardLastP  = namePartsP.slice(1).join(" ") || "";
 
-              const _cpfNumP = cpfPerfil.replace(/\D/g, "");
+              const _cpfNumP = cpfPerfilRef.current.replace(/\D/g, "");
               const _telDigP = (perfil?.whatsapp || "").replace(/\D/g, "");
               const bodyPayload = {
                 token: fd.token,
@@ -2974,9 +2980,9 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                   first_name: cardFirstP || user?.user_metadata?.nome      || perfil?.nome      || fd.payer?.firstName || fd.payer?.first_name || "",
                   last_name:  cardLastP  || user?.user_metadata?.sobrenome  || perfil?.sobrenome  || fd.payer?.lastName  || fd.payer?.last_name  || "",
                   identification: { type: "CPF", number: _cpfNumP || (fd.payer?.identification?.number || "") },
-                  date_of_birth: nascimentoPerfil || undefined,
+                  date_of_birth: nascimentoPerfilRef.current || undefined,
                   phone: _telDigP.length >= 10 ? { area_code: _telDigP.slice(0,2), number: _telDigP.slice(2) } : undefined,
-                  ...(cepPerfil ? { address: { zip_code: cepPerfil.replace(/\D/g,""), street_number: numeroPerfil || "S/N" } } : {}),
+                  ...(cepPerfilRef.current ? { address: { zip_code: cepPerfilRef.current.replace(/\D/g,""), street_number: numeroPerfilRef.current || "S/N" } } : {}),
                 },
               };
 
