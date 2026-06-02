@@ -443,8 +443,8 @@ function decodeMPPaymentStatus(result) {
   if (detail.includes("bad_filled_card_number"))return `Número do cartão inválido.${ref}`;
   if (detail.includes("bad_filled"))            return `Dados do cartão inválidos.${ref}`;
   if (detail.includes("max_attempts"))          return `Muitas tentativas recusadas. Tente outro cartão.${ref}`;
-  if (detail.includes("cc_rejected_high_risk")) return `Pagamento bloqueado pelo antifraude do Mercado Pago${ref}. Causas comuns: conta MP vendedora nova/não verificada, muitas tentativas com o mesmo cartão, ou e-mail do comprador igual ao da conta vendedora. Tente: (1) outro cartão, (2) pagar via PIX, ou (3) verifique pendências no painel do Mercado Pago.`;
-  if (detail.includes("cc_rejected_other"))     return `Cartão recusado pelo banco emissor.${ref}`;
+  if (detail.includes("cc_rejected_high_risk")) return `Não foi possível aprovar este cartão. Tente outro cartão ou pague via PIX.${ref}`;
+  if (detail.includes("cc_rejected_other"))     return `Cartão recusado pelo banco emissor. Tente outro cartão ou pague via PIX.${ref}`;
   if (detail.includes("rejected"))              return `Cartão recusado: ${detail}.${ref}`;
   if (result?.status === "in_process" || result?.status === "pending") return "Pagamento em análise — você receberá confirmação em breve.";
   return `Pagamento não aprovado${detail ? `: ${detail}` : ""}.${ref}`;
@@ -708,30 +708,24 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
 
               // ── Detecta mismatch de ambiente MP (ACCESS_TOKEN de teste + chave pública de produção) ──
               if (result?._mp_ambiente === "teste") {
-                const msg = "Erro de configuração: servidor usando credencial de TESTE do Mercado Pago. Acesse Supabase → Edge Functions → Secrets e atualize MP_ACCESS_TOKEN para a chave de produção (APP_USR-...).";
+                console.error("[MP] credencial de TESTE em produção — atualize MP_ACCESS_TOKEN no Supabase");
+                const msg = "Pagamento por cartão temporariamente indisponível. Por favor, pague via PIX ou contate o suporte.";
                 setErro(msg);
                 throw new Error(msg);
               }
 
-              // ── Log diagnóstico: qual conta MP está recebendo os pagamentos ──
+              // Log diagnóstico (só console — comprador nunca vê) da conta MP e possível autocompra
               if (result?._mp_conta_email) {
-                console.log("[Brick onSubmit] CONTA MP QUE RECEBE O PAGAMENTO: email=%s id=%s",
-                  result._mp_conta_email, result._mp_conta_id ?? "?");
-                // Detecta autocompra: comprador == vendedor (causa de cc_rejected_high_risk)
-                const buyerEmail = (payerData.email || user?.email || "").trim().toLowerCase();
+                const buyerEmail = (user?.email || "").trim().toLowerCase();
                 const sellerEmail = String(result._mp_conta_email).trim().toLowerCase();
-                if (buyerEmail && sellerEmail && buyerEmail === sellerEmail) {
-                  const msg = `Autocompra detectada: o e-mail do comprador (${buyerEmail}) é o mesmo da conta Mercado Pago que recebe o pagamento. Use um e-mail diferente para o comprador ao testar.`;
-                  setErro(msg);
-                  throw new Error(msg);
-                }
+                console.log("[Brick onSubmit] conta MP=%s autocompra=%s", result._mp_conta_email, buyerEmail && buyerEmail === sellerEmail);
               }
 
               // ── MP rejeitou a requisição (credencial errada, CPF inválido, token inválido) ──
               const mpHttp = result?._mp_http_status ?? 200;
               if (mpHttp >= 400) {
                 const msg = decodeMPApiError(result);
-                setErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
+                setErro(msg);
                 throw new Error(msg);
               }
 
@@ -750,7 +744,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                 throw new Error("em_analise");
               } else {
                 const msg = decodeMPPaymentStatus(result);
-                setErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
+                setErro(msg);
                 throw new Error(msg);
               }
 
@@ -3002,26 +2996,22 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
 
               // ── Detecta mismatch de ambiente MP ──
               if (result?._mp_ambiente === "teste") {
-                const msg = "Erro de configuração: servidor usando credencial de TESTE do Mercado Pago. Acesse Supabase → Edge Functions → Secrets e atualize MP_ACCESS_TOKEN para a chave de produção (APP_USR-...).";
+                console.error("[MP] credencial de TESTE em produção — atualize MP_ACCESS_TOKEN no Supabase");
+                const msg = "Pagamento por cartão temporariamente indisponível. Por favor, pague via PIX ou contate o suporte.";
                 setPagErro(msg); throw new Error(msg);
               }
 
-              // ── Log diagnóstico: qual conta MP está recebendo os pagamentos ──
+              // Log diagnóstico (só console — comprador nunca vê) da conta MP e possível autocompra
               if (result?._mp_conta_email) {
-                console.log("[BrickPerfil onSubmit] CONTA MP QUE RECEBE O PAGAMENTO: email=%s id=%s",
-                  result._mp_conta_email, result._mp_conta_id ?? "?");
                 const buyerEmail2 = (perfil?.email || user?.email || "").trim().toLowerCase();
                 const sellerEmail2 = String(result._mp_conta_email).trim().toLowerCase();
-                if (buyerEmail2 && sellerEmail2 && buyerEmail2 === sellerEmail2) {
-                  const msg = `Autocompra detectada: o e-mail do comprador (${buyerEmail2}) é o mesmo da conta Mercado Pago vendedora. Use um e-mail diferente para testar.`;
-                  setPagErro(msg); throw new Error(msg);
-                }
+                console.log("[BrickPerfil onSubmit] conta MP=%s autocompra=%s", result._mp_conta_email, buyerEmail2 && buyerEmail2 === sellerEmail2);
               }
 
               const mpHttp = result?._mp_http_status ?? 200;
               if (mpHttp >= 400) {
                 const msg = decodeMPApiError(result);
-                setPagErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
+                setPagErro(msg);
                 throw new Error(msg);
               }
 
@@ -3036,7 +3026,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                 throw new Error("em_analise");
               } else {
                 const msg = decodeMPPaymentStatus(result);
-                setPagErro(msg + (result?._mp_conta_email ? `\n[Conta MP: ${result._mp_conta_email}]` : ""));
+                setPagErro(msg);
                 throw new Error(msg);
               }
 
