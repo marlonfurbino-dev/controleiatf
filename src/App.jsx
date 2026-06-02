@@ -3329,34 +3329,99 @@ function Modal({modal,setModal,sendWA,sendWAProdutor}){
       {modal.type==="termos"&&<>
         <div className="modal-hdr"><div className="modal-title">📄 Termos de Uso</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <div className="terms-content">
+          <p style={{fontSize:12,color:"var(--gr3)",marginBottom:8}}>Última atualização: junho de 2026</p>
+
           <h3>1. Aceitação dos Termos</h3>
-          <p>Ao utilizar o Controle IATF, você concorda com estes termos de uso. O serviço é fornecido para fins profissionais de gerenciamento de protocolos IATF em medicina veterinária.</p>
-          <h3>2. Uso do Serviço</h3>
-          <p>O Controle IATF é uma ferramenta de apoio profissional. O veterinário é inteiramente responsável pelas decisões clínicas e protocolos aplicados. O aplicativo não substitui o julgamento clínico profissional.</p>
-          <h3>3. Dados e Privacidade</h3>
-          <p>Os dados inseridos no sistema são de responsabilidade do usuário. Tratamos seus dados conforme nossa Política de Privacidade e a Lei Geral de Proteção de Dados (LGPD).</p>
-          <h3>4. Pagamento e Assinatura</h3>
-          <p>Após o período trial de 7 dias, o serviço requer assinatura mensal. O cancelamento pode ser feito a qualquer momento.</p>
-          <h3>5. Limitação de Responsabilidade</h3>
-          <p>O Controle IATF não se responsabiliza por decisões tomadas com base nas informações do sistema. O profissional veterinário é o único responsável pelo diagnóstico e tratamento dos animais.</p>
-          <h3>6. Contato</h3>
-          <p>Dúvidas: contato@controleiatf.com.br</p>
+          <p>Ao criar uma conta ou utilizar o Controle IATF ("aplicativo" ou "serviço"), você declara ter lido, compreendido e aceitado integralmente estes Termos de Uso e a Política de Privacidade. Caso não concorde, não utilize o serviço.</p>
+
+          <h3>2. Descrição do Serviço</h3>
+          <p>O Controle IATF é um aplicativo web progressivo (PWA) destinado a médicos veterinários e inseminadores para o gerenciamento de protocolos de Inseminação Artificial em Tempo Fixo (IATF), incluindo o cadastro de fazendas, animais, protocolos, banco de sêmen, diagnóstico de gestação e geração de relatórios.</p>
+
+          <h3>3. Cadastro e Conta</h3>
+          <p>Para utilizar o serviço é necessário criar uma conta com informações verdadeiras e atualizadas. Você é responsável por manter a confidencialidade de suas credenciais e por todas as atividades realizadas em sua conta. O serviço destina-se a profissionais maiores de 18 anos.</p>
+
+          <h3>4. Uso Profissional e Responsabilidade Técnica</h3>
+          <p>O Controle IATF é uma ferramenta de apoio à gestão e <strong>não substitui o julgamento clínico do profissional</strong>. Todos os diagnósticos, protocolos hormonais, condutas e decisões técnicas são de exclusiva responsabilidade do médico veterinário habilitado. Os cálculos de datas (diagnóstico de gestação, parto previsto) são estimativas baseadas em médias zootécnicas e devem ser validados pelo profissional.</p>
+
+          <h3>5. Planos, Pagamento e Renovação</h3>
+          <p>Após o período de teste gratuito, o acesso completo requer assinatura em um dos planos:</p>
+          <p>• <strong>Plano Mensal:</strong> R$ 97,00/mês, com renovação automática.<br/>
+          • <strong>Plano Anual:</strong> R$ 790,00/ano, à vista no PIX ou parcelado em até 10x de R$ 79,00 no cartão de crédito.</p>
+          <p>Os pagamentos são processados pela plataforma Mercado Pago. O plano mensal é renovado automaticamente até que seja cancelado. O cancelamento pode ser solicitado a qualquer momento e interrompe renovações futuras, não havendo reembolso de períodos já pagos, salvo disposição legal em contrário.</p>
+
+          <h3>6. Período de Teste Gratuito</h3>
+          <p>Novos usuários têm acesso gratuito por 7 (sete) dias, sem necessidade de cadastrar cartão de crédito. Após esse período, é necessário assinar um dos planos para continuar utilizando o serviço.</p>
+
+          <h3>7. Propriedade Intelectual</h3>
+          <p>Todo o conteúdo, código-fonte, design, marca e funcionalidades do Controle IATF são de propriedade exclusiva de seus titulares e protegidos pela legislação aplicável. Os dados inseridos por você (fazendas, animais, protocolos) permanecem de sua propriedade.</p>
+
+          <h3>8. Limitação de Responsabilidade</h3>
+          <p>O Controle IATF é fornecido "no estado em que se encontra" e não se responsabiliza por perdas, prejuízos ou resultados reprodutivos decorrentes do uso das informações geradas pelo aplicativo. Não garantimos resultados específicos de prenhez ou desempenho reprodutivo.</p>
+
+          <h3>9. Disponibilidade do Serviço</h3>
+          <p>Empenhamo-nos para manter o serviço disponível, inclusive em modo offline. Contudo, não garantimos disponibilidade ininterrupta, podendo ocorrer manutenções, atualizações ou interrupções técnicas.</p>
+
+          <h3>10. Suspensão e Encerramento</h3>
+          <p>Reservamo-nos o direito de suspender ou encerrar contas que violem estes termos, utilizem o serviço de forma fraudulenta ou prejudiquem terceiros.</p>
+
+          <h3>11. Alterações dos Termos</h3>
+          <p>Estes termos podem ser atualizados periodicamente. Alterações relevantes serão comunicadas. O uso continuado do serviço após mudanças implica aceitação dos novos termos.</p>
+
+          <h3>12. Legislação Aplicável</h3>
+          <p>Estes termos são regidos pelas leis da República Federativa do Brasil.</p>
+
+          <h3>13. Contato</h3>
+          <p>Dúvidas, solicitações ou suporte: contato@controleiatf.com.br</p>
         </div>
         <button className="btn btn-p btn-full" style={{marginTop:16}} onClick={close}>Entendido</button>
       </>}
       {modal.type==="privacidade"&&<>
         <div className="modal-hdr"><div className="modal-title">🔒 Política de Privacidade</div><button className="hdr-btn light" onClick={close}><Icon name="close" size={18}/></button></div>
         <div className="terms-content">
-          <h3>1. Dados Coletados</h3>
-          <p>Coletamos: nome, sobrenome, cidade, WhatsApp e email no cadastro. Dados de protocolos, fazendas e animais inseridos pelo usuário.</p>
-          <h3>2. Uso dos Dados</h3>
-          <p>Seus dados são usados exclusivamente para: operação do serviço, suporte ao usuário e melhorias do produto. Nunca vendemos ou compartilhamos seus dados com terceiros.</p>
-          <h3>3. Armazenamento</h3>
-          <p>Dados armazenados com segurança via Supabase (PostgreSQL), com criptografia em trânsito e em repouso.</p>
-          <h3>4. Seus Direitos (LGPD)</h3>
-          <p>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento pelo email: contato@controleiatf.com.br</p>
-          <h3>5. Cookies</h3>
-          <p>Usamos apenas cookies essenciais para manutenção da sessão do usuário.</p>
+          <p style={{fontSize:12,color:"var(--gr3)",marginBottom:8}}>Última atualização: junho de 2026</p>
+
+          <h3>1. Compromisso com a sua Privacidade</h3>
+          <p>O Controle IATF respeita a sua privacidade e trata seus dados pessoais em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD). Esta política descreve como coletamos, usamos, armazenamos e protegemos suas informações.</p>
+
+          <h3>2. Dados Coletados</h3>
+          <p>• <strong>Dados de cadastro:</strong> nome, sobrenome, cidade, WhatsApp e e-mail.<br/>
+          • <strong>Dados de pagamento:</strong> processados diretamente pela Mercado Pago. Não armazenamos os números completos do seu cartão.<br/>
+          • <strong>Dados de uso:</strong> fazendas, protocolos, animais, banco de sêmen e relatórios inseridos por você.<br/>
+          • <strong>Dados técnicos:</strong> informações de acesso e navegação, para funcionamento e segurança do serviço.</p>
+
+          <h3>3. Finalidade do Tratamento</h3>
+          <p>Utilizamos seus dados para: operar e fornecer o serviço; processar pagamentos; prestar suporte; enviar comunicações relacionadas à sua conta; aprimorar o produto; e cumprir obrigações legais.</p>
+
+          <h3>4. Base Legal</h3>
+          <p>O tratamento dos seus dados fundamenta-se na execução do contrato (prestação do serviço), no seu consentimento, no cumprimento de obrigações legais e no legítimo interesse, nos termos da LGPD.</p>
+
+          <h3>5. Compartilhamento de Dados</h3>
+          <p>Nós <strong>não vendemos</strong> seus dados. Eles são compartilhados apenas com provedores essenciais à operação do serviço:</p>
+          <p>• <strong>Supabase</strong> — hospedagem e banco de dados.<br/>
+          • <strong>Mercado Pago</strong> — processamento de pagamentos.<br/>
+          • <strong>Google Analytics</strong> — métricas de uso de forma agregada.</p>
+          <p>Esses provedores tratam os dados conforme suas próprias políticas e padrões de segurança.</p>
+
+          <h3>6. Armazenamento e Segurança</h3>
+          <p>Os dados são armazenados em infraestrutura Supabase (PostgreSQL), com criptografia em trânsito e em repouso. Adotamos medidas técnicas e organizacionais adequadas para proteger suas informações contra acesso não autorizado, perda ou alteração.</p>
+
+          <h3>7. Transferência Internacional</h3>
+          <p>Alguns provedores podem armazenar dados em servidores localizados fora do Brasil, sempre com garantias de proteção compatíveis com a LGPD.</p>
+
+          <h3>8. Retenção de Dados</h3>
+          <p>Mantemos seus dados enquanto sua conta estiver ativa ou conforme necessário para cumprir finalidades legais. Você pode solicitar a exclusão a qualquer momento.</p>
+
+          <h3>9. Seus Direitos (LGPD)</h3>
+          <p>Você pode, a qualquer momento, solicitar: confirmação e acesso aos dados; correção; anonimização ou exclusão; portabilidade; e revogação do consentimento. Para exercer esses direitos, contate contato@controleiatf.com.br.</p>
+
+          <h3>10. Cookies e Armazenamento Local</h3>
+          <p>Utilizamos apenas cookies e armazenamento local essenciais à autenticação e ao funcionamento offline do aplicativo. Não utilizamos cookies de publicidade de terceiros.</p>
+
+          <h3>11. Alterações desta Política</h3>
+          <p>Esta política pode ser atualizada periodicamente. Alterações relevantes serão comunicadas pelos nossos canais oficiais.</p>
+
+          <h3>12. Contato</h3>
+          <p>Para exercer seus direitos ou esclarecer dúvidas sobre privacidade: contato@controleiatf.com.br</p>
         </div>
         <button className="btn btn-p btn-full" style={{marginTop:16}} onClick={close}>Entendido</button>
       </>}
