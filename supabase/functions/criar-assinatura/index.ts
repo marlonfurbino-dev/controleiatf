@@ -106,7 +106,8 @@ serve(async (req) => {
     const mpPayload: Record<string, unknown> = {
       transaction_amount: valor,
       token,
-      external_reference: String(userId),
+      external_reference: String(userId) + "_" + Date.now(),
+      metadata: { user_id: String(userId) },
       description: `Controle IATF – Plano ${planoLabel}`,
       installments: Number(installments) || 1,
       payment_method_id,

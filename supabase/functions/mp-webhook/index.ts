@@ -91,10 +91,12 @@ serve(async (req) => {
       // Só atualiza quando aprovado
       if (payment.status !== "approved") return;
 
-      // Identifica o userId — campo external_reference (enviado no payload do quick-task/criar-assinatura)
-      const userId = payment.external_reference ?? payment.metadata?.user_id ?? null;
+      // Identifica o userId — metadata.user_id (preferencial) ou parte antes do "_" do external_reference.
+      // external_reference agora é único por pedido: "userId_timestamp" (recomendação antifraude do MP).
+      const extRef = String(payment.external_reference ?? "");
+      const userId = payment.metadata?.user_id ?? (extRef.includes("_") ? extRef.split("_")[0] : extRef) ?? null;
       if (!userId) {
-        console.warn("[mp-webhook] pagamento %s aprovado mas sem external_reference/userId", paymentId);
+        console.warn("[mp-webhook] pagamento %s aprovado mas sem user_id", paymentId);
         return;
       }
 
