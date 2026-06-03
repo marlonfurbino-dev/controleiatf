@@ -485,9 +485,9 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
   const [pixPolling, setPixPolling] = useState(false);
   const [brickKey, setBrickKey] = useState(0);
   const brickRef = useRef(null);
-  const [cpf, setCpf] = useState("");
-  const [cep, setCep] = useState("");
-  const [numero, setNumero] = useState("");
+  const [cpf, setCpf] = useState(perfil?.cpf || "");
+  const [cep, setCep] = useState(perfil?.cep || "");
+  const [numero, setNumero] = useState(perfil?.numero || "");
   const [cpfErro, setCpfErro] = useState("");
   const [pixTriggerPaywall, setPixTriggerPaywall] = useState(0);
   // Refs sincronizadas — o onSubmit do Brick captura closure antiga; refs têm sempre o valor atual
@@ -674,7 +674,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
                   last_name:  cardLast  || perfil?.sobrenome || "",
                   identification: { type: "CPF", number: _cpfNum || (fd.payer?.identification?.number || "") },
                   phone: telDig.length >= 10 ? { area_code: telDig.slice(0,2), number: telDig.slice(2) } : undefined,
-                  ...(cepRef.current ? { address: { zip_code: cepRef.current.replace(/\D/g,""), street_number: numeroRef.current || "S/N" } } : {}),
+                  ...(cepRef.current ? { address: { zip_code: cepRef.current.replace(/\D/g,""), street_name: perfil?.logradouro || "", street_number: numeroRef.current || "S/N", neighborhood: perfil?.bairro || "", city: perfil?.cidade || "", federal_unit: perfil?.uf || "" } } : {}),
                 },
               };
 
@@ -1048,12 +1048,36 @@ function AuthScreen({ onAuth, onShowLegal }) {
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
-  const [cidade, setCidade] = useState("");
+  const [cpf, setCpf] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [cep, setCep] = useState("");
+  const [logradouro, setLogradouro] = useState("");
+  const [numero, setNumero] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [uf, setUf] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
   const [termos, setTermos] = useState(false);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [ok, setOk] = useState("");
+
+  // Busca endereço pelo CEP (ViaCEP)
+  const buscarCEP = async (valorCep) => {
+    const digits = valorCep.replace(/\D/g, "");
+    if (digits.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const d = await r.json();
+      if (!d.erro) {
+        setLogradouro(d.logradouro || "");
+        setBairro(d.bairro || "");
+        setCidade(d.localidade || "");
+        setUf(d.uf || "");
+      }
+    } catch(_) {} finally { setCepLoading(false); }
+  };
 
   const handleLogin = async () => {
     setErro(""); setLoading(true);
@@ -1072,19 +1096,23 @@ function AuthScreen({ onAuth, onShowLegal }) {
     setErro(""); setLoading(true);
     if (!nome.trim()) { setErro("Informe seu nome."); setLoading(false); return; }
     if (!sobrenome.trim()) { setErro("Informe seu sobrenome."); setLoading(false); return; }
-    if (!cidade.trim()) { setErro("Informe sua cidade / estado."); setLoading(false); return; }
+    if (!validarCPF(cpf)) { setErro("CPF inválido. Verifique o número informado."); setLoading(false); return; }
     const foneDigits = whatsapp.replace(/\D/g, "");
     if (foneDigits.length < 10 || foneDigits.length > 11) {
       setErro("WhatsApp inválido. Use o formato (DDD) 99999-9999.");
       setLoading(false); return;
     }
+    if (cep.replace(/\D/g, "").length !== 8) { setErro("CEP inválido (8 dígitos)."); setLoading(false); return; }
+    if (!logradouro.trim()) { setErro("Informe o endereço (rua)."); setLoading(false); return; }
+    if (!numero.trim()) { setErro("Informe o número do endereço."); setLoading(false); return; }
     if (!termos) { setErro("Aceite os termos de uso para continuar."); setLoading(false); return; }
     if (senha.length < 6) { setErro("Senha deve ter no mínimo 6 caracteres."); setLoading(false); return; }
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password: senha, options: { data: { nome, sobrenome, cidade, whatsapp } } });
+      const meta = { nome, sobrenome, cpf, whatsapp, cep, logradouro, numero, bairro, cidade, uf };
+      const { data, error } = await supabase.auth.signUp({ email, password: senha, options: { data: meta } });
       if (error) { setLoading(false); setErro("Erro: " + error.message); return; }
       if (data?.user) {
-        await supabase.from("perfis").upsert({ id: data.user.id, nome, sobrenome, cidade, whatsapp, email, created_at: new Date().toISOString() });
+        await supabase.from("perfis").upsert({ id: data.user.id, nome, sobrenome, cpf, whatsapp, email, cep, logradouro, numero, bairro, cidade, uf, created_at: new Date().toISOString() });
       }
       setLoading(false);
       setOk("Conta criada! Verifique sua caixa de email e clique no link de confirmação para ativar o acesso.");
@@ -1132,11 +1160,29 @@ function AuthScreen({ onAuth, onShowLegal }) {
 
         {tab === "cadastro" && <>
           <div className="frow">
-            <div className="fg"><label className="fl">Nome</label><input className="fi" value={nome} onChange={e=>setNome(e.target.value)} placeholder="Seu nome"/></div>
-            <div className="fg"><label className="fl">Sobrenome</label><input className="fi" value={sobrenome} onChange={e=>setSobrenome(e.target.value)} placeholder="Sobrenome"/></div>
+            <div className="fg"><label className="fl">Nome *</label><input className="fi" value={nome} onChange={e=>setNome(e.target.value)} placeholder="Seu nome"/></div>
+            <div className="fg"><label className="fl">Sobrenome *</label><input className="fi" value={sobrenome} onChange={e=>setSobrenome(e.target.value)} placeholder="Sobrenome"/></div>
           </div>
-          <div className="fg"><label className="fl">Cidade</label><input className="fi" value={cidade} onChange={e=>setCidade(e.target.value)} placeholder="Ex: Belo Horizonte - MG"/></div>
-          <div className="fg"><label className="fl">WhatsApp *</label><input className="fi" type="tel" inputMode="numeric" value={whatsapp} onChange={e=>setWhatsapp(formatPhone(e.target.value))} placeholder="(31) 99999-9999" maxLength={15}/></div>
+          <div className="frow">
+            <div className="fg"><label className="fl">CPF *</label><input className="fi" inputMode="numeric" value={cpf} onChange={e=>setCpf(formatCPF(e.target.value))} placeholder="000.000.000-00" maxLength={14}/></div>
+            <div className="fg"><label className="fl">WhatsApp *</label><input className="fi" type="tel" inputMode="numeric" value={whatsapp} onChange={e=>setWhatsapp(formatPhone(e.target.value))} placeholder="(31) 99999-9999" maxLength={15}/></div>
+          </div>
+          <div className="frow">
+            <div className="fg" style={{flex:"0 0 130px"}}>
+              <label className="fl">CEP *</label>
+              <div style={{position:"relative"}}>
+                <input className="fi" inputMode="numeric" value={cep} onChange={e=>{const v=formatCEP(e.target.value);setCep(v);if(v.replace(/\D/g,"").length===8)buscarCEP(v);}} placeholder="00000-000" maxLength={9}/>
+                {cepLoading&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",color:"var(--g)",fontSize:11}}>...</span>}
+              </div>
+            </div>
+            <div className="fg"><label className="fl">Número *</label><input className="fi" value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Ex: 142"/></div>
+          </div>
+          <div className="fg"><label className="fl">Endereço *</label><input className="fi" value={logradouro} onChange={e=>setLogradouro(e.target.value)} placeholder="Rua / Avenida"/></div>
+          <div className="frow">
+            <div className="fg"><label className="fl">Bairro</label><input className="fi" value={bairro} onChange={e=>setBairro(e.target.value)} placeholder="Bairro"/></div>
+            <div className="fg" style={{flex:"0 0 70px"}}><label className="fl">UF</label><input className="fi" value={uf} onChange={e=>setUf(e.target.value.toUpperCase().slice(0,2))} placeholder="MG" maxLength={2}/></div>
+          </div>
+          <div className="fg"><label className="fl">Cidade *</label><input className="fi" value={cidade} onChange={e=>setCidade(e.target.value)} placeholder="Cidade"/></div>
         </>}
         <div className="fg"><label className="fl">Email</label><input className="fi" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com"/></div>
         {tab !== "recuperar" && <div className="fg"><label className="fl">Senha</label><input className="fi" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/></div>}
@@ -1903,7 +1949,7 @@ _Controle IATF — controleiatf.com.br_`;
   const ehAssinante = perfil?.assinante === true;
   if (diasRestantes === 0 && !ehAssinante) {
     if (!perfilCarregado) return <div className="app"><style>{CSS}</style><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:"var(--g)",fontWeight:700}}>Carregando...</div></div>;
-    return <PaywallScreen user={user} perfil={perfil} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading} setPerfil={setPerfil}/>;
+    return <><style>{CSS}</style><PaywallScreen user={user} perfil={perfil} onLogout={logout} pagLoading={pagLoading} setPagLoading={setPagLoading} setPerfil={setPerfil}/></>;
   }
 
   if(screen?.type==="fazenda"){
@@ -2799,9 +2845,9 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
   const [pixDataPerfil, setPixDataPerfil] = useState(null);
   const [pixPollingPerfil, setPixPollingPerfil] = useState(false);
   const [pixTrigger, setPixTrigger] = useState(0);
-  const [cpfPerfil, setCpfPerfil] = useState("");
-  const [cepPerfil, setCepPerfil] = useState("");
-  const [numeroPerfil, setNumeroPerfil] = useState("");
+  const [cpfPerfil, setCpfPerfil] = useState(perfil?.cpf || "");
+  const [cepPerfil, setCepPerfil] = useState(perfil?.cep || "");
+  const [numeroPerfil, setNumeroPerfil] = useState(perfil?.numero || "");
   const [brickKeyPerfil, setBrickKeyPerfil] = useState(0);
   const brickRefPerfil = useRef(null); // ref para destruir instância anterior do Brick no perfil
   // Refs sincronizadas — o onSubmit do Brick captura closure antiga; refs têm sempre o valor atual
@@ -2966,7 +3012,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
                   last_name:  cardLastP  || user?.user_metadata?.sobrenome  || perfil?.sobrenome  || fd.payer?.lastName  || fd.payer?.last_name  || "",
                   identification: { type: "CPF", number: _cpfNumP || (fd.payer?.identification?.number || "") },
                   phone: _telDigP.length >= 10 ? { area_code: _telDigP.slice(0,2), number: _telDigP.slice(2) } : undefined,
-                  ...(cepPerfilRef.current ? { address: { zip_code: cepPerfilRef.current.replace(/\D/g,""), street_number: numeroPerfilRef.current || "S/N" } } : {}),
+                  ...(cepPerfilRef.current ? { address: { zip_code: cepPerfilRef.current.replace(/\D/g,""), street_name: perfil?.logradouro || "", street_number: numeroPerfilRef.current || "S/N", neighborhood: perfil?.bairro || "", city: perfil?.cidade || "", federal_unit: perfil?.uf || "" } } : {}),
                 },
               };
 
