@@ -35,6 +35,7 @@ quick-task.txt
 criar-assinatura.txt
 mp diagnostico.txt
 mp-webhook.txt
+notificar-cadastro.txt
 
 # Assets de logo soltos na raiz (origem para gerar ícones) — só na raiz, não em public/
 /logo_full_1024.png
