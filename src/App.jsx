@@ -1723,10 +1723,43 @@ export default function App() {
     if(ch.protocolo_individual!==undefined) dbCh.protocolo_individual=ch.protocolo_individual;
     if(Object.keys(dbCh).length>0) await supabase.from("animais").update(dbCh).eq("id",id);
   };
+
+  // ── Estoque do banco de sêmen ─────────────────────────────────────────
+  // Ajusta o estoque de uma palheta (delta < 0 = baixa do botijão; > 0 = devolve).
+  const ajustarEstoqueQtd = async (touro, partida, delta) => {
+    if(!touro || !delta) return;
+    const item = semenBank.find(s =>
+      s.touro.toLowerCase() === String(touro).toLowerCase() &&
+      (!partida || !s.partida || s.partida === partida)
+    );
+    if(!item) return; // touro digitado fora do banco — não há estoque a movimentar
+    const nova = Math.max(0, (item.quantidade||0) + delta);
+    setSemenBank(x => x.map(s => s.id===item.id ? {...s, quantidade:nova} : s));
+    await supabase.from("semen_bank").update({quantidade:nova}).eq("id", item.id);
+  };
+  // Define o touro de UMA vaca, ajustando o estoque (devolve a anterior, baixa a nova).
+  const setTouroAnimal = (animalId, touro, partida) => {
+    const a = animais.find(x=>x.id===animalId);
+    const antT = a?.touro||"", antP = a?.partida||"";
+    updAnimal(animalId, {touro, partida: partida||""});
+    if(antT !== touro || antP !== (partida||"")){
+      if(antT) ajustarEstoqueQtd(antT, antP, +1);
+      if(touro) ajustarEstoqueQtd(touro, partida||"", -1);
+    }
+  };
+  // Aplica o mesmo touro a um lote de vacas, baixando o estoque pela quantidade de uma vez.
+  const setTouroEmLote = (animalIds, touro, partida) => {
+    if(!animalIds.length) return;
+    animalIds.forEach(id => updAnimal(id, {touro, partida: partida||""}));
+    if(touro) ajustarEstoqueQtd(touro, partida||"", -animalIds.length);
+  };
+
   const delAnimal = async (id) => {
     if(isMembro){ ping("Apenas o dono pode excluir."); return; }
+    const animal = animais.find(a=>a.id===id);
     setAnimais(x=>{const l=x.filter(a=>a.id!==id);cacheAnimais(l);return l;});
     await supabase.from("animais").delete().eq("id",id);
+    if(animal?.touro) ajustarEstoqueQtd(animal.touro, animal.partida||"", +1); // devolve a dose ao botijão
     ping("Removido.");
   };
 
@@ -2022,6 +2055,7 @@ _Controle IATF — controleiatf.com.br_`;
         onBack={()=>setScreen({type:"fazenda",id:p.fazendaId})}
         onAddAnimal={(a)=>addAnimal({...a,protocoloId:p.id})}
         onUpdAnimal={updAnimal} onDelAnimal={delAnimal}
+        onSetTouro={setTouroAnimal} onSetTouroLote={setTouroEmLote}
         onUpdProtocolo={(ch)=>updProtocolo(p.id,ch)}
         onDelProtocolo={()=>{delProtocolo(p.id);setScreen({type:"fazenda",id:p.fazendaId});}}
         onWA={()=>sendWA(p.id)} onWAProdutor={sendWAProdutor} setModal={setModal} ping={ping}/>
@@ -2346,7 +2380,7 @@ function ProtocoloForm({initial,onSave,onCancel}){
   </div>;
 }
 
-function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],onAddVaca,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
+function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],onAddVaca,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onSetTouro,onSetTouroLote,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
   const[showForm,setShowForm]=useState(false);
   const[editA,setEditA]=useState(null);
   const[editProt,setEditProt]=useState(false);
@@ -2355,9 +2389,10 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],on
   const jaNoProtocolo=new Set(animais.map(a=>a.vacaId).filter(Boolean));
   // Aplica o mesmo touro a todas as vacas que ainda não têm touro (lotes que usam o mesmo sêmen)
   const aplicarTouroTodas=(touro,partida)=>{
-    let cont=0;
-    animais.forEach(a=>{ if(!a.touro){ onUpdAnimal(a.id,{touro,partida:partida||""}); cont++; } });
-    ping(cont>0?`Touro aplicado a ${cont} ${cont===1?"vaca":"vacas"}!`:"Todas as vacas já tinham touro.");
+    const ids=animais.filter(a=>!a.touro).map(a=>a.id);
+    if(!ids.length){ ping("Todas as vacas já tinham touro."); return; }
+    onSetTouroLote(ids,touro,partida);
+    ping(`Touro aplicado a ${ids.length} ${ids.length===1?"vaca":"vacas"}!`);
   };
   const pr=animais.filter(a=>a.diagnostico==="P").length;
   const va=animais.filter(a=>a.diagnostico==="V").length;
@@ -2437,7 +2472,7 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],on
             onCancel={()=>setEditA(null)}/>
         : <AnimalCard key={a.id} animal={a} protocolo={p} semenBank={semenBank}
             onUpdDiag={(d)=>{onUpdAnimal(a.id,{diagnostico:d});ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
-            onUpdTouro={(touro,partida)=>{onUpdAnimal(a.id,{touro,partida:partida||""});ping("Touro registrado!");}}
+            onUpdTouro={(touro,partida)=>{onSetTouro(a.id,touro,partida);ping(touro?"Touro registrado!":"Touro removido.");}}
             onAplicarTodas={aplicarTouroTodas}
             onEdit={()=>setEditA(a)}
             onDel={()=>setModal({type:"confirm",msg:`Remover ${a.nome||a.numero||"esta vaca"} do protocolo?`,onOk:()=>onDelAnimal(a.id)})}
