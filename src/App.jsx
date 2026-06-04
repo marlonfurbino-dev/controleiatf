@@ -2192,6 +2192,8 @@ function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVac
   const[editFazenda,setEditFazenda]=useState(false);
   const[showVaca,setShowVaca]=useState(false);
   const[editVaca,setEditVaca]=useState(null);
+  const[qVaca,setQVaca]=useState("");
+  const vacasFiltradas=vacas.filter(v=>((v.nome||"")+(v.numero||"")).toLowerCase().includes(qVaca.toLowerCase().trim()));
   return <div>
     <div className="hdr">
       <button className="hdr-btn" onClick={onBack}><Icon name="back" size={20}/></button>
@@ -2205,24 +2207,7 @@ function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVac
         :null
       }
 
-      {/* Rebanho — vacas cadastradas uma vez, reaproveitadas nos protocolos */}
-      <div className="sec" style={{marginBottom:2}}>Rebanho ({vacas.length})</div>
-      <div style={{fontSize:11,color:"var(--gr4)",marginBottom:10}}>Cadastre a vaca uma vez. Você a reaproveita em cada protocolo, sem redigitar.</div>
-      {!showVaca&&!editVaca&&<button onClick={()=>{setShowVaca(true);setEditVaca(null);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"var(--gp)",border:"1.5px solid var(--g)",borderRadius:"var(--r8)",padding:"13px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,color:"var(--g)",cursor:"pointer",marginBottom:10}}><Icon name="plus" size={17}/> Nova vaca no rebanho</button>}
-      {(showVaca||editVaca)&&<VacaForm initial={editVaca} onSave={(v)=>{if(editVaca){onUpdVaca(editVaca.id,v);}else{onAddVaca(v);}setShowVaca(false);setEditVaca(null);}} onCancel={()=>{setShowVaca(false);setEditVaca(null);}} onDelete={editVaca?()=>setModal({type:"confirm",msg:`Remover ${editVaca.nome||editVaca.numero||"esta vaca"} do rebanho?`,onOk:()=>{onDelVaca(editVaca.id);setEditVaca(null);setShowVaca(false);}}):null}/>}
-      {vacas.length===0&&!showVaca&&<div className="empty" style={{padding:"14px 0"}}><Icon name="cow" size={32}/><div className="empty-s">Nenhuma vaca no rebanho ainda</div></div>}
-      {!editVaca&&vacas.map(v=><div key={v.id} className="card" style={{padding:"10px 12px",cursor:"default"}}>
-        <div className="rowsb">
-          <div><div className="card-title" style={{fontSize:14}}>{v.nome||"—"}{v.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{v.numero}</span>}</div>{v.raca&&<div className="card-sub">🐾 {v.raca}</div>}</div>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            {v.status==="P"&&<span className="badge b-g">✅ Prenha</span>}
-            {v.status==="V"&&<span className="badge b-r">❌ Vazia</span>}
-            <button onClick={()=>{setEditVaca(v);setShowVaca(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--gr4)"}}><Icon name="edit" size={16}/></button>
-          </div>
-        </div>
-      </div>)}
-      <div className="div" style={{margin:"14px 0"}}/>
-
+      {/* Protocolos primeiro — ação principal sempre acessível, sem rolar o rebanho */}
       <div className="sec">Protocolos</div>
       {protocolos.length===0&&!showForm&&<div className="empty" style={{padding:"20px 0"}}><Icon name="note" size={36}/><div className="empty-t">Nenhum protocolo</div><div className="empty-s">Inicie o primeiro protocolo IATF</div></div>}
       {protocolos.map(p=><div key={p.id} className="card" onClick={()=>onOpenProtocolo(p.id)}>
@@ -2240,6 +2225,32 @@ function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVac
         ?<ProtocoloForm onSave={async (p)=>{const prot=await onAddProtocolo(p);setShowForm(false);if(prot?.id)onOpenProtocolo(prot.id);}} onCancel={()=>setShowForm(false)}/>
         :<button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Iniciar Novo Protocolo</button>
       }
+
+      <div className="div" style={{margin:"18px 0"}}/>
+
+      {/* Rebanho — vacas cadastradas uma vez, reaproveitadas nos protocolos */}
+      <div className="sec" style={{marginBottom:2}}>Rebanho ({vacas.length})</div>
+      <div style={{fontSize:11,color:"var(--gr4)",marginBottom:10}}>Cadastre a vaca uma vez. Você a reaproveita em cada protocolo, sem redigitar.</div>
+      {!showVaca&&!editVaca&&<button onClick={()=>{setShowVaca(true);setEditVaca(null);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"var(--gp)",border:"1.5px solid var(--g)",borderRadius:"var(--r8)",padding:"13px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,color:"var(--g)",cursor:"pointer",marginBottom:10}}><Icon name="plus" size={17}/> Nova vaca no rebanho</button>}
+      {(showVaca||editVaca)&&<VacaForm initial={editVaca} onSave={(v)=>{if(editVaca){onUpdVaca(editVaca.id,v);}else{onAddVaca(v);}setShowVaca(false);setEditVaca(null);}} onCancel={()=>{setShowVaca(false);setEditVaca(null);}} onDelete={editVaca?()=>setModal({type:"confirm",msg:`Remover ${editVaca.nome||editVaca.numero||"esta vaca"} do rebanho?`,onOk:()=>{onDelVaca(editVaca.id);setEditVaca(null);setShowVaca(false);}}):null}/>}
+      {vacas.length===0&&!showVaca&&<div className="empty" style={{padding:"14px 0"}}><Icon name="cow" size={32}/><div className="empty-s">Nenhuma vaca no rebanho ainda</div></div>}
+      {vacas.length>0&&!editVaca&&<div style={{position:"relative",marginBottom:10}}>
+        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--gr3)"}}><Icon name="search" size={16}/></span>
+        <input className="fi" style={{paddingLeft:34}} placeholder="Buscar no rebanho por nome ou nº..." value={qVaca} onChange={e=>setQVaca(e.target.value)}/>
+      </div>}
+      {!editVaca&&<div style={{maxHeight:360,overflowY:"auto"}}>
+        {vacasFiltradas.map(v=><div key={v.id} className="card" style={{padding:"10px 12px",cursor:"default"}}>
+          <div className="rowsb">
+            <div><div className="card-title" style={{fontSize:14}}>{v.nome||"—"}{v.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{v.numero}</span>}</div>{v.raca&&<div className="card-sub">🐾 {v.raca}</div>}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              {v.status==="P"&&<span className="badge b-g">✅ Prenha</span>}
+              {v.status==="V"&&<span className="badge b-r">❌ Vazia</span>}
+              <button onClick={()=>{setEditVaca(v);setShowVaca(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--gr4)"}}><Icon name="edit" size={16}/></button>
+            </div>
+          </div>
+        </div>)}
+        {vacas.length>0&&vacasFiltradas.length===0&&<div style={{fontSize:13,color:"var(--gr4)",textAlign:"center",padding:"14px 0"}}>Nenhuma vaca encontrada para “{qVaca}”.</div>}
+      </div>}
     </div>
   </div>;
 }
