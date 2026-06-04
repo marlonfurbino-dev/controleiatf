@@ -1336,6 +1336,7 @@ export default function App() {
   const [ownerIdRef, setOwnerIdRef] = useState(null);   // user_id do dono (se for membro)
   const [protocolos, setProtocolos] = useState([]);
   const [animais,    setAnimais]    = useState([]);
+  const [vacas,      setVacas]      = useState([]);
   const [semenBank,  setSemenBank]  = useState([]);
   const [tab,    setTab]    = useState("home");
   const [screen, setScreen] = useState(null);
@@ -1540,12 +1541,13 @@ export default function App() {
         setOwnerIdRef(null);
       }
 
-      const [perfilRes, fz, pr, an, sm] = await Promise.all([
+      const [perfilRes, fz, pr, an, sm, vc] = await Promise.all([
         supabase.from("perfis").select("*").eq("id", user.id).single(),
         supabase.from("fazendas").select("*").eq("user_id", targetId).order("at", {ascending:false}),
         supabase.from("protocolos").select("*").eq("user_id", targetId).order("at", {ascending:false}),
         supabase.from("animais").select("*").eq("user_id", targetId).order("at", {ascending:false}),
         supabase.from("semen_bank").select("*").eq("user_id", targetId).order("at", {ascending:false}),
+        supabase.from("vacas").select("*").eq("user_id", targetId).order("at", {ascending:false}),
       ]);
 
       // Se erro de JWT/auth em qualquer query e ainda tem tentativas, retry após 1s
@@ -1571,11 +1573,13 @@ export default function App() {
       setPerfilCarregado(true);
       if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
       if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
-      const mappedAn3 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
+      const mappedAn3 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,vacaId:a.vaca_id||"",dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
       if (mappedAn3.length > 0) { setAnimais(mappedAn3); DB.set(`animais_${targetId}`, mappedAn3); }
       else { const loc = DB.get(`animais_${targetId}`) || []; if (loc.length > 0) setAnimais(loc); }
       if (sm.error) console.error("load semen_bank erro — code:", sm.error.code, "| message:", sm.error.message);
       if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
+      if (vc?.error) console.error("load vacas erro — code:", vc.error.code, "| message:", vc.error.message);
+      if (vc?.data) setVacas(vc.data.map(v=>({...v,fazendaId:v.fazenda_id})));
     };
     load();
   }, [user, dataKey]);
@@ -1592,6 +1596,7 @@ export default function App() {
     setFazendas([]);
     setProtocolos([]);
     setAnimais([]);
+    setVacas([]);
     setSemenBank([]);
     setScreen(null);
     setPage("app");
@@ -1670,7 +1675,7 @@ export default function App() {
     setAnimais(x=>{const l=[n,...x];cacheAnimais(l);return l;});
     const targetUserId = ownerIdRef || user.id;
     const {error} = await supabase.from("animais").insert({
-      id:n.id, user_id:targetUserId, protocolo_id:a.protocoloId,
+      id:n.id, user_id:targetUserId, protocolo_id:a.protocoloId, vaca_id:a.vacaId||"",
       nome:a.nome||"", numero:a.numero||"", ecc:a.ecc||"",
       novilha:a.novilha||false,
       data_ultimo_parto:a.dataUltimoParto||"",
@@ -1723,6 +1728,36 @@ export default function App() {
     setAnimais(x=>{const l=x.filter(a=>a.id!==id);cacheAnimais(l);return l;});
     await supabase.from("animais").delete().eq("id",id);
     ping("Removido.");
+  };
+
+  // ── Rebanho (vacas permanentes por fazenda) ───────────────────────────
+  const addVaca = async (v) => {
+    if(isMembro){ ping("Apenas o dono pode cadastrar vacas."); return null; }
+    const n={...v,id:uid(),at:Date.now()};
+    setVacas(x=>[n,...x]);
+    const targetUserId = ownerIdRef || user.id;
+    const {error} = await supabase.from("vacas").insert({
+      id:n.id, user_id:targetUserId, fazenda_id:v.fazendaId,
+      nome:v.nome||"", numero:v.numero||"", raca:v.raca||"", at:n.at
+    });
+    if(error){ console.error("addVaca erro:",error); ping("Erro ao salvar vaca!"); }
+    else ping("Vaca cadastrada no rebanho!");
+    return n;
+  };
+  const updVaca = async (id,ch) => {
+    setVacas(x=>x.map(v=>v.id===id?{...v,...ch}:v));
+    const dbCh={};
+    if(ch.nome!==undefined) dbCh.nome=ch.nome;
+    if(ch.numero!==undefined) dbCh.numero=ch.numero;
+    if(ch.raca!==undefined) dbCh.raca=ch.raca;
+    if(Object.keys(dbCh).length) await supabase.from("vacas").update(dbCh).eq("id",id);
+    ping("Vaca atualizada!");
+  };
+  const delVaca = async (id) => {
+    if(isMembro){ ping("Apenas o dono pode excluir."); return; }
+    setVacas(x=>x.filter(v=>v.id!==id));
+    await supabase.from("vacas").delete().eq("id",id);
+    ping("Vaca removida do rebanho.");
   };
 
   const addSemenDB = async (s) => {
@@ -1964,6 +1999,8 @@ _Controle IATF — controleiatf.com.br_`;
     if(!f){setScreen(null);return null;}
     return <div className="app"><style>{CSS}</style>
       <FazendaScreen fazenda={f} protocolos={protocolos.filter(p=>p.fazendaId===f.id)}
+        vacas={vacas.filter(v=>v.fazendaId===f.id)}
+        onAddVaca={(v)=>addVaca({...v,fazendaId:f.id})} onUpdVaca={updVaca} onDelVaca={delVaca}
         onBack={()=>setScreen(null)} onAddProtocolo={(p)=>addProtocolo({...p,fazendaId:f.id})}
         onUpdProtocolo={updProtocolo} onUpdFazenda={(ch)=>updFazenda(f.id,ch)}
         onOpenProtocolo={(id)=>setScreen({type:"protocolo",id})}
@@ -1980,6 +2017,8 @@ _Controle IATF — controleiatf.com.br_`;
     return <div className="app"><style>{CSS}</style>
       <ProtocoloScreen protocolo={p} fazenda={f} animais={animais.filter(a=>a.protocoloId===p.id)}
         semenBank={semenBank}
+        vacas={vacas.filter(v=>v.fazendaId===p.fazendaId)}
+        onAddVaca={(v)=>addVaca({...v,fazendaId:p.fazendaId})}
         onBack={()=>setScreen({type:"fazenda",id:p.fazendaId})}
         onAddAnimal={(a)=>addAnimal({...a,protocoloId:p.id})}
         onUpdAnimal={updAnimal} onDelAnimal={delAnimal}
@@ -2101,9 +2140,11 @@ function FazendasTab({fazendas,protocolos,animais,onOpen,onAdd}){
   </div>;
 }
 
-function FazendaScreen({fazenda,protocolos,onBack,onAddProtocolo,onUpdProtocolo,onUpdFazenda,onOpenProtocolo,onDelete,setModal,ping}){
+function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVaca,onBack,onAddProtocolo,onUpdProtocolo,onUpdFazenda,onOpenProtocolo,onDelete,setModal,ping}){
   const[showForm,setShowForm]=useState(false);
   const[editFazenda,setEditFazenda]=useState(false);
+  const[showVaca,setShowVaca]=useState(false);
+  const[editVaca,setEditVaca]=useState(null);
   return <div>
     <div className="hdr">
       <button className="hdr-btn" onClick={onBack}><Icon name="back" size={20}/></button>
@@ -2116,6 +2157,26 @@ function FazendaScreen({fazenda,protocolos,onBack,onAddProtocolo,onUpdProtocolo,
         ?<FazendaForm initial={fazenda} onSave={(ch)=>{onUpdFazenda(ch);setEditFazenda(false);}} onCancel={()=>setEditFazenda(false)}/>
         :null
       }
+
+      {/* Rebanho — vacas cadastradas uma vez, reaproveitadas nos protocolos */}
+      <div className="rowsb" style={{marginBottom:2}}>
+        <div className="sec" style={{margin:0}}>Rebanho ({vacas.length})</div>
+        {!showVaca&&!editVaca&&<span style={{fontSize:12,color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>{setShowVaca(true);setEditVaca(null);}}>+ Nova vaca</span>}
+      </div>
+      <div style={{fontSize:11,color:"var(--gr4)",marginBottom:8}}>Cadastre a vaca uma vez. Você a reaproveita em cada protocolo, sem redigitar.</div>
+      {(showVaca||editVaca)&&<VacaForm initial={editVaca} onSave={(v)=>{if(editVaca){onUpdVaca(editVaca.id,v);}else{onAddVaca(v);}setShowVaca(false);setEditVaca(null);}} onCancel={()=>{setShowVaca(false);setEditVaca(null);}}/>}
+      {vacas.length===0&&!showVaca&&<div className="empty" style={{padding:"14px 0"}}><Icon name="cow" size={32}/><div className="empty-s">Nenhuma vaca no rebanho ainda</div></div>}
+      {!editVaca&&vacas.map(v=><div key={v.id} className="card" style={{padding:"10px 12px",cursor:"default"}}>
+        <div className="rowsb">
+          <div><div className="card-title" style={{fontSize:14}}>{v.nome||"—"}{v.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{v.numero}</span>}</div>{v.raca&&<div className="card-sub">🐾 {v.raca}</div>}</div>
+          <div style={{display:"flex",gap:4}}>
+            <button onClick={()=>{setEditVaca(v);setShowVaca(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--gr4)"}}><Icon name="edit" size={16}/></button>
+            <button onClick={()=>setModal({type:"confirm",msg:`Remover ${v.nome||v.numero||"esta vaca"} do rebanho?`,onOk:()=>onDelVaca(v.id)})} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--r)"}}><Icon name="trash" size={16}/></button>
+          </div>
+        </div>
+      </div>)}
+      <div className="div" style={{margin:"14px 0"}}/>
+
       <div className="sec">Protocolos</div>
       {protocolos.length===0&&!showForm&&<div className="empty" style={{padding:"20px 0"}}><Icon name="note" size={36}/><div className="empty-t">Nenhum protocolo</div><div className="empty-s">Inicie o primeiro protocolo IATF</div></div>}
       {protocolos.map(p=><div key={p.id} className="card" onClick={()=>onOpenProtocolo(p.id)}>
@@ -2285,12 +2346,19 @@ function ProtocoloForm({initial,onSave,onCancel}){
   </div>;
 }
 
-function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
+function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],onAddVaca,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
   const[showForm,setShowForm]=useState(false);
   const[editA,setEditA]=useState(null);
   const[editProt,setEditProt]=useState(false);
   const[q,setQ]=useState("");
-  const list=animais.filter(a=>(a.nome+a.numero).toLowerCase().includes(q.toLowerCase()));
+  const list=animais.filter(a=>((a.nome||"")+(a.numero||"")).toLowerCase().includes(q.toLowerCase()));
+  const jaNoProtocolo=new Set(animais.map(a=>a.vacaId).filter(Boolean));
+  // Aplica o mesmo touro a todas as vacas que ainda não têm touro (lotes que usam o mesmo sêmen)
+  const aplicarTouroTodas=(touro,partida)=>{
+    let cont=0;
+    animais.forEach(a=>{ if(!a.touro){ onUpdAnimal(a.id,{touro,partida:partida||""}); cont++; } });
+    ping(cont>0?`Touro aplicado a ${cont} ${cont===1?"vaca":"vacas"}!`:"Todas as vacas já tinham touro.");
+  };
   const pr=animais.filter(a=>a.diagnostico==="P").length;
   const va=animais.filter(a=>a.diagnostico==="V").length;
   const di=animais.filter(a=>a.diagnostico).length;
@@ -2367,19 +2435,21 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],onBack,onAd
         ? <AnimalForm key={a.id} initial={editA} semenBank={semenBank}
             onSave={(d)=>{onUpdAnimal(editA.id,d);setEditA(null);ping("Animal atualizado!");}}
             onCancel={()=>setEditA(null)}/>
-        : <AnimalCard key={a.id} animal={a} protocolo={p}
+        : <AnimalCard key={a.id} animal={a} protocolo={p} semenBank={semenBank}
             onUpdDiag={(d)=>{onUpdAnimal(a.id,{diagnostico:d});ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
+            onUpdTouro={(touro,partida)=>{onUpdAnimal(a.id,{touro,partida:partida||""});ping("Touro registrado!");}}
+            onAplicarTodas={aplicarTouroTodas}
             onEdit={()=>setEditA(a)}
-            onDel={()=>setModal({type:"confirm",msg:`Remover ${a.nome}?`,onOk:()=>onDelAnimal(a.id)})}
+            onDel={()=>setModal({type:"confirm",msg:`Remover ${a.nome||a.numero||"esta vaca"} do protocolo?`,onOk:()=>onDelAnimal(a.id)})}
           />)}
 
       {animais.length===0&&!showForm&&!editA&&<div className="empty"><Icon name="cow" size={44}/><div className="empty-t">Nenhum animal cadastrado</div><div className="empty-s">Adicione as vacas do protocolo</div></div>}
 
       {showForm
-        ? <AnimalForm initial={null} semenBank={semenBank}
-            onSave={(a)=>{onAddAnimal(a);setShowForm(false);}}
+        ? <AddAnimaisPicker vacas={vacas} jaNoProtocolo={jaNoProtocolo} onAddVaca={onAddVaca}
+            onConfirm={(lista)=>{lista.forEach(a=>onAddAnimal(a));setShowForm(false);ping(lista.length===1?"Vaca adicionada ao protocolo!":`${lista.length} vacas adicionadas!`);}}
             onCancel={()=>setShowForm(false)}/>
-        : !editA && <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar Animal</button>
+        : !editA && <button className="btn btn-p btn-full" style={{marginTop:8}} onClick={()=>setShowForm(true)}><Icon name="plus" size={16}/> Adicionar do rebanho</button>
       }
 
       {animais.length>0&&!showForm&&!editA&&<>
@@ -2397,9 +2467,20 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],onBack,onAd
   </div>;
 }
 
-function AnimalCard({animal:a,onUpdDiag,onEdit,onDel,protocolo}){
+function AnimalCard({animal:a,onUpdDiag,onEdit,onDel,protocolo,semenBank=[],onUpdTouro,onAplicarTodas}){
   const[open,setOpen]=useState(false);
-  const ini=(a.nome||"??").slice(0,2).toUpperCase();
+  const[touroVal,setTouroVal]=useState(a.touro||"");
+  const[partidaVal,setPartidaVal]=useState(a.partida||"");
+  const[touroSug,setTouroSug]=useState([]);
+  const onTouroInput=(v)=>{
+    setTouroVal(v);
+    if(v.length>=2) setTouroSug(semenBank.filter(s=>s.touro.toLowerCase().includes(v.toLowerCase())&&s.quantidade>0));
+    else setTouroSug([]);
+  };
+  const pickTouro=(item)=>{ setTouroVal(item.touro); setPartidaVal(item.partida||""); setTouroSug([]); };
+  // IA já chegou? (libera o lançamento do touro)
+  const iaChegou = protocolo?.ia ? new Date(protocolo.ia+"T12:00:00")<=new Date() : false;
+  const ini=(a.nome||a.numero||"??").slice(0,2).toUpperCase();
   const diagBadge=a.diagnostico==="P"?<span className="badge b-g">✅ Prenha</span>:a.diagnostico==="V"?<span className="badge b-r">❌ Vazia</span>:<span className="badge b-gr">⏳ Pendente</span>;
   const dias=calcDiasParida(a.dataUltimoParto);
   // Cronograma automático do protocolo
@@ -2451,6 +2532,23 @@ function AnimalCard({animal:a,onUpdDiag,onEdit,onDel,protocolo}){
           })}
         </div>
       </>}
+
+      {/* Lançamento do touro/sêmen — disponível a partir da IA */}
+      <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Inseminação — touro / sêmen{!iaChegou&&<span style={{fontWeight:400,textTransform:"none",color:"var(--gr3)"}}> (a IA ainda não chegou)</span>}</div>
+      <div className="frow" style={{marginBottom:6}}>
+        <div className="fg autocomplete" style={{flex:2,margin:0}}>
+          <input className="fi" value={touroVal} onChange={e=>onTouroInput(e.target.value)} placeholder="Digite para buscar no banco..."/>
+          {touroSug.length>0&&<div className="autocomplete-list">
+            {touroSug.map((item,i)=><div key={i} className="autocomplete-item" onClick={()=>pickTouro(item)}>🐂 {item.touro} <span style={{color:"var(--gr4)",fontSize:11}}>({item.raca} · {item.quantidade} doses)</span></div>)}
+          </div>}
+        </div>
+        <div className="fg" style={{flex:1,margin:0}}><input className="fi" value={partidaVal} onChange={e=>setPartidaVal(e.target.value)} placeholder="Partida"/></div>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        <button className="btn btn-gh btn-sm" style={{flex:1}} onClick={()=>onUpdTouro&&onUpdTouro(touroVal.trim(),partidaVal.trim())}><Icon name="check" size={14}/> Salvar touro</button>
+        {touroVal.trim()&&onAplicarTodas&&<button className="btn btn-gh btn-sm" style={{flex:1}} onClick={()=>onAplicarTodas(touroVal.trim(),partidaVal.trim())}>Aplicar a todas</button>}
+      </div>
+
       <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Diagnóstico de gestação</div>
       <div className="diag-row" style={{marginBottom:14}}>
         <button className={`diag-btn${a.diagnostico==="P"?" p":""}`} onClick={()=>onUpdDiag("P")}>✅ Prenha (P+)</button>
@@ -2480,30 +2578,86 @@ function AnimalCard({animal:a,onUpdDiag,onEdit,onDel,protocolo}){
   </div>;
 }
 
-function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
-  const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",dataServico:"",touro:"",partida:"",d0:false,d8:false,d10:false,ia:false,diagnostico:"",obs:"",obsProdutor:"",protocolo_individual:""});
-  const[errAnimal,setErrAnimal]=useState("");
+// Formulário do REBANHO — identidade permanente da vaca (cadastrada uma vez).
+// Nome e número são opcionais, mas pelo menos um é obrigatório (corte usa nº, leite usa nome).
+function VacaForm({initial,onSave,onCancel}){
+  const[f,setF]=useState(initial||{nome:"",numero:"",raca:""});
+  const[err,setErr]=useState("");
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
-  const[touroSuggestions,setTouroSuggestions]=useState([]);
-  const onTouroChange=(v)=>{
-    s("touro",v);
-    if(v.length>=2){
-      const matches=semenBank.filter(s=>s.touro.toLowerCase().includes(v.toLowerCase())&&s.quantidade>0);
-      setTouroSuggestions(matches);
-    } else setTouroSuggestions([]);
+  return <div className="form-box" style={{marginTop:8}}>
+    <div className="form-box-title">{initial?"✏️ Editar Vaca":"🐄 Nova Vaca no Rebanho"}</div>
+    <div className="frow">
+      <div className="fg" style={{flex:2}}><label className="fl">Nome</label><input className="fi" value={f.nome} onChange={e=>s("nome",e.target.value)} placeholder="Ex: Mimosa"/></div>
+      <div className="fg" style={{flex:1}}><label className="fl">Nº / Brinco</label><input className="fi" value={f.numero} onChange={e=>s("numero",e.target.value)} placeholder="142"/></div>
+    </div>
+    <div className="fg"><label className="fl">Raça</label><input className="fi" value={f.raca} onChange={e=>s("raca",e.target.value)} placeholder="Nelore"/></div>
+    <div style={{fontSize:11,color:"var(--gr4)",marginTop:-2,marginBottom:8}}>Preencha o nome OU o número (ou os dois). Vacas de corte costumam ter só número.</div>
+    {err&&<div style={{color:"var(--r)",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 10px",background:"var(--rl)",borderRadius:"var(--r8)"}}>⚠️ {err}</div>}
+    <div className="row" style={{gap:8,marginTop:4}}>
+      <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome.trim()&&!f.numero.trim())return setErr("Informe ao menos o nome OU o número/brinco.");setErr("");onSave({nome:f.nome.trim(),numero:f.numero.trim(),raca:f.raca.trim()});}}><Icon name="check" size={16}/> Salvar</button>
+    </div>
+  </div>;
+}
+
+// Seletor para adicionar vacas do rebanho ao protocolo (com ECC/categoria do momento).
+function AddAnimaisPicker({vacas=[],jaNoProtocolo,onConfirm,onAddVaca,onCancel}){
+  const disponiveis = vacas.filter(v=>!jaNoProtocolo.has(v.id));
+  const[sel,setSel]=useState({}); // vacaId -> {nome,numero,raca,ecc,novilha}
+  const[showNova,setShowNova]=useState(false);
+  const toggle=(v)=>setSel(s=>{const n={...s};if(n[v.id])delete n[v.id];else n[v.id]={nome:v.nome||"",numero:v.numero||"",raca:v.raca||"",ecc:"",novilha:false};return n;});
+  const setField=(id,k,val)=>setSel(s=>({...s,[id]:{...s[id],[k]:val}}));
+  const confirmar=()=>{
+    const escolhidas=Object.entries(sel).map(([vacaId,d])=>({vacaId,nome:d.nome||"",numero:d.numero||"",raca:d.raca||"",ecc:d.ecc||"",novilha:!!d.novilha}));
+    if(escolhidas.length===0)return;
+    onConfirm(escolhidas);
   };
-  const selectTouro=(item)=>{
-    s("touro",item.touro);
-    s("partida",item.partida||"");
-    setTouroSuggestions([]);
-  };
+  const qtd=Object.keys(sel).length;
+  return <div className="form-box" style={{marginTop:8}}>
+    <div className="form-box-title">🐄 Adicionar do rebanho</div>
+    {showNova
+      ? <VacaForm onSave={async(nv)=>{const c=await onAddVaca(nv);const id=c?.id||uid();setSel(s=>({...s,[id]:{nome:nv.nome,numero:nv.numero,raca:nv.raca,ecc:"",novilha:false}}));setShowNova(false);}} onCancel={()=>setShowNova(false)}/>
+      : <button className="btn btn-gh btn-full" style={{marginBottom:10}} onClick={()=>setShowNova(true)}><Icon name="plus" size={15}/> Cadastrar nova vaca no rebanho</button>}
+    {disponiveis.length===0&&qtd===0&&!showNova&&<div style={{fontSize:13,color:"var(--gr4)",textAlign:"center",padding:"10px 0"}}>Todas as vacas do rebanho já estão neste protocolo. Cadastre uma nova acima.</div>}
+    {disponiveis.map(v=>{
+      const on=!!sel[v.id];
+      return <div key={v.id} style={{border:`1.5px solid ${on?"var(--g)":"var(--gr2)"}`,borderRadius:"var(--r8)",padding:"10px 12px",marginBottom:8,background:on?"var(--gp)":"var(--w)"}}>
+        <div className="rowsb" style={{cursor:"pointer"}} onClick={()=>toggle(v)}>
+          <div style={{fontWeight:700,fontSize:14}}>{on?"☑":"☐"} {v.nome||"—"}{v.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{v.numero}</span>}{v.raca&&<span style={{color:"var(--gr4)",fontWeight:400,fontSize:12}}> · {v.raca}</span>}</div>
+        </div>
+        {on&&<div style={{display:"flex",gap:8,marginTop:8}}>
+          <div className="fg" style={{flex:1,margin:0}}><label className="fl">ECC</label>
+            <select className="fi fi-sel" value={sel[v.id].ecc} onChange={e=>setField(v.id,"ecc",e.target.value)}>
+              <option value="">—</option>{["1","1.5","2","2.5","3","3.5","4","4.5","5"].map(x=><option key={x}>{x}</option>)}
+            </select>
+          </div>
+          <div className="fg" style={{flex:2,margin:0}}><label className="fl">Categoria</label>
+            <div style={{display:"flex",gap:6}}>
+              <div onClick={()=>setField(v.id,"novilha",false)} style={{flex:1,textAlign:"center",padding:"8px 4px",borderRadius:"var(--r8)",border:`1.5px solid ${!sel[v.id].novilha?"var(--g)":"var(--gr2)"}`,background:!sel[v.id].novilha?"var(--gp)":"var(--w)",fontWeight:700,fontSize:12,color:!sel[v.id].novilha?"var(--g)":"var(--gr4)",cursor:"pointer"}}>Parida</div>
+              <div onClick={()=>setField(v.id,"novilha",true)} style={{flex:1,textAlign:"center",padding:"8px 4px",borderRadius:"var(--r8)",border:`1.5px solid ${sel[v.id].novilha?"var(--y)":"var(--gr2)"}`,background:sel[v.id].novilha?"var(--yl)":"var(--w)",fontWeight:700,fontSize:12,color:sel[v.id].novilha?"var(--y)":"var(--gr4)",cursor:"pointer"}}>Novilha</div>
+            </div>
+          </div>
+        </div>}
+      </div>;
+    })}
+    <div className="row" style={{gap:8,marginTop:4}}>
+      <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={confirmar}><Icon name="check" size={16}/> Adicionar{qtd>0?` (${qtd})`:""}</button>
+    </div>
+  </div>;
+}
+
+// Edição da PARTICIPAÇÃO da vaca no protocolo: condição do momento (ECC, categoria, parto)
+// e observações. Identidade vem do rebanho (mostrada como cabeçalho). Touro e DG são
+// lançados no card, nos momentos da IA e do DG — não aqui.
+function AnimalForm({onSave,onCancel,initial}){
+  const[f,setF]=useState(initial||{nome:"",numero:"",ecc:"",novilha:false,dataUltimoParto:"",raca:"",obs:"",obsProdutor:"",protocolo_individual:""});
+  const s=(k,v)=>setF(x=>({...x,[k]:v}));
   const dias=calcDiasParida(f.dataUltimoParto);
   return <div className="form-box" style={{marginTop:12}}>
-    <div className="form-box-title">{initial?"✏️ Editar Animal":"🐄 Novo Animal"}</div>
-    <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Identificação</div>
-    <div className="frow">
-      <div className="fg" style={{flex:2}}><label className="fl">Nome da Vaca *</label><input className="fi" value={f.nome} onChange={e=>s("nome",e.target.value)} placeholder="Ex: Mimosa"/></div>
-      <div className="fg" style={{flex:1}}><label className="fl">Nº Brinco</label><input className="fi" value={f.numero} onChange={e=>s("numero",e.target.value)} placeholder="142"/></div>
+    <div className="form-box-title">✏️ Dados no protocolo</div>
+    <div style={{background:"var(--gr1)",borderRadius:"var(--r8)",padding:"8px 12px",marginBottom:12,fontSize:14,fontWeight:700}}>
+      🐄 {f.nome||"—"}{f.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{f.numero}</span>}{f.raca&&<span style={{color:"var(--gr4)",fontWeight:400,fontSize:12}}> · {f.raca}</span>}
     </div>
     <div className="frow">
       <div className="fg"><label className="fl">ECC (1–5)</label>
@@ -2512,13 +2666,11 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
           {["1","1.5","2","2.5","3","3.5","4","4.5","5"].map(v=><option key={v}>{v}</option>)}
         </select>
       </div>
-      <div className="fg"><label className="fl">Raça</label><input className="fi" value={f.raca} onChange={e=>s("raca",e.target.value)} placeholder="Nelore"/></div>
-    </div>
-    <div className="fg">
-      <label className="fl">Categoria</label>
-      <div style={{display:"flex",gap:8}}>
-        <div onClick={()=>s("novilha",false)} style={{flex:1,textAlign:"center",padding:"9px 6px",borderRadius:"var(--r8)",border:`1.5px solid ${!f.novilha?"var(--g)":"var(--gr2)"}`,background:!f.novilha?"var(--gp)":"var(--w)",fontWeight:700,fontSize:13,color:!f.novilha?"var(--g)":"var(--gr4)",cursor:"pointer",userSelect:"none"}}>🐄 Vaca parida</div>
-        <div onClick={()=>s("novilha",true)} style={{flex:1,textAlign:"center",padding:"9px 6px",borderRadius:"var(--r8)",border:`1.5px solid ${f.novilha?"var(--y)":"var(--gr2)"}`,background:f.novilha?"var(--yl)":"var(--w)",fontWeight:700,fontSize:13,color:f.novilha?"var(--y)":"var(--gr4)",cursor:"pointer",userSelect:"none"}}>🌟 Novilha</div>
+      <div className="fg"><label className="fl">Categoria</label>
+        <div style={{display:"flex",gap:8}}>
+          <div onClick={()=>s("novilha",false)} style={{flex:1,textAlign:"center",padding:"9px 6px",borderRadius:"var(--r8)",border:`1.5px solid ${!f.novilha?"var(--g)":"var(--gr2)"}`,background:!f.novilha?"var(--gp)":"var(--w)",fontWeight:700,fontSize:13,color:!f.novilha?"var(--g)":"var(--gr4)",cursor:"pointer",userSelect:"none"}}>🐄 Parida</div>
+          <div onClick={()=>s("novilha",true)} style={{flex:1,textAlign:"center",padding:"9px 6px",borderRadius:"var(--r8)",border:`1.5px solid ${f.novilha?"var(--y)":"var(--gr2)"}`,background:f.novilha?"var(--yl)":"var(--w)",fontWeight:700,fontSize:13,color:f.novilha?"var(--y)":"var(--gr4)",cursor:"pointer",userSelect:"none"}}>🌟 Novilha</div>
+        </div>
       </div>
     </div>
     {!f.novilha&&<div className="fg">
@@ -2526,32 +2678,6 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
       <input type="date" className="fi" value={f.dataUltimoParto||""} onChange={e=>s("dataUltimoParto",e.target.value)}/>
       {dias!==null&&<div style={{marginTop:6,padding:"6px 10px",background:"var(--gp)",border:"1px solid var(--gm)",borderRadius:"var(--r8)",fontSize:12,fontWeight:600,color:"var(--g)"}}>📆 {dias} dias de parida</div>}
     </div>}
-    <div className="div"/>
-
-    <div className="frow">
-      <div className="fg autocomplete" style={{flex:2}}>
-        <label className="fl">Touro utilizado</label>
-        <input className="fi" value={f.touro||""} onChange={e=>onTouroChange(e.target.value)} placeholder="Digite para buscar no banco..."/>
-        {touroSuggestions.length>0&&<div className="autocomplete-list">
-          {touroSuggestions.map((item,i)=><div key={i} className="autocomplete-item" onClick={()=>selectTouro(item)}>
-            🐂 {item.touro} <span style={{color:"var(--gr4)",fontSize:11}}>({item.raca} · {item.quantidade} doses)</span>
-          </div>)}
-        </div>}
-      </div>
-      <div className="fg" style={{flex:1}}><label className="fl">Nº Partida</label><input className="fi" value={f.partida||""} onChange={e=>s("partida",e.target.value)} placeholder="Ex: 2024/01"/></div>
-    </div>
-
-    <div className="div"/>
-    <div style={{fontSize:12,fontWeight:700,color:"var(--g)",marginBottom:8,textTransform:"uppercase",letterSpacing:.4}}>Diagnóstico</div>
-    <div className="fg">
-      <label className="fl">Resultado</label>
-      <div className="diag-row">
-        <button className={`diag-btn${f.diagnostico===""?" pend":""}`} onClick={()=>s("diagnostico","")}>⏳ Pendente</button>
-        <button className={`diag-btn${f.diagnostico==="P"?" p":""}`} onClick={()=>s("diagnostico","P")}>✅ P+</button>
-        <button className={`diag-btn${f.diagnostico==="V"?" v":""}`} onClick={()=>s("diagnostico","V")}>❌ V−</button>
-      </div>
-    </div>
-    <div className="div"/>
     <div className="fg">
       <label className="fl">Protocolo individual (se diferente do protocolo geral)</label>
       <textarea className="fi fi-ta" rows={2} value={f.protocolo_individual||""} onChange={e=>s("protocolo_individual",e.target.value)} placeholder="Ex: Esta vaca recebeu protocolo diferente: ..."/>
@@ -2564,10 +2690,9 @@ function AnimalForm({onSave,onCancel,initial,semenBank=[]}){
       <label className="fl">Observação para o Produtor</label>
       <textarea className="fi fi-ta" value={f.obsProdutor||""} onChange={e=>s("obsProdutor",e.target.value)} placeholder="Informações para o produtor sobre este animal..."/>
     </div>
-    {errAnimal&&<div style={{color:"var(--r)",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 10px",background:"var(--rl)",borderRadius:"var(--r8)"}}>⚠️ {errAnimal}</div>}
     <div className="row" style={{gap:8,marginTop:4}}>
       <button className="btn btn-gh" style={{flex:1}} onClick={onCancel}>Cancelar</button>
-      <button className="btn btn-p" style={{flex:2}} onClick={()=>{if(!f.nome){setErrAnimal("Informe o nome do animal.");return;}setErrAnimal("");onSave(f);}}><Icon name="check" size={16}/> {initial?"Atualizar":"Salvar Animal"}</button>
+      <button className="btn btn-p" style={{flex:2}} onClick={()=>onSave(f)}><Icon name="check" size={16}/> Atualizar</button>
     </div>
   </div>;
 }
