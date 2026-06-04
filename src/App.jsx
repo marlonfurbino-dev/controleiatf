@@ -2088,8 +2088,6 @@ _Controle IATF — controleiatf.com.br_`;
       <div className="stats">
         <div className="stat"><div className="stat-n">{fazendas.length}</div><div className="stat-l">Fazendas</div></div>
         <div className="stat"><div className="stat-n">{protocolos.length}</div><div className="stat-l">Protocolos</div></div>
-        <div className="stat"><div className="stat-n">{totalA}</div><div className="stat-l">Animais</div></div>
-        <div className="stat"><div className="stat-n" style={{color:taxa>0?(taxa>=50?"var(--g)":"var(--y)"):"var(--gr3)"}}>{taxa>0?taxa+"%":"—"}</div><div className="stat-l">Prenhez</div></div>
       </div>
       {totalD>0&&<div className="info-box">
         <div style={{fontSize:11,fontWeight:700,color:"var(--g)",marginBottom:6,textTransform:"uppercase",letterSpacing:.4}}>Diagnóstico geral</div>
