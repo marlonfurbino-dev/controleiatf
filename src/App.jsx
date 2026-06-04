@@ -1574,8 +1574,14 @@ export default function App() {
       if (fz.data) setFazendas(fz.data.map(f=>({...f,fazendaId:f.fazenda_id,proprietario:f.proprietario||"",municipio:f.municipio||"",uf:f.uf||""})));
       if (pr.data) setProtocolos(pr.data.map(p=>({...p,fazendaId:p.fazenda_id})));
       const mappedAn3 = (an.data||[]).map(a=>({...a,protocoloId:a.protocolo_id,vacaId:a.vaca_id||"",dataUltimoParto:a.data_ultimo_parto||"",dataServico:a.data_servico||"",obsProdutor:a.obs_produtor||"",protocolo_individual:a.protocolo_individual||"",novilha:a.novilha||false}));
-      if (mappedAn3.length > 0) { setAnimais(mappedAn3); DB.set(`animais_${targetId}`, mappedAn3); }
-      else { const loc = DB.get(`animais_${targetId}`) || []; if (loc.length > 0) setAnimais(loc); }
+      if (an.error) {
+        // Sync falhou (ex.: offline) — mantém o cache local para não sumir dados
+        const loc = DB.get(`animais_${targetId}`) || []; if (loc.length > 0) setAnimais(loc);
+      } else {
+        // Sync OK — o servidor é a fonte da verdade, inclusive quando vazio:
+        // dados apagados no banco somem dos indicadores e o cache é sobrescrito.
+        setAnimais(mappedAn3); DB.set(`animais_${targetId}`, mappedAn3);
+      }
       if (sm.error) console.error("load semen_bank erro — code:", sm.error.code, "| message:", sm.error.message);
       if (sm.data) setSemenBank(sm.data.map(s=>({...s})));
       if (vc?.error) console.error("load vacas erro — code:", vc.error.code, "| message:", vc.error.message);
