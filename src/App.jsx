@@ -2050,7 +2050,24 @@ _Controle IATF — controleiatf.com.br_`;
         onBack={()=>setScreen(null)} onAddProtocolo={(p)=>addProtocolo({...p,fazendaId:f.id})}
         onUpdProtocolo={updProtocolo} onUpdFazenda={(ch)=>updFazenda(f.id,ch)}
         onOpenProtocolo={(id)=>setScreen({type:"protocolo",id})}
+        onOpenVaca={(id)=>setScreen({type:"vaca",id})}
         onDelete={()=>{delFazenda(f.id);setScreen(null);}} setModal={setModal} ping={ping}/>
+      {toast&&<div className="toast">{toast}</div>}
+      {modal&&<Modal modal={modal} setModal={setModal}/>}
+    </div>;
+  }
+
+  if(screen?.type==="vaca"){
+    const v=vacas.find(x=>x.id===screen.id);
+    if(!v){setScreen(null);return null;}
+    return <div className="app"><style>{CSS}</style>
+      <VacaScreen vaca={v}
+        participacoes={animais.filter(a=>a.vacaId===v.id)}
+        protocolos={protocolos}
+        onBack={()=>setScreen({type:"fazenda",id:v.fazendaId})}
+        onUpdVaca={(ch)=>updVaca(v.id,ch)}
+        onDelVaca={()=>{delVaca(v.id);setScreen({type:"fazenda",id:v.fazendaId});}}
+        setModal={setModal} ping={ping}/>
       {toast&&<div className="toast">{toast}</div>}
       {modal&&<Modal modal={modal} setModal={setModal}/>}
     </div>;
@@ -2187,7 +2204,7 @@ function FazendasTab({fazendas,protocolos,animais,onOpen,onAdd}){
   </div>;
 }
 
-function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVaca,onBack,onAddProtocolo,onUpdProtocolo,onUpdFazenda,onOpenProtocolo,onDelete,setModal,ping}){
+function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVaca,onBack,onAddProtocolo,onUpdProtocolo,onUpdFazenda,onOpenProtocolo,onOpenVaca,onDelete,setModal,ping}){
   const[showForm,setShowForm]=useState(false);
   const[editFazenda,setEditFazenda]=useState(false);
   const[showVaca,setShowVaca]=useState(false);
@@ -2239,18 +2256,70 @@ function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVac
         <input className="fi" style={{paddingLeft:34}} placeholder="Buscar no rebanho por nome ou nº..." value={qVaca} onChange={e=>setQVaca(e.target.value)}/>
       </div>}
       {!editVaca&&<div style={{maxHeight:360,overflowY:"auto"}}>
-        {vacasFiltradas.map(v=><div key={v.id} className="card" style={{padding:"10px 12px",cursor:"default"}}>
+        {vacasFiltradas.map(v=><div key={v.id} className="card" style={{padding:"10px 12px"}} onClick={()=>onOpenVaca&&onOpenVaca(v.id)}>
           <div className="rowsb">
             <div><div className="card-title" style={{fontSize:14}}>{v.nome||"—"}{v.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{v.numero}</span>}</div>{v.raca&&<div className="card-sub">🐾 {v.raca}</div>}</div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               {v.status==="P"&&<span className="badge b-g">✅ Prenha</span>}
               {v.status==="V"&&<span className="badge b-r">❌ Vazia</span>}
-              <button onClick={()=>{setEditVaca(v);setShowVaca(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--gr4)"}}><Icon name="edit" size={16}/></button>
+              <button onClick={(e)=>{e.stopPropagation();setEditVaca(v);setShowVaca(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--gr4)"}}><Icon name="edit" size={16}/></button>
+              <Icon name="chevron" size={14} color="var(--gr3)"/>
             </div>
           </div>
         </div>)}
         {vacas.length>0&&vacasFiltradas.length===0&&<div style={{fontSize:13,color:"var(--gr4)",textAlign:"center",padding:"14px 0"}}>Nenhuma vaca encontrada para “{qVaca}”.</div>}
       </div>}
+    </div>
+  </div>;
+}
+
+// Tela da vaca: status atual + histórico de todos os protocolos que ela participou.
+function VacaScreen({vaca:v,participacoes=[],protocolos=[],onBack,onUpdVaca,onDelVaca,setModal,ping}){
+  const[edit,setEdit]=useState(false);
+  const itens=participacoes.map(a=>{
+    const p=protocolos.find(x=>x.id===a.protocoloId);
+    return {a,p,at:(p?.at||a.at||0)};
+  }).sort((x,y)=>y.at-x.at); // mais recente primeiro
+  const fmtP=(p,at)=>{ const d=p?.ia||p?.d0; return d?new Date(d+"T12:00:00").toLocaleDateString("pt-BR"):(at?new Date(at).toLocaleDateString("pt-BR"):"—"); };
+  const selo=(diag)=> diag==="P"?<span className="badge b-g">✅ Prenha</span>:diag==="V"?<span className="badge b-r">❌ Vazia</span>:<span className="badge b-gr">⏳ Pendente</span>;
+  return <div>
+    <div className="hdr">
+      <button className="hdr-btn" onClick={onBack}><Icon name="back" size={20}/></button>
+      <div style={{flex:1}}>
+        <div className="hdr-title">{v.nome||"—"}{v.numero?` #${v.numero}`:""}</div>
+        <div className="hdr-sub">{v.raca||"Sem raça"} · Rebanho</div>
+      </div>
+      <button className="hdr-btn" onClick={()=>setEdit(true)}><Icon name="edit" size={17}/></button>
+    </div>
+    <div className="scr">
+      {edit
+        ?<VacaForm initial={v} onSave={(ch)=>{onUpdVaca(ch);setEdit(false);}} onCancel={()=>setEdit(false)} onDelete={()=>setModal({type:"confirm",msg:`Remover ${v.nome||v.numero||"esta vaca"} do rebanho?`,onOk:onDelVaca})}/>
+        :<>
+          <div className="info-box" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--gr4)",textTransform:"uppercase",letterSpacing:.4,marginBottom:6}}>Status atual</div>
+              {selo(v.status)}
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:24,fontWeight:800,color:"var(--g)",lineHeight:1}}>{itens.length}</div>
+              <div style={{fontSize:10,color:"var(--gr4)"}}>{itens.length===1?"protocolo":"protocolos"}</div>
+            </div>
+          </div>
+
+          <div className="sec">Histórico</div>
+          {itens.length===0&&<div className="empty" style={{padding:"20px 0"}}><Icon name="note" size={36}/><div className="empty-t">Sem histórico ainda</div><div className="empty-s">Esta vaca ainda não entrou em nenhum protocolo</div></div>}
+          {itens.map(({a,p,at})=><div key={a.id} className="card" style={{cursor:"default"}}>
+            <div className="rowsb" style={{marginBottom:6}}>
+              <div className="card-title" style={{fontSize:14}}>📅 {fmtP(p,at)}</div>
+              {selo(a.diagnostico)}
+            </div>
+            {a.touro&&<div className="card-sub">🐂 {a.touro}{a.partida?` · Partida ${a.partida}`:""}</div>}
+            {a.ecc&&<div className="card-sub">ECC: {a.ecc}{a.novilha?" · Novilha":""}</div>}
+            {p?.veterinario&&<div className="card-sub">🩺 {p.veterinario}</div>}
+            {!p&&<div className="card-sub" style={{color:"var(--y)"}}>⚠️ Protocolo removido</div>}
+          </div>)}
+        </>
+      }
     </div>
   </div>;
 }
