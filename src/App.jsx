@@ -1761,13 +1761,17 @@ export default function App() {
     const di = as.filter(a=>a.diagnostico).length;
     const tx = di>0?Math.round(pr/di*100):0;
     const temDG = di > 0; // já houve diagnóstico? Se não, é relatório pós-IA
+    // IA já aconteceu? (a data da IA já chegou) — antes disso a vaca está só "protocolada"
+    const hojeR = new Date(); hojeR.setHours(0,0,0,0);
+    const iaDt = p?.ia ? new Date(p.ia+"T12:00:00") : null; if(iaDt) iaDt.setHours(0,0,0,0);
+    const jaInseminou = iaDt ? iaDt <= hojeR : false;
     // Cabeçalho com todas as datas do protocolo
     const n=parseInt(p?.passagens||"3");
     let crono=`D0: ${fmtDH(p?.d0,p?.h0)}`;
     if(n>=3) crono+=` | D8: ${fmtDH(p?.d8,p?.h8)}`;
     if(n>=4) crono+=` | D10: ${fmtDH(p?.d10,p?.h10)}`;
     crono+=` | IA: ${fmtDH(p?.ia,p?.hia)}`;
-    let t=`🐄 *RELATÓRIO ${temDG?"VETERINÁRIO — IATF":"DE INSEMINAÇÃO — IATF"}*
+    let t=`🐄 *RELATÓRIO ${temDG?"VETERINÁRIO — IATF":jaInseminou?"DE INSEMINAÇÃO — IATF":"DE PROTOCOLO — IATF"}*
 `;
     t+=`🏡 *${f?.nome||"—"}*
 `;
@@ -1782,7 +1786,7 @@ export default function App() {
     if(p?.medicamento) t+=`💊 Protocolo: ${p.medicamento}
 `;
     // Parto previsto sempre aparece; DG previsto só DEPOIS do diagnóstico
-    if(p?.ia){
+    if(p?.ia&&jaInseminou){
       const parto=new Date(p.ia+"T12:00:00"); parto.setDate(parto.getDate()+283);
       if(temDG){
         const dg=new Date(p.ia+"T12:00:00"); dg.setDate(dg.getDate()+35);
@@ -1806,7 +1810,7 @@ export default function App() {
       t+=`• *Taxa de prenhez: ${tx}%*
 `;
     } else {
-      t+=`• Total inseminadas: ${as.length} vacas
+      t+=`• Total ${jaInseminou?"inseminadas":"protocoladas"}: ${as.length} vacas
 `;
     }
     if(as.length>0){
@@ -1849,7 +1853,10 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
     const di = as.filter(a=>a.diagnostico).length;
     const tx = di>0?Math.round(pr/di*100):0;
     const temDG = di > 0; // já houve diagnóstico? Se não, é relatório pós-IA
-    let t=`🐄 *RELATÓRIO ${temDG?"IATF":"DE INSEMINAÇÃO"} — ${f?.nome||"Fazenda"}*
+    const hojeP = new Date(); hojeP.setHours(0,0,0,0);
+    const iaDtP = p?.ia ? new Date(p.ia+"T12:00:00") : null; if(iaDtP) iaDtP.setHours(0,0,0,0);
+    const jaInseminou = iaDtP ? iaDtP <= hojeP : false;
+    let t=`🐄 *RELATÓRIO ${temDG?"IATF":jaInseminou?"DE INSEMINAÇÃO":"DE PROTOCOLO"} — ${f?.nome||"Fazenda"}*
 `;
     t+=`👤 Proprietário: ${f?.proprietario||"—"}
 `;
@@ -1863,10 +1870,10 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
         t+=`📋 DG previsto: ${dg.toLocaleDateString("pt-BR")}
 `;
       } else {
-        t+=`📅 Inseminação: ${fmtDH(p?.ia,p?.hia)}
+        t+=`📅 Inseminação${jaInseminou?"":" prevista"}: ${fmtDH(p?.ia,p?.hia)}
 `;
       }
-      t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}
+      if(temDG||jaInseminou) t+=`🐮 Parto previsto: ${parto.toLocaleDateString("pt-BR")}
 `;
     }
     t+=`
@@ -1883,7 +1890,7 @@ _Gerado pelo Controle IATF — controleiatf.com.br_`;
       t+=`• *Taxa de prenhez: ${tx}%*
 `;
     } else {
-      t+=`• Total inseminadas: ${as.length} vacas
+      t+=`• Total ${jaInseminou?"inseminadas":"protocoladas"}: ${as.length} vacas
 `;
     }
     if(as.length>0){
