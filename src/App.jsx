@@ -182,7 +182,7 @@ const CSS = `
   /* Form */
   .fg { margin-bottom:14px; }
   .fl { display:block; font-size:12px; font-weight:700; color:var(--gr4); text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
-  .fi { width:100%; border:1.5px solid var(--gr2); border-radius:var(--r8); padding:11px 13px; font-family:var(--f); font-size:15px; color:var(--gr5); background:var(--w); outline:none; box-sizing:border-box; min-width:0; }
+  .fi { width:100%; border:1.5px solid var(--gr2); border-radius:var(--r8); padding:11px 13px; font-family:var(--f); font-size:16px; color:var(--gr5); background:var(--w); outline:none; box-sizing:border-box; min-width:0; }
   .fi:focus { border-color:var(--g); box-shadow:0 0 0 3px var(--gp); }
   .fi-ta { min-height:80px; resize:vertical; }
   .fi-sel { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ab5a6' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; }
@@ -2429,8 +2429,8 @@ function ProtocoloForm({initial,onSave,onCancel}){
     {/* Campo D0 — sempre visível */}
     <div style={{background:"var(--w)",borderRadius:"var(--r8)",padding:"12px",marginBottom:10,border:"1px solid var(--gr2)"}}>
       <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>D0 — Início do protocolo</div>
-      <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[0]?.data||""} onChange={e=>setData(0,"data",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[0]?.data&&<button type="button" onClick={()=>setData(0,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
-      <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[0]?.hora||""} onChange={e=>setData(0,"hora",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[0]?.hora&&<button type="button" onClick={()=>setData(0,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+      <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[0]?.data||""} onChange={e=>setData(0,"data",e.target.value)} style={{flex:1,fontSize:16,padding:"10px 12px"}}/>{datas[0]?.data&&<button type="button" onClick={()=>setData(0,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+      <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[0]?.hora||""} onChange={e=>setData(0,"hora",e.target.value)} style={{flex:1,fontSize:16,padding:"10px 12px"}}/>{datas[0]?.hora&&<button type="button" onClick={()=>setData(0,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
     </div>
 
     {/* Campos intermediários — só aparecem se o campo anterior tiver data */}
@@ -2447,8 +2447,8 @@ function ProtocoloForm({initial,onSave,onCancel}){
           </div>
           {diasLabel===null&&datas[idx]?.data===""&&<span style={{fontSize:11,color:"var(--gr4)"}}>preencha a data para calcular</span>}
         </div>
-        <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[idx]?.data||""} onChange={e=>setData(idx,"data",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[idx]?.data&&<button type="button" onClick={()=>setData(idx,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
-        <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[idx]?.hora||""} onChange={e=>setData(idx,"hora",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[idx]?.hora&&<button type="button" onClick={()=>setData(idx,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+        <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[idx]?.data||""} onChange={e=>setData(idx,"data",e.target.value)} style={{flex:1,fontSize:16,padding:"10px 12px"}}/>{datas[idx]?.data&&<button type="button" onClick={()=>setData(idx,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+        <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[idx]?.hora||""} onChange={e=>setData(idx,"hora",e.target.value)} style={{flex:1,fontSize:16,padding:"10px 12px"}}/>{datas[idx]?.hora&&<button type="button" onClick={()=>setData(idx,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
       </div>;
     })}
 
@@ -2458,8 +2458,8 @@ function ProtocoloForm({initial,onSave,onCancel}){
         <div style={{fontSize:11,fontWeight:800,color:"var(--g)",textTransform:"uppercase",letterSpacing:.5}}>IA — Inseminação Artificial</div>
         {diasDesdeD0(datas[nInt-1]?.data)!==null&&<span style={{fontSize:11,fontWeight:800,background:"var(--gp)",color:"var(--g)",padding:"2px 8px",borderRadius:99}}>D{diasDesdeD0(datas[nInt-1]?.data)}</span>}
       </div>
-      <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[nInt-1]?.data||""} onChange={e=>setData(nInt-1,"data",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[nInt-1]?.data&&<button type="button" onClick={()=>setData(nInt-1,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
-      <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[nInt-1]?.hora||""} onChange={e=>setData(nInt-1,"hora",e.target.value)} style={{flex:1,fontSize:15,padding:"10px 12px"}}/>{datas[nInt-1]?.hora&&<button type="button" onClick={()=>setData(nInt-1,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+      <div style={{marginBottom:8}}><label className="fl">Data</label><div style={{display:"flex",gap:6}}><input type="date" className="fi" value={datas[nInt-1]?.data||""} onChange={e=>setData(nInt-1,"data",e.target.value)} style={{flex:1,fontSize:16,padding:"10px 12px"}}/>{datas[nInt-1]?.data&&<button type="button" onClick={()=>setData(nInt-1,"data","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
+      <div><label className="fl">Horário</label><div style={{display:"flex",gap:6}}><input type="time" className="fi" value={datas[nInt-1]?.hora||""} onChange={e=>setData(nInt-1,"hora",e.target.value)} style={{flex:1,fontSize:16,padding:"10px 12px"}}/>{datas[nInt-1]?.hora&&<button type="button" onClick={()=>setData(nInt-1,"hora","")} style={{background:"var(--gr2)",border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",color:"var(--gr4)"}}>✕</button>}</div></div>
     </div>}
 
     <div className="div"/>
