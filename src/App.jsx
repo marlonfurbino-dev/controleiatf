@@ -1789,14 +1789,21 @@ export default function App() {
     if(ch.nome!==undefined) dbCh.nome=ch.nome;
     if(ch.numero!==undefined) dbCh.numero=ch.numero;
     if(ch.raca!==undefined) dbCh.raca=ch.raca;
+    if(ch.status!==undefined) dbCh.status=ch.status;
     if(Object.keys(dbCh).length) await supabase.from("vacas").update(dbCh).eq("id",id);
-    ping("Vaca atualizada!");
+    if(ch.nome!==undefined||ch.numero!==undefined||ch.raca!==undefined) ping("Vaca atualizada!");
   };
   const delVaca = async (id) => {
     if(isMembro){ ping("Apenas o dono pode excluir."); return; }
     setVacas(x=>x.filter(v=>v.id!==id));
     await supabase.from("vacas").delete().eq("id",id);
     ping("Vaca removida do rebanho.");
+  };
+  // Lança o DG: grava no animal (participação) e reflete o status no rebanho da vaca
+  const setDiagAnimal = (animalId, diag) => {
+    const a = animais.find(x=>x.id===animalId);
+    updAnimal(animalId, {diagnostico:diag});
+    if(a?.vacaId) updVaca(a.vacaId, {status:diag||null});
   };
 
   const addSemenDB = async (s) => {
@@ -2061,7 +2068,7 @@ _Controle IATF — controleiatf.com.br_`;
         onBack={()=>setScreen({type:"fazenda",id:p.fazendaId})}
         onAddAnimal={(a)=>addAnimal({...a,protocoloId:p.id})}
         onUpdAnimal={updAnimal} onDelAnimal={delAnimal}
-        onSetTouro={setTouroAnimal} onSetTouroLote={setTouroEmLote}
+        onSetTouro={setTouroAnimal} onSetTouroLote={setTouroEmLote} onSetDiag={setDiagAnimal}
         onUpdProtocolo={(ch)=>updProtocolo(p.id,ch)}
         onDelProtocolo={()=>{delProtocolo(p.id);setScreen({type:"fazenda",id:p.fazendaId});}}
         onWA={()=>sendWA(p.id)} onWAProdutor={sendWAProdutor} setModal={setModal} ping={ping}/>
@@ -2207,7 +2214,9 @@ function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVac
       {!editVaca&&vacas.map(v=><div key={v.id} className="card" style={{padding:"10px 12px",cursor:"default"}}>
         <div className="rowsb">
           <div><div className="card-title" style={{fontSize:14}}>{v.nome||"—"}{v.numero&&<span style={{color:"var(--gr3)",fontWeight:500}}> #{v.numero}</span>}</div>{v.raca&&<div className="card-sub">🐾 {v.raca}</div>}</div>
-          <div style={{display:"flex",gap:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            {v.status==="P"&&<span className="badge b-g">✅ Prenha</span>}
+            {v.status==="V"&&<span className="badge b-r">❌ Vazia</span>}
             <button onClick={()=>{setEditVaca(v);setShowVaca(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--gr4)"}}><Icon name="edit" size={16}/></button>
             <button onClick={()=>setModal({type:"confirm",msg:`Remover ${v.nome||v.numero||"esta vaca"} do rebanho?`,onOk:()=>onDelVaca(v.id)})} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"var(--r)"}}><Icon name="trash" size={16}/></button>
           </div>
@@ -2384,7 +2393,7 @@ function ProtocoloForm({initial,onSave,onCancel}){
   </div>;
 }
 
-function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],onAddVaca,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onSetTouro,onSetTouroLote,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
+function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],onAddVaca,onBack,onAddAnimal,onUpdAnimal,onDelAnimal,onSetTouro,onSetTouroLote,onSetDiag,onUpdProtocolo,onDelProtocolo,onWA,onWAProdutor,setModal,ping}){
   const[showForm,setShowForm]=useState(false);
   const[editA,setEditA]=useState(null);
   const[editProt,setEditProt]=useState(false);
@@ -2475,7 +2484,7 @@ function ProtocoloScreen({protocolo:p,fazenda:f,animais,semenBank=[],vacas=[],on
             onSave={(d)=>{onUpdAnimal(editA.id,d);setEditA(null);ping("Animal atualizado!");}}
             onCancel={()=>setEditA(null)}/>
         : <AnimalCard key={a.id} animal={a} protocolo={p} semenBank={semenBank}
-            onUpdDiag={(d)=>{onUpdAnimal(a.id,{diagnostico:d});ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
+            onUpdDiag={(d)=>{onSetDiag(a.id,d);ping(d==="P"?"✅ Prenha registrada!":"❌ Vazia registrada");}}
             onUpdTouro={(touro,partida)=>{onSetTouro(a.id,touro,partida);ping(touro?"Touro registrado!":"Touro removido.");}}
             onAplicarTodas={aplicarTouroTodas}
             onEdit={()=>setEditA(a)}
