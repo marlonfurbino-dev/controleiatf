@@ -2193,11 +2193,9 @@ function FazendaScreen({fazenda,protocolos,vacas=[],onAddVaca,onUpdVaca,onDelVac
       }
 
       {/* Rebanho — vacas cadastradas uma vez, reaproveitadas nos protocolos */}
-      <div className="rowsb" style={{marginBottom:2}}>
-        <div className="sec" style={{margin:0}}>Rebanho ({vacas.length})</div>
-        {!showVaca&&!editVaca&&<span style={{fontSize:12,color:"var(--g)",fontWeight:700,cursor:"pointer"}} onClick={()=>{setShowVaca(true);setEditVaca(null);}}>+ Nova vaca</span>}
-      </div>
-      <div style={{fontSize:11,color:"var(--gr4)",marginBottom:8}}>Cadastre a vaca uma vez. Você a reaproveita em cada protocolo, sem redigitar.</div>
+      <div className="sec" style={{marginBottom:2}}>Rebanho ({vacas.length})</div>
+      <div style={{fontSize:11,color:"var(--gr4)",marginBottom:10}}>Cadastre a vaca uma vez. Você a reaproveita em cada protocolo, sem redigitar.</div>
+      {!showVaca&&!editVaca&&<button onClick={()=>{setShowVaca(true);setEditVaca(null);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"var(--gp)",border:"1.5px solid var(--g)",borderRadius:"var(--r8)",padding:"13px 16px",fontFamily:"var(--f)",fontSize:14,fontWeight:700,color:"var(--g)",cursor:"pointer",marginBottom:10}}><Icon name="plus" size={17}/> Nova vaca no rebanho</button>}
       {(showVaca||editVaca)&&<VacaForm initial={editVaca} onSave={(v)=>{if(editVaca){onUpdVaca(editVaca.id,v);}else{onAddVaca(v);}setShowVaca(false);setEditVaca(null);}} onCancel={()=>{setShowVaca(false);setEditVaca(null);}}/>}
       {vacas.length===0&&!showVaca&&<div className="empty" style={{padding:"14px 0"}}><Icon name="cow" size={32}/><div className="empty-s">Nenhuma vaca no rebanho ainda</div></div>}
       {!editVaca&&vacas.map(v=><div key={v.id} className="card" style={{padding:"10px 12px",cursor:"default"}}>
