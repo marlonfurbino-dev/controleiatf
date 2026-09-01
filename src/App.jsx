@@ -377,12 +377,12 @@ function LandingPage({ onEnterApp }) {
 
 // ── Trial helpers ─────────────────────────────────────────────────────────
 const TRIAL_DIAS = 7;
-const PRECO_MENSAL      = "R$ 97,00";   // mensal no cartão (renovação automática)
-const PRECO_ANUAL_PIX   = "R$ 790,00";  // anual à vista no PIX
-const PRECO_ANUAL_ANO   = "R$ 790,00";  // preço único anual (PIX e cartão)
-const PRECO_ANUAL_CARTAO= "R$ 790,00";  // anual no cartão (10x de R$ 79,00 sem juros)
-const PRECO_ANUAL_PARCELA="R$ 79,00";   // valor de cada parcela (10x)
-const ECONOMIA_ANUAL    = "R$ 374,00";  // 97×12 − 790
+const PRECO_MENSAL      = "R$ 69,00";   // mensal no cartão (renovação automática)
+const PRECO_ANUAL_PIX   = "R$ 529,00";  // anual à vista no PIX (desconto)
+const PRECO_ANUAL_ANO   = "R$ 569,00";  // preço anual de referência (cartão)
+const PRECO_ANUAL_CARTAO= "R$ 569,00";  // anual no cartão (10x de R$ 56,90 sem juros)
+const PRECO_ANUAL_PARCELA="R$ 56,90";   // valor de cada parcela (10x → 569,00)
+const ECONOMIA_ANUAL    = "R$ 259,00";  // 69×12 (828) − 569
 const MP_PUBLIC_KEY = "APP_USR-a18e7639-8d8e-4631-af31-d214b0c38cc8";
 const EDGE_FUNCTION_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/criar-preferencia-mp";
 const EDGE_PAGAMENTO_URL = "https://cwzcfovndjofpqgbjatw.supabase.co/functions/v1/quick-task";
@@ -578,8 +578,8 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
       // Cria nova instância do MercadoPago a cada vez para evitar estado corrompido
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
-      // Anual: R$ 790,00 (mesmo valor PIX e cartão) — 10x de R$ 79,00 sem juros
-      const valor = plano === "anual" ? 790.00 : 97.00;
+      // Anual no cartão: R$ 569,00 — 10x de R$ 56,90 sem juros | Mensal: R$ 69,00
+      const valor = plano === "anual" ? 569.00 : 69.00;
 
       const _cpfDigits = cpf.replace(/\D/g, "");
       const _waDig = (perfil?.whatsapp || "").replace(/\D/g, "");
@@ -1000,7 +1000,7 @@ function PaywallScreen({ user, perfil, onLogout, pagLoading, setPagLoading, setP
           <button onClick={()=>setPlano("mensal")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="mensal"?"#fff":"transparent",color:plano==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
           <button onClick={()=>setPlano("anual")} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",fontFamily:"var(--f)",fontSize:14,fontWeight:700,cursor:"pointer",background:plano==="anual"?"#1b6b3a":"transparent",color:plano==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
             Anual
-            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-32%</span>}
+            {plano==="anual"&&<span style={{position:"absolute",top:-8,right:6,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:99}}>-31%</span>}
           </button>
         </div>
         <div style={{background:plano==="anual"?"var(--gp)":"var(--gr1)",border:`2px solid ${plano==="anual"?"var(--gm)":"var(--gr2)"}`,borderRadius:16,padding:"20px 16px",marginBottom:16,textAlign:"center"}}>
@@ -3196,7 +3196,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
     const containerPerfil = document.getElementById("cardPayment-perfil");
     if (containerPerfil) containerPerfil.innerHTML = "";
 
-    const valor = planoPerfilSel === "anual" ? 790.00 : 97.00;
+    const valor = planoPerfilSel === "anual" ? 569.00 : 69.00;
     const initBrick = async () => {
       await new Promise(r => setTimeout(r, 300));
       if (destroyed) return;
@@ -3507,7 +3507,7 @@ function PerfilTab({user,perfil,setPerfil,ping,logout,setModal,diasRestantes,ehA
             <button onClick={()=>setPlanoPerfilSel("mensal")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="mensal"?"#fff":"transparent",color:planoPerfilSel==="mensal"?"var(--gr5)":"var(--gr4)"}}>Mensal</button>
             <button onClick={()=>setPlanoPerfilSel("anual")} style={{flex:1,padding:"9px 0",borderRadius:8,border:"none",fontFamily:"var(--f)",fontSize:13,fontWeight:700,cursor:"pointer",background:planoPerfilSel==="anual"?"var(--g)":"transparent",color:planoPerfilSel==="anual"?"#fff":"var(--gr4)",position:"relative"}}>
               Anual
-              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-32%</span>}
+              {planoPerfilSel==="anual"&&<span style={{position:"absolute",top:-7,right:4,background:"#f59e0b",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:99}}>-31%</span>}
             </button>
           </div>
           <div style={{background:"#fff",border:"1px solid var(--gm)",borderRadius:12,padding:"12px",marginBottom:8,textAlign:"center"}}>
@@ -3654,8 +3654,8 @@ function Modal({modal,setModal,sendWA,sendWAProdutor}){
 
           <h3>5. Planos, Pagamento e Renovação</h3>
           <p>Após o período de teste gratuito, o acesso completo requer assinatura em um dos planos:</p>
-          <p>• <strong>Plano Mensal:</strong> R$ 97,00/mês, com renovação automática.<br/>
-          • <strong>Plano Anual:</strong> R$ 790,00/ano, à vista no PIX ou parcelado em até 10x de R$ 79,00 no cartão de crédito.</p>
+          <p>• <strong>Plano Mensal:</strong> R$ 69,00/mês, com renovação automática.<br/>
+          • <strong>Plano Anual:</strong> R$ 569,00/ano no cartão (parcelado em até 10x de R$ 56,90 sem juros) ou R$ 529,00 à vista no PIX.</p>
           <p>Os pagamentos são processados pela plataforma Mercado Pago. O plano mensal é renovado automaticamente até que seja cancelado. O cancelamento pode ser solicitado a qualquer momento e interrompe renovações futuras, não havendo reembolso de períodos já pagos, salvo disposição legal em contrário.</p>
 
           <h3>6. Período de Teste Gratuito</h3>
